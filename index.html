@@ -107,7 +107,8 @@ body.urgent #sTimer{animation:blink .5s steps(2) infinite}
 .card .cn canvas{flex:none}
 .card .cc{color:var(--amber);font-size:12px}
 .card .cd{color:var(--dim);font-size:10.5px;line-height:1.25}
-.card .lk{position:absolute;right:6px;top:6px;font-size:10px;color:var(--red)}
+.card .lk{order:2;font-size:10px;color:var(--red)}
+.card .cn{order:1}.card .cc{order:3}.card .cd{order:4}
 #selPanel{width:380px;padding:8px 12px;overflow-y:auto;border-right:1px solid var(--line);font-size:12px}
 #selPanel h4{color:#e8fff6;font-size:13px;letter-spacing:1px;margin-bottom:3px}
 #selPanel .row{display:flex;justify-content:space-between;color:var(--dim);margin:1px 0}
@@ -157,6 +158,25 @@ body.urgent #sTimer{animation:blink .5s steps(2) infinite}
 #menu .help{font-size:11px;color:var(--dim);margin-top:14px;line-height:1.5}
 #menu .help b{color:var(--text)}
 
+/* ---------- v2: тосты, достижения, горячие клавиши ---------- */
+#toast{position:fixed;right:270px;top:74px;z-index:75;display:flex;flex-direction:column;gap:6px;pointer-events:none;max-width:300px}
+#toast div{background:rgba(5,20,16,.96);border:1px solid var(--acc);padding:8px 12px;font-size:12px;animation:fadein .4s;
+  box-shadow:0 0 16px rgba(61,255,168,.3);transition:opacity .6s}
+#toast b{color:var(--acc);display:block;font-size:10px;letter-spacing:2px}
+.card .hk{position:absolute;right:6px;bottom:5px;font-size:9px;color:var(--dim);border:1px solid var(--line2);padding:0 3px}
+.card .cd2{color:var(--acc2);font-size:10px}
+#logList li.tip{border-color:#b98cff;color:#dccbff}
+.ach{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid #0d2826;opacity:.35;align-items:center}
+.ach.on{opacity:1}
+.ach i{font-style:normal;font-size:20px;width:28px;text-align:center;color:var(--amber)}
+.ach small{display:block;color:var(--dim)}
+#achList{max-height:52vh;overflow-y:auto;margin-top:6px}
+#menu .ver{display:flex;justify-content:space-between;align-items:center;margin:-8px 0 12px;font-size:10px;letter-spacing:2px;color:var(--amber)}
+#menu .ver .btn{font-size:10px;padding:3px 7px}
+#diffBox{display:flex;gap:4px}#diffBox .btn{flex:1}
+#endChart{width:100%;height:170px;display:block;background:#031015;border:1px solid var(--line);margin-top:10px}
+.news li{margin:4px 0 4px 16px;color:var(--text)}
+.news b{color:var(--acc)}
 @media (max-width:900px){
   #log{width:220px;bottom:186px;opacity:.9}
   #right{width:190px}
@@ -243,7 +263,7 @@ body.urgent #sTimer{animation:blink .5s steps(2) infinite}
         <button data-tab="atk">УДАР</button>
         <button data-tab="air">АВИАЦИЯ</button>
         <button data-tab="def">ОБОРОНА</button>
-        <button data-tab="dec">МАСКИРОВКА</button>
+        <button data-tab="dec">СПЕЦСРЕДСТВА</button>
       </div>
       <div id="buildList"></div>
     </div>
@@ -261,10 +281,13 @@ body.urgent #sTimer{animation:blink .5s steps(2) infinite}
   <div class="box panel">
     <h1>ПЯТЬ МИНУТ</h1>
     <div class="sub">СТРАТЕГИЧЕСКОЕ КОМАНДОВАНИЕ · СИМУЛЯЦИЯ</div>
+    <div class="ver"><span>v2.0 · ГЛОБАЛЬНОЕ ОБНОВЛЕНИЕ</span><span><button class="btn" id="bNews">ЧТО НОВОГО</button> <button class="btn" id="bAch">ДОСТИЖЕНИЯ</button></span></div>
     <h3>ВАША СТРАНА (можно кликнуть по глобусу)</h3>
     <div id="cGrid"></div>
     <h3>ЧИСЛО ПРОТИВНИКОВ</h3>
     <div id="nCount"></div>
+    <h3>СЛОЖНОСТЬ</h3>
+    <div id="diffBox"></div>
     <h3>ПРОТИВНИКИ И ИХ ХАРАКТЕР</h3>
     <div id="oppList"></div>
     <div class="go">
@@ -274,12 +297,14 @@ body.urgent #sTimer{animation:blink .5s steps(2) infinite}
     <div class="help">
       <b>Фаза 1 — 5 минут под щитом.</b> Стройте города, заводы, ракетные шахты, ПВО/ПРО, авиацию и муляжи. Атаковать нельзя.<br>
       <b>Фаза 2 — война.</b> Выберите разведанную цель врага и назначьте ракету или авиаудар. <b>Армагеддон</b> — пуск всех шахт сразу, без отмены.<br>
-      <b>Управление:</b> перетаскивание — сдвиг/вращение, колесо или щипок — масштаб (вдали карта сворачивается в глобус), Esc — отмена, Пробел — пауза.<br>
+      <b>Управление:</b> перетаскивание — сдвиг/вращение, колесо или щипок — масштаб (вдали карта сворачивается в глобус), Esc — отмена, Пробел — пауза,
+      Q–T — вкладки, 1–6 — постройки, H — домой, Z — зоны ПВО. Клик по пустой территории врага — разведка БПЛА.<br>
       <b>Победа:</b> столицы и шахты всех врагов уничтожены. <b>Поражение:</b> потеряна столица или 75% населения. Слишком много ядерных взрывов — <b>ядерная зима</b> для всех.
     </div>
   </div>
 </div>
 
+<div id="toast"></div>
 <div id="modal" class="hidden"><div class="box panel" id="modalBox"></div></div>
 <div id="tip"></div>
 
@@ -455,6 +480,12 @@ const NATIONS = {
     [[34.6,28.1],[34.9,29.4],[36.5,29.5],[37.9,30.5],[37,31.5],[39.2,32.2],[40.4,31.9],[42,31.1],[44.7,29.2],[46.5,29.1],[47.4,29],[47.7,28.5],[48.4,28.5],[49.5,27.5],[50.3,26.6],[50.3,26],[50.8,24.7],[51.4,24.5],[52,23],[55.2,22.7],[55.6,21.9],[55,20],[52,19],[49.1,18.6],[48.2,18.2],[46.8,17.3],[45,17.4],[43.3,17.5],[43,16.7],[41.5,16.6],[40.5,18.5],[38.5,22],[37,24.5],[36,26.5],[35,27.9]]] },
   indonesia: { name: 'Индонезия', cap: [106.8, -6.2], capName: 'Джакарта', lbl: [114, -1], polys: [
     [[96,6.2],[99,4.2],[100.6,2.4],[102.5,1.4],[103.8,0.9],[104.3,1],[105,1.5],[108.5,2],[109.6,1.9],[110.5,0.9],[111.7,1],[112.6,1.5],[113.8,1.3],[114.6,1.5],[115.6,2.6],[115.6,4],[117.2,4.3],[117.9,4.2],[118.6,3],[120,3],[125,3],[127,4],[129,2],[131,1],[135,0],[141,-2.6],[141,-9.2],[130,-9],[125,-10],[120,-11],[110,-9.5],[104,-6.5],[103,-6.5],[95,0],[94.5,4.5]]] },
+  mexico: { name: 'Мексика', cap: [-99.13, 19.43], capName: 'Мехико', lbl: [-102.5, 24], polys: [
+    [[-117.1,32.5],[-114.8,32.5],[-111,31.3],[-108.2,31.3],[-108.2,31.8],[-106.5,31.8],[-104.5,29.6],[-103.3,29],[-102.7,29.7],[-101.4,29.8],[-100.5,28.6],[-99.5,27.5],[-97.1,25.9],[-95.5,24],[-94.5,19],[-91,19],[-90,21.5],[-86.5,21.7],[-86.7,20],[-87.5,18.5],[-89.15,17.8],[-91,17.8],[-91,16.2],[-92.2,15.2],[-92.2,14.5],[-93,14],[-100,15.5],[-106,19],[-110,22],[-113,25],[-116,28],[-118.5,30],[-118,32.4]]] },
+  kazakhstan: { name: 'Казахстан', cap: [71.45, 51.17], capName: 'Астана', lbl: [67, 48], polys: [
+    [[49.2,46.5],[48.7,47.5],[46.8,48.5],[47.3,50],[48.7,50.6],[50.7,51.6],[53.4,51.5],[55,50.9],[57,51],[59,50.6],[61.3,50.8],[61.4,52],[62,53.9],[65.2,54.6],[68.2,55],[69.2,55.4],[71,54.2],[73.4,53.5],[76.5,54.2],[77.9,53.3],[80,51.3],[81.5,50.7],[83.3,51],[85,50],[86.8,49.8],[87.4,49.2],[85.6,47.1],[82.9,47.1],[82.4,45.5],[80.2,45],[80.4,44.2],[80.2,42.6],[76,42.9],[74,43.2],[71,42.8],[70.8,42.2],[69,41.4],[66,42.9],[62,43.5],[58.5,45.6],[56,45],[55,41.3],[53,42],[50.5,44.5],[50,46]]] },
+  pakistan: { name: 'Пакистан', cap: [73.05, 33.7], capName: 'Исламабад', lbl: [69.5, 29.5], polys: [
+    [[61.6,25.2],[62.4,26.6],[62.8,28.2],[61.8,28.5],[60.9,29.9],[66.3,29.9],[66.5,30.9],[69.3,31.9],[70,33.2],[69.8,34],[71.1,34.4],[71.6,35.6],[71.4,36.5],[73.6,36.9],[74.9,37],[75,37],[77.8,35.5],[76,35.7],[74.4,35],[74,34],[75,32.6],[74.5,32.5],[74.6,31],[73.4,29.9],[71.9,28],[70.8,27.7],[70,26.5],[70.4,25.6],[68.8,24.3],[67.5,23.4],[64,24.2],[61.2,24.4]]] },
 };
 for (const id in NATIONS) { NATIONS[id].id = id; NATIONS[id].polys.forEach(prepPoly); }
 const NATION_IDS = Object.keys(NATIONS);
@@ -505,9 +536,14 @@ const MISSILES = {
   tac:  { name: 'Тактическая',    short: 'Т', range: 1800,  speed: 110, alt: .035, dmg: 45,   blast: 30,  cost: 50,  reload: 14 },
   cru:  { name: 'Крылатая',       short: 'К', range: 3500,  speed: 32,  alt: .005, dmg: 70,   blast: 22,  cost: 90,  reload: 18, low: true },
   bal:  { name: 'Баллистическая', short: 'Б', range: 7000,  speed: 140, alt: .10,  dmg: 110,  blast: 45,  cost: 180, reload: 28 },
+  hyp:  { name: 'Гиперзвуковая',  short: 'Г', range: 4500,  speed: 260, alt: .03,  dmg: 95,   blast: 32,  cost: 230, reload: 30, hyper: true },
+  slbm: { name: 'БРПЛ (с подлодки)', short: 'П', range: 6500, speed: 150, alt: .09, dmg: 115,  blast: 45,  cost: 200, reload: 35 },
   icbm: { name: 'МБР (ядерная)',  short: 'Я', range: 21000, speed: 210, alt: .22,  dmg: 3000, blast: 170, cost: 420, reload: 45, nuke: true },
 };
-const MTYPES = ['tac', 'cru', 'bal', 'icbm'];
+const MTYPES = ['tac', 'cru', 'bal', 'hyp', 'slbm', 'icbm'];
+const DRONE = { name: 'БПЛА-разведчик', range: 6500, speed: 45, cost: 80, reveal: 420 };
+const EW = { cost: 300, dur: 25, cd: 90 };       // радиоэлектронная борьба
+const SUB = { range: 2500, speed: 2.2, patrol: 650, memory: 30 }; // подлодки: дальность от столицы, скорость км/с, радиус патруля, сколько секунд враг помнит позицию
 const AIR = { name: 'Бомбардировщик', range: 5000, speed: 30, dmg: 40, blast: 22, cost: 90, build: 12 };
 
 const BUILD = {
@@ -516,6 +552,8 @@ const BUILD = {
   silo_tac:  { name: 'Шахта ОТР',        cat: 'atk', cost: 150, time: 10, hp: 120, req: 0, missile: 'tac',  desc: 'Тактическая · 1 800 км · перезаряд $50' },
   silo_cru:  { name: 'Шахта КР',         cat: 'atk', cost: 260, time: 14, hp: 120, req: 1, missile: 'cru',  desc: 'Крылатая · 3 500 км · низко, медленно' },
   silo_bal:  { name: 'Шахта БР',         cat: 'atk', cost: 460, time: 18, hp: 130, req: 2, missile: 'bal',  desc: 'Баллистическая · 7 000 км · быстрая' },
+  silo_hyp:  { name: 'Шахта ГЗР',        cat: 'atk', cost: 600, time: 20, hp: 130, req: 3, missile: 'hyp',  desc: 'Гиперзвуковая · 4 500 км · почти не сбить' },
+  silo_sub:  { name: 'Подлодка ПЛАРБ',   cat: 'atk', cost: 780, time: 25, hp: 90,  req: 3, missile: 'slbm', naval: true, desc: 'В море · 6 500 км · патрулирует, трудно найти' },
   silo_icbm: { name: 'Шахта МБР',        cat: 'atk', cost: 900, time: 25, hp: 140, req: 4, missile: 'icbm', desc: 'Межконтинентальная · ЯДЕРНАЯ' },
   airfield:  { name: 'Аэродром',         cat: 'air', cost: 220, time: 12, hp: 110, req: 1, cap: 2, desc: 'До 2 бомбардировщиков' },
   airbase:   { name: 'Авиабаза',         cat: 'air', cost: 420, time: 18, hp: 160, req: 2, cap: 5, desc: 'До 5 бомбардировщиков' },
@@ -529,23 +567,28 @@ const BUILD = {
 };
 const TABS = {
   econ: ['city', 'factory'],
-  atk: ['silo_tac', 'silo_cru', 'silo_bal', 'silo_icbm'],
+  atk: ['silo_tac', 'silo_cru', 'silo_bal', 'silo_hyp', 'silo_sub', 'silo_icbm'],
   air: ['airfield', 'airbase', '#plane'],
   def: ['shorad', 'lrad', 'abm', 'radar', 'shelter'],
-  dec: ['decoy', '#camo', '#intel'],
+  dec: ['decoy', '#camo', '#intel', '#ew', '#drone'],
 };
 /** Оборона: радиусы по уровням, перезарядка, вероятность поражения цели по типам. */
 const DEF = {
-  shorad: { r: [220, 320, 420],    cd: 2.6, pk: { tac: .35, cru: .5, air: .45, bal: .08, icbm: 0 } },
-  lrad:   { r: [550, 750, 950],    cd: 4,   pk: { tac: .45, cru: .5, air: .6,  bal: .28, icbm: .04 } },
-  abm:    { r: [1000, 1400, 1800], cd: 6,   pk: { tac: .3,  cru: 0,  air: 0,   bal: .6,  icbm: .42 } },
+  shorad: { r: [220, 320, 420],    cd: 2.6, ammo: 6, pk: { tac: .35, cru: .5, air: .45, bal: .08, icbm: 0,   hyp: .03, slbm: .06 } },
+  lrad:   { r: [550, 750, 950],    cd: 4,   ammo: 4, pk: { tac: .45, cru: .5, air: .6,  bal: .22, icbm: .04, hyp: .1,  slbm: .2 } },
+  abm:    { r: [1000, 1400, 1800], cd: 6,   ammo: 3, pk: { tac: .3,  cru: 0,  air: 0,   bal: .5,  icbm: .4,  hyp: .2,  slbm: .45 } },
 };
+/** Сколько раз одна держава может стрелять по одной цели («пуск — оценка — пуск»). */
+const MAX_TRIES = 2;
+const AMMO_REGEN = 15;   // секунд на один новый перехватчик
+const ammoMax = s => DEF[s.type].ammo * s.lvl;
+
 const RADAR_R = [3000, 4500, 6000];
 const SHELTER = { r: [300, 450, 600], p: [.3, .45, .6] };
 const LEVELED = { shorad: 1, lrad: 1, abm: 1, radar: 1, shelter: 1 };
 const CAMO_COST = 70, INTEL_COST = [250, 400, 600];
 /** Вероятность засветить объект за один разведпроход. */
-const VIS = { capital: 1, city: .3, factory: .16, silo: .1, decoy: .4, shorad: .1, lrad: .12, abm: .14, radar: .2, shelter: .06, airfield: .18, airbase: .2 };
+const VIS = { sub: .04, capital: 1, city: .3, factory: .16, silo: .1, decoy: .4, shorad: .1, lrad: .12, abm: .14, radar: .2, shelter: .06, airfield: .18, airbase: .2 };
 
 const PERS = {
   cautious:   { name: 'Осторожный',  w: { econ: .36, def: .42, atk: .17, dec: .05 }, desc: 'строит оборону' },
@@ -554,10 +597,34 @@ const PERS = {
 };
 const PLAYER_COLOR = '#3dffa8';
 const ENEMY_COLORS = ['#ff4d4d', '#ff9a3c', '#ffd23f', '#ff5ecf', '#b98cff'];
+/** Уровни сложности: доход и стартовые деньги ИИ, темп его решений, «нелюбовь» к игроку. */
+const DIFF = {
+  easy:   { name: 'Лёгкая',     inc: 0.75, money: 900,  tick: 1.4,  bias: 0 },
+  normal: { name: 'Нормальная', inc: 1,    money: 1200, tick: 1,    bias: 0.35 },
+  hard:   { name: 'Сложная',    inc: 1.3,  money: 1600, tick: 0.75, bias: 0.6 },
+};
+/** Достижения (хранятся в localStorage между партиями). */
+const ACH = [
+  ['first', '✦', 'Первая кровь', 'Уничтожить объект противника'],
+  ['decoy', '◌', 'Обманка', 'Муляж принял на себя удар врага'],
+  ['skyshield', '◆', 'Небесный щит', 'Перехватить 25 ракет за одну войну'],
+  ['arma', '☢', 'Судный день', 'Нажать кнопку «Армагеддон»'],
+  ['deep', '▬', 'Из глубины', 'Запустить ракету с подводной лодки'],
+  ['eyes', '◎', 'Всевидящее око', 'Разведать территорию с помощью БПЛА'],
+  ['jammer', '≋', 'Тишина в эфире', 'Применить радиоэлектронную борьбу'],
+  ['tycoon', '$', 'Магнат', 'Достичь дохода 100 $/с'],
+  ['survivor', '⌛', 'Выживший', 'Продержаться 10 минут войны'],
+  ['win', '★', 'Победитель', 'Выиграть войну'],
+  ['clean', '☮', 'Чистая победа', 'Победить, не применив ядерного оружия'],
+  ['hard', '♛', 'Железная воля', 'Победить на сложности «Сложная»'],
+  ['five', 'Ⅴ', 'Один против всех', 'Победить пятерых противников'],
+  ['winter', '❄', 'Последняя зима', 'Увидеть ядерную зиму'],
+];
 
 const isSilo = t => t && t.startsWith('silo_');
 const isAirbase = t => t === 'airfield' || t === 'airbase';
-const visType = s => isSilo(s.type) ? 'silo' : s.type;
+const isNaval = t => !!(BUILD[t] && BUILD[t].naval);
+const visType = s => isNaval(s.type) ? 'sub' : isSilo(s.type) ? 'silo' : s.type;
 function upgradeCost(s) { return Math.round(BUILD[s.type].cost * (s.lvl === 1 ? 0.9 : 1.4)); }
 function radiusOf(s) {
   if (DEF[s.type]) return DEF[s.type].r[s.lvl - 1];
@@ -567,6 +634,7 @@ function radiusOf(s) {
 }
 function structName(s, forPlayer) {
   if (forPlayer && s.owner !== forPlayer && G && G.phase !== 'over') {
+    if (isNaval(s.type)) return 'Подлодка';
     if (s.type === 'decoy') return s.dead ? 'Муляж шахты' : 'Шахта ?';
     if (isSilo(s.type)) return s.revealed ? BUILD[s.type].name : 'Шахта ?';
   }
@@ -710,16 +778,16 @@ let ICP = [];               // перехватчики в полёте (вре�
 let FX = [];                // визуальные эффекты (временные)
 const SAVE_KEY = 'fiveMinutes.save.v1', OPT_KEY = 'fiveMinutes.opts.v1';
 
-function newGame(playerId, opps) {
+function newGame(playerId, opps, diff = 'normal') {
   G = {
-    v: 1, phase: 'prep', time: 0, prepLeft: PREP_TIME, warT: 0, speed: 1, paused: false,
+    v: 2, diff, hist: [], histT: 0, hints: {}, phase: 'prep', time: 0, prepLeft: PREP_TIME, warT: 0, speed: 1, paused: false,
     player: playerId, nations: {}, order: [], structs: [], missiles: [], aircraft: [], zones: [], dark: [],
     events: [], nukes: 0, nextId: 1, priority: [], result: null, sweepT: 6, sunLon: 0,
     stats: { launched: 0, intercepted: 0, lostMissiles: 0, kills: 0, lostStructs: 0, nukesBy: 0 },
   };
   ICP = []; FX = [];
   addNation(playerId, null, PLAYER_COLOR);
-  opps.forEach((o, i) => addNation(o.id, o.ai, ENEMY_COLORS[i % ENEMY_COLORS.length]));
+  opps.forEach((o, i) => { addNation(o.id, o.ai, ENEMY_COLORS[i % ENEMY_COLORS.length]); G.nations[o.id].money = DIFF[diff].money; });
   for (const id of G.order) {
     const d = NATIONS[id], s = addStruct(id, 'capital', d.cap[0], d.cap[1], true);
     G.nations[id].capital = s.id;
@@ -728,14 +796,14 @@ function newGame(playerId, opps) {
   updatePop();
   for (const id of G.order) G.nations[id].popMax = G.nations[id].pop;
   logEvent('Щит активирован. До его падения — 5 минут. Готовьте страну к войне.', 'good');
-  logEvent('Противники: ' + opps.map(o => NATIONS[o.id].name + ' (' + PERS[o.ai].name.toLowerCase() + ')').join(', '), 'muted');
+  logEvent('Противники: ' + opps.map(o => NATIONS[o.id].name + ' (' + PERS[o.ai].name.toLowerCase() + ')').join(', ') + '. Сложность: ' + DIFF[diff].name.toLowerCase() + '.', 'muted');
   LIGHTS.forEach(l => l.dead = false);
 }
 function addNation(id, ai, color) {
   G.nations[id] = {
     id, name: NATIONS[id].name, ai, color, money: START_MONEY, income: 0, pop: 0, popMax: 0, intel: 0,
     grudge: {}, aiT: rand(1, 3), spent: { econ: 0, def: 0, atk: 0, dec: 0 }, collapsed: false, eliminated: false,
-    firstStrike: false, desperate: false, nuked: 0, capital: 0,
+    firstStrike: false, desperate: false, nuked: 0, capital: 0, ewUntil: 0, ewReady: 0,
   };
   G.order.push(id);
 }
@@ -744,6 +812,7 @@ function addStruct(owner, type, lon, lat, built) {
   const s = { id: G.nextId++, owner, type, lon, lat, hp: def.hp, maxHp: def.hp, lvl: 1, build: built ? 0 : def.time,
     known: { [owner]: true }, camo: false, dead: false };
   if (def.missile) { s.missile = def.missile; s.loaded = false; s.reload = 0; }
+  if (def.naval) { s.home = [lon, lat]; s.wp = null; s.kt = {}; }
   if (type === 'city') s.pop = CITY_POP;
   if (type === 'capital') s.pop = CAPITAL_POP;
   if (isAirbase(type)) { s.planes = 0; s.pq = 0; s.pqT = 0; }
@@ -764,13 +833,25 @@ function saveGame(silent) {
 function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
 function loadGame() {
   try {
-    const g = JSON.parse(localStorage.getItem(SAVE_KEY)); if (!g || g.v !== 1) return false;
+    const g = JSON.parse(localStorage.getItem(SAVE_KEY)); if (!g || (g.v !== 1 && g.v !== 2)) return false;
+    // миграция сохранений версии 1.x
+    g.v = 2; g.diff = g.diff || 'normal'; g.hist = g.hist || []; g.histT = g.histT || 0; g.hints = g.hints || {};
+    for (const id in g.nations) { const n = g.nations[id]; n.ewUntil = n.ewUntil || 0; n.ewReady = n.ewReady || 0; }
     G = g; ICP = []; FX = [];
     for (const m of G.missiles) m.intc = {};
     for (const a of G.aircraft) a.intc = {};
     LIGHTS.forEach(l => l.dead = false); for (const d of G.dark) killLights(d[0], d[1], d[2]);
     return true;
   } catch (e) { return false; }
+}
+const ACH_KEY = 'fiveMinutes.ach.v1';
+function achGet() { try { return JSON.parse(localStorage.getItem(ACH_KEY)) || {}; } catch (e) { return {}; } }
+/** Открыть достижение (только для игрока, один раз навсегда). */
+function unlock(id) {
+  const a = achGet(); if (a[id]) return;
+  a[id] = Date.now(); try { localStorage.setItem(ACH_KEY, JSON.stringify(a)); } catch (e) { }
+  const d = ACH.find(x => x[0] === id); if (!d) return;
+  UI.toast('ДОСТИЖЕНИЕ ОТКРЫТО', d[1] + ' ' + d[2] + ' — ' + d[3]); AU.play('win');
 }
 function saveOpts() { try { localStorage.setItem(OPT_KEY, JSON.stringify({ sfx: AU.sfxOn, mus: AU.musOn })); } catch (e) { } }
 function loadOpts() { try { const o = JSON.parse(localStorage.getItem(OPT_KEY)); if (o) { AU.sfxOn = o.sfx !== false; AU.musOn = o.mus !== false; } } catch (e) { } }
@@ -819,7 +900,11 @@ function inZone(lon, lat) { for (const z of G.zones) if (z.s > 0.15 && gdist(lon
 
 /** Проверка места для постройки. Возвращает текст ошибки или null. */
 function placeError(nid, type, lon, lat) {
-  if (!isLand(lon, lat) || !inNation(nid, lon, lat)) return 'Только на своей территории';
+  if (isNaval(type)) {
+    if (isLand(lon, lat) || isWater(lon, lat)) return 'Подлодку — только в открытом море';
+    const c = byId(G.nations[nid].capital);
+    if (gdist(lon, lat, c.lon, c.lat) > SUB.range) return 'Слишком далеко от столицы (макс. ' + SUB.range + ' км)';
+  } else if (!isLand(lon, lat) || !inNation(nid, lon, lat)) return 'Только на своей территории';
   const minD = type === 'decoy' ? 15 : 30;
   for (const s of G.structs) if (s.owner === nid && !s.dead && gdist(lon, lat, s.lon, s.lat) < minD) return 'Слишком близко к другому объекту';
   return null;
@@ -860,7 +945,72 @@ function doPlane(nid, s) {
   if (s.planes + s.pq + planesOut(s.id) >= BUILD[s.type].cap || n.money < AIR.cost) return false;
   n.money -= AIR.cost; n.spent.atk += AIR.cost; s.pq++; if (s.pqT <= 0) s.pqT = AIR.build; return true;
 }
-function planesOut(baseId) { let k = 0; for (const a of G.aircraft) if (a.base === baseId && !a.dead) k++; return k; }
+/** РЭБ: на EW.dur секунд враг хуже видит и перехватывает наши ракеты и самолёты. */
+function doEW(nid) {
+  const n = G.nations[nid];
+  if (G.phase !== 'war' || n.money < EW.cost || G.time < n.ewReady) return false;
+  n.money -= EW.cost; n.spent.dec += EW.cost; n.ewUntil = G.time + EW.dur; n.ewReady = G.time + EW.cd;
+  if (isPlayer(nid)) { logEvent('РЭБ: радары противника подавлены на ' + EW.dur + ' с', 'good'); unlock('jammer'); }
+  else logEvent('⚠ РЭБ противника (' + n.name + '): радары слепнут, ПВО теряет цели', 'warn', 'ew' + nid);
+  return true;
+}
+const ewOn = nid => G.nations[nid] && G.nations[nid].ewUntil > G.time;
+/** Ремонт: восстанавливает половину урона, затем объекту нужно REPAIR_CD секунд до следующего ремонта. */
+const REPAIR_CD = 45;
+function repairCost(s) { return Math.ceil((1 - s.hp / s.maxHp) * (BUILD[s.type].cost || 400) * 0.35) + 15; }
+const repairReady = s => !s.repT || G.time >= s.repT;
+function doRepair(nid, s) {
+  const n = G.nations[nid]; if (!s || s.owner !== nid || !built(s) || s.hp >= s.maxHp || !repairReady(s)) return false;
+  const c = repairCost(s); if (n.money < c) return false;
+  n.money -= c; s.hp += (s.maxHp - s.hp) * 0.5; s.repT = G.time + REPAIR_CD; return true;
+}
+/** Откуда может взлететь БПЛА: столица или любой аэродром/авиабаза. */
+function droneBase(nid, lon, lat) {
+  let best = null, bd = 1e9;
+  for (const s of G.structs) if (s.owner === nid && built(s) && (s.type === 'capital' || isAirbase(s.type))) {
+    const d = gdist(s.lon, s.lat, lon, lat); if (d <= DRONE.range && d < bd) { bd = d; best = s; }
+  }
+  return best;
+}
+function launchDrone(nid, lon, lat, tOwner) {
+  const n = G.nations[nid]; if (G.phase !== 'war' || n.money < DRONE.cost) return null;
+  const b = droneBase(nid, lon, lat); if (!b) return null;
+  n.money -= DRONE.cost; n.spent.dec += DRONE.cost;
+  const d = gdist(b.lon, b.lat, lon, lat);
+  const a = { id: G.nextId++, kind: 'drone', owner: nid, base: b.id, lon0: b.lon, lat0: b.lat, lon1: lon, lat1: lat,
+    tgtId: 0, tgtOwner: tOwner, phase: 'out', t: 0, dur: Math.max(6, d / DRONE.speed), det: { [nid]: true }, intc: {}, dead: false };
+  G.aircraft.push(a); return a;
+}
+/** БПЛА долетел: раскрывает объекты в радиусе (маскировка спасает с вероятностью 50%). */
+function droneReveal(a) {
+  let k = 0;
+  for (const s of G.structs) {
+    if (s.dead || s.owner === a.owner || s.known[a.owner]) continue;
+    if (gdist(s.lon, s.lat, a.lon1, a.lat1) > DRONE.reveal) continue;
+    if (s.camo && Math.random() < 0.5) continue;
+    s.known[a.owner] = true; if (s.kt) s.kt[a.owner] = G.time; k++;
+  }
+  addFx(a.lon1, a.lat1, 0, 'scan', DRONE.reveal);
+  if (isPlayer(a.owner)) { logEvent('БПЛА: в квадрате обнаружено объектов — ' + k, k ? 'good' : 'muted'); unlock('eyes'); }
+}
+/** Подлодки патрулируют, а противник быстро теряет их след. */
+function stepSubs(dt) {
+  for (const s of G.structs) {
+    if (!isNaval(s.type) || !built(s)) continue;
+    if (!s.wp || gdist(s.lon, s.lat, s.wp[0], s.wp[1]) < 20) {
+      for (let i = 0; i < 30; i++) {
+        const p = gdest(s.home[0], s.home[1], rand(360), rand(50, SUB.patrol));
+        if (!isLand(p[0], p[1])) { s.wp = p; break; }
+      }
+      if (!s.wp) s.wp = s.home.slice();
+    }
+    const d = gdist(s.lon, s.lat, s.wp[0], s.wp[1]), f = Math.min(1, SUB.speed * dt / Math.max(1, d));
+    const p = gInterp(s.lon, s.lat, s.wp[0], s.wp[1], f);
+    if (!isLand(p[0], p[1])) { s.lon = p[0]; s.lat = p[1]; } else s.wp = null;
+    for (const o in s.known) if (o !== s.owner && !(G.nations[s.owner].collapsed) && G.time - (s.kt[o] || 0) > SUB.memory) delete s.known[o];
+  }
+}
+function planesOut(baseId) { let k = 0; for (const a of G.aircraft) if (a.base === baseId && !a.dead && a.kind !== 'drone') k++; return k; }
 
 /** Разведывательный проход: каждая держава может засечь чужие объекты. */
 function intelSweep(final) {
@@ -869,7 +1019,7 @@ function intelSweep(final) {
     for (const s of G.structs) {
       if (s.owner === ob || s.dead || s.known[ob]) continue;
       let p = (VIS[visType(s)] || 0.1) * (1 + 0.45 * n.intel) * (s.camo ? 0.12 : 1) * (final ? 2.2 : 1);
-      if (Math.random() < p) { s.known[ob] = true; found++; if (isSilo(s.type) || s.type === 'decoy') silos++; }
+      if (Math.random() < p) { s.known[ob] = true; if (s.kt) s.kt[ob] = G.time; found++; if (isSilo(s.type) || s.type === 'decoy') silos++; }
     }
     if (ob === G.player && (silos || (found && final))) logEvent('Разведка: новых объектов — ' + found + (silos ? ', из них шахт: ' + silos : ''), 'muted');
   }
@@ -921,8 +1071,8 @@ function launch(silo, tgt, delay = 0) {
     tgtId: tgt.id, tgtOwner: tgt.owner, dist: d, dur: 5 + d / W.speed, t: -delay, det: { [silo.owner]: true }, intc: {}, dead: false, announced: false };
   G.missiles.push(m);
   // спутники СПРН засекают пуск — шахта раскрыта
-  silo.revealed = true; for (const o of G.order) silo.known[o] = true;
-  if (isPlayer(silo.owner)) G.stats.launched++;
+  silo.revealed = true; for (const o of G.order) { silo.known[o] = true; if (silo.kt) silo.kt[o] = G.time; }
+  if (isPlayer(silo.owner)) { G.stats.launched++; if (isNaval(silo.type)) unlock('deep'); }
   return m;
 }
 /** Вылет бомбардировщика. */
@@ -995,10 +1145,10 @@ function damage(s, dd, attacker, nuke) {
   const nm = BUILD[s.type].name, own = nname(s.owner);
   if (isPlayer(s.owner)) {
     G.stats.lostStructs++;
-    if (s.type === 'decoy') logEvent('Муляж принял удар ' + nname(attacker) + ' — настоящие шахты целы.', 'good');
+    if (s.type === 'decoy') { logEvent('Муляж принял удар ' + nname(attacker) + ' — настоящие шахты целы.', 'good'); unlock('decoy'); }
     else logEvent('Потерян объект: ' + nm + (s.type === 'city' ? ' (население погибло)' : ''), 'hit');
   } else if (isPlayer(attacker)) {
-    G.stats.kills++;
+    G.stats.kills++; unlock('first');
     if (s.type === 'decoy') logEvent('Цель в стране ' + own + ' оказалась МУЛЯЖОМ.', 'warn');
     else logEvent('Уничтожено: ' + nm + ' (' + own + ')', 'good');
   } else if (s.type === 'capital' || isSilo(s.type)) {
@@ -1032,7 +1182,7 @@ function dropShield() {
 }
 
 /** Массированный удар («Армагеддон» / «Мёртвая рука» / отчаяние ИИ). */
-const TYPE_RANK = { silo: 0, decoy: 0, abm: 1, lrad: 2, airbase: 3, airfield: 3, radar: 4, capital: 5, shorad: 6, factory: 7, city: 8, shelter: 9 };
+const TYPE_RANK = { sub: 4, silo: 0, decoy: 0, abm: 1, lrad: 2, airbase: 3, airfield: 3, radar: 4, capital: 5, shorad: 6, factory: 7, city: 8, shelter: 9 };
 function targetList(nid, focus) {
   const prio = isPlayer(nid) ? G.priority : [];
   const list = G.structs.filter(s => !s.dead && s.owner !== nid && s.known[nid] && !G.nations[s.owner].eliminated);
@@ -1070,7 +1220,7 @@ function massStrike(nid, focus) {
   return n;
 }
 
-function addFx(lon, lat, alt, kind, km) { FX.push({ lon, lat, alt, kind, km, t: 0, dur: { nuke: 6, boom: 1.6, bomb: 1.2, air: 0.9, launch: 1.2, shieldDown: 2.5, miss: 0.5 }[kind] || 1 }); }
+function addFx(lon, lat, alt, kind, km) { FX.push({ lon, lat, alt, kind, km, t: 0, dur: { nuke: 9, boom: 1.6, bomb: 1.2, air: 0.9, launch: 1.2, shieldDown: 2.5, miss: 0.5, scan: 2.2 }[kind] || 1 }); }
 
 /** Один шаг симуляции (dt — игровые секунды). */
 function step(dt) {
@@ -1084,13 +1234,14 @@ function step(dt) {
     if (after !== before && after <= 10 && after > 0) AU.play('tick');
     if (after !== before && after === 30) logEvent('До падения щита 30 секунд!', 'warn');
     if (G.prepLeft <= 0) dropShield();
-  } else G.warT += dt;
+  } else { G.warT += dt; if (G.warT > 600) unlock('survivor'); }
 
   // экономика
   for (const id of G.order) {
     const n = G.nations[id]; if (n.collapsed) { n.income = 0; continue; }
-    n.income = incomeOf(id); n.money += n.income * dt;
+    n.income = incomeOf(id) * (n.ai ? DIFF[G.diff].inc : 1); n.money += n.income * dt;
   }
+  if (G.nations[G.player].income >= 100) unlock('tycoon');
   // стройка, перезарядка, авиапроизводство
   for (const s of G.structs) {
     if (s.dead) continue;
@@ -1107,6 +1258,14 @@ function step(dt) {
     if (isSilo(s.type) && s.reload > 0) { s.reload -= dt; if (s.reload <= 0) { s.reload = 0; s.loaded = true; if (isPlayer(s.owner)) logEvent('Шахта перезаряжена: ' + MISSILES[s.missile].name, 'muted'); } }
     if (isAirbase(s.type) && s.pq > 0) { s.pqT -= dt; if (s.pqT <= 0) { s.pq--; s.planes++; s.pqT = s.pq > 0 ? AIR.build : 0; } }
   }
+  stepSubs(dt);
+  // история для итогового графика
+  G.histT -= dt;
+  if (G.histT <= 0) {
+    G.histT = 5; G.hist.push([Math.round(G.time), G.order.map(id => +G.nations[id].pop.toFixed(2)), G.nukes]);
+    if (G.hist.length > 600) G.hist = G.hist.filter((_, i) => i % 2 === 0);
+  }
+  advisor();
   // разведка
   G.sweepT -= dt; if (G.sweepT <= 0) { G.sweepT = 12; intelSweep(false); }
   // заражение
@@ -1130,7 +1289,7 @@ function stepMissiles(dt) {
     if (f >= 1) { m.dead = true; impact(m); continue; }
     // сопровождение радарами
     if (((m.id + Math.floor(G.time * 4)) & 1) === 0) {
-      const p = missilePos(m, f), low = MISSILES[m.type].low;
+      const p = missilePos(m, f), low = MISSILES[m.type].low || ewOn(m.owner);
       for (const o of G.order) if (!m.det[o] && !G.nations[o].collapsed && detects(o, p[0], p[1], low)) {
         m.det[o] = true;
         if (o === G.player && m.tgtOwner === o) warnIncoming(m);
@@ -1141,7 +1300,7 @@ function stepMissiles(dt) {
 }
 function onLaunchDetect(m) {
   for (const o of G.order) {
-    if (m.det[o] || o === m.owner) continue;
+    if (m.det[o] || o === m.owner || ewOn(m.owner)) continue;
     if (hasRadarCover(o, m.lon0, m.lat0)) m.det[o] = true;
   }
   if (isPlayer(m.owner)) logEvent('Пуск: ' + MISSILES[m.type].name + ' → ' + nname(m.tgtOwner), 'launch', 'pl' + m.type + m.tgtOwner);
@@ -1169,10 +1328,11 @@ function stepAircraft(dt) {
     const p = planePos(a);
     if (!a.det[G.player] && detects(G.player, p[0], p[1], false)) {
       a.det[G.player] = true;
-      if (a.tgtOwner === G.player && a.phase === 'out') logEvent('⚠ Вражеская авиация ' + nname(a.owner) + ' в нашем небе', 'warn', 'air' + a.owner);
+      if (a.tgtOwner === G.player && a.phase === 'out') logEvent('⚠ ' + (a.kind === 'drone' ? 'Вражеский разведывательный БПЛА ' : 'Вражеская авиация ') + nname(a.owner) + ' в нашем небе', 'warn', 'air' + a.owner + a.kind);
     }
     for (const o of G.order) if (!a.det[o] && o !== G.player && detects(o, p[0], p[1], false)) a.det[o] = true;
     if (a.t < a.dur) continue;
+    if (a.kind === 'drone') { a.dead = true; droneReveal(a); continue; }
     if (a.phase === 'out') {
       blast(a.lon1, a.lat1, a.owner, AIR.dmg, AIR.blast, false, 'air');
       if (isPlayer(a.owner) || a.tgtOwner === G.player) AU.play('boom');
@@ -1190,29 +1350,32 @@ function stepAircraft(dt) {
 function stepDefense(dt) {
   for (const s of G.structs) {
     if (!DEF[s.type] || !built(s)) continue;
-    s.cd -= dt; if (s.cd > 0) continue;
-    const D = DEF[s.type], R = D.r[s.lvl - 1], bonus = (s.lvl - 1) * 0.08, own = s.owner;
+    // ограниченный боезапас: залпы истощают оборону, запас медленно пополняется
+    const am = ammoMax(s); if (s.ammo === undefined) s.ammo = am;
+    if (s.ammo < am) { s.ammoT = (s.ammoT || 0) + dt; if (s.ammoT >= AMMO_REGEN) { s.ammoT = 0; s.ammo++; } }
+    s.cd -= dt; if (s.cd > 0 || s.ammo <= 0) continue;
+    const D = DEF[s.type], R = D.r[s.lvl - 1], bonus = (s.lvl - 1) * 0.05, own = s.owner;
     const radarOk = hasRadarCover(own, s.lon, s.lat) || s.type === 'shorad';
     let best = null, bd = 1e9, kind = '';
     for (const m of G.missiles) {
-      if (m.dead || m.t < 0 || m.tgtOwner !== own || m.intc[own]) continue;
+      if (m.dead || m.t < 0 || m.tgtOwner !== own || m.intc[own] || (m.tries && m.tries[own] >= MAX_TRIES)) continue;
       const pk = D.pk[m.type]; if (!pk) continue;
-      const f = m.t / m.dur; if ((m.type === 'bal' || m.type === 'icbm') && f < 0.45) continue;
+      const f = m.t / m.dur; if ((m.type === 'bal' || m.type === 'icbm' || m.type === 'slbm') && f < 0.45) continue;
       const p = missilePos(m, f), low = MISSILES[m.type].low;
       let r = R * (radarOk ? 1 : 0.6) * (low && s.type !== 'shorad' ? 0.6 : 1);
       const d = gdist(s.lon, s.lat, p[0], p[1]);
       if (d < r && d < bd) { bd = d; best = m; kind = 'm'; }
     }
     if (D.pk.air) for (const a of G.aircraft) {
-      if (a.dead || a.owner === own || a.tgtOwner !== own || a.intc[own]) continue;
+      if (a.dead || a.owner === own || a.tgtOwner !== own || a.intc[own] || (a.tries && a.tries[own] >= MAX_TRIES)) continue;
       const p = planePos(a), d = gdist(s.lon, s.lat, p[0], p[1]);
       if (d < R && d < bd) { bd = d; best = a; kind = 'a'; }
     }
     if (!best) { s.cd = 0.4; continue; }
-    best.intc[own] = true; best.det[own] = true;
-    const pk = clamp((kind === 'm' ? D.pk[best.type] : D.pk.air) + bonus, 0, 0.95);
+    best.intc[own] = true; best.det[own] = true; best.tries = best.tries || {}; best.tries[own] = (best.tries[own] || 0) + 1;
+    const pk = clamp((kind === 'm' ? D.pk[best.type] : D.pk.air) + bonus, 0, 0.95) * (ewOn(best.owner) ? 0.4 : 1);
     ICP.push({ owner: own, site: s.id, lon0: s.lon, lat0: s.lat, kind, tid: best.id, t: 0, dur: clamp(bd / 260 + 1, 1, 4.5), pk });
-    s.cd = D.cd * (1 - 0.12 * (s.lvl - 1));
+    s.cd = D.cd * (1 - 0.12 * (s.lvl - 1)); s.ammo--;
     if (own === G.player) AU.play('shot');
   }
 }
@@ -1228,8 +1391,8 @@ function stepIcp(dt) {
     if (Math.random() < ic.pk) {
       tgt.dead = true; addFx(p[0], p[1], p[2], 'air', 30);
       if (mine || theirs) AU.play('intercept');
-      const what = ic.kind === 'm' ? MISSILES[tgt.type].name.toLowerCase() + ' ракета' : 'бомбардировщик';
-      if (mine) { G.stats.intercepted++; logEvent('Перехват! Сбита ' + what + ' ' + nname(tgt.owner), 'intercept', 'ic' + tgt.owner + what); }
+      const what = ic.kind === 'm' ? MISSILES[tgt.type].name.toLowerCase() + ' ракета' : tgt.kind === 'drone' ? 'БПЛА' : 'бомбардировщик';
+      if (mine) { G.stats.intercepted++; if (G.stats.intercepted >= 25) unlock('skyshield'); logEvent('Перехват! Сбита ' + what + ' ' + nname(tgt.owner), 'intercept', 'ic' + tgt.owner + what); }
       else if (theirs) { if (ic.kind === 'm') G.stats.lostMissiles++; logEvent('Противник сбил: ' + what, 'hit', 'lost' + what); }
     } else {
       addFx(p[0], p[1], p[2], 'miss', 10);
@@ -1239,12 +1402,29 @@ function stepIcp(dt) {
   ICP = ICP.filter(i => !i.done);
 }
 
+/** Советник: подсказки новичку в нужный момент (каждая — один раз за партию). */
+function advisor() {
+  if (!G || G.phase === 'over') return;
+  const h = G.hints, me = G.player, c = () => census(me), el = PREP_TIME - G.prepLeft;
+  const tip = (k, text) => { if (!h[k]) { h[k] = 1; logEvent('Советник: ' + text, 'tip'); } };
+  if (G.phase === 'prep') {
+    if (!h.fac && el > 15 && !c().factory) tip('fac', 'начните с заводов — они дают доход и открывают новые ракеты и ПРО.');
+    if (!h.silo && el > 80 && !c().silo) tip('silo', 'без ракетных шахт нечем будет ответить. Вкладка «УДАР».');
+    if (!h.def && el > 130 && !(c().shorad || c().lrad || c().abm)) tip('def', 'столица беззащитна: поставьте ПВО рядом с ней (вкладка «ОБОРОНА»).');
+    if (!h.radar && el > 170 && !c().radar) tip('radar', 'радар СПРН заранее предупредит о пусках и усилит ПРО.');
+    if (!h.decoy && el > 210 && !c().decoy) tip('decoy', 'муляжи шахт дёшевы — враг потратит на них свои первые ракеты.');
+  } else {
+    if (G.warT > 2) tip('war', 'кликните по разведанному объекту врага и выберите ракету. Клик по пустой территории — разведка БПЛА.');
+    if (!h.reload && G.warT > 40 && readySilos(me).length === 0 && G.structs.some(s => s.owner === me && isSilo(s.type) && !s.dead && !s.loaded && s.reload <= 0)) tip('reload', 'шахты пусты — выберите шахту и нажмите «Перезарядить».');
+    if (!h.ew && G.warT > 60 && G.nations[me].money > 800 && G.nations[me].ewReady <= G.time) tip('ew', 'накопились деньги: РЭБ (вкладка «СПЕЦСРЕДСТВА») ослабит ПВО врага перед ударом.');
+  }
+}
 function checkEnd() {
   const P = G.nations[G.player];
   for (const id of G.order) {
     const n = G.nations[id]; if (id === G.player || n.eliminated) continue;
     const cap = byId(n.capital);
-    if (cap.dead && !G.structs.some(s => s.owner === id && !s.dead && isSilo(s.type))) {
+    if (cap.dead && !G.structs.some(s => s.owner === id && !s.dead && isSilo(s.type) && !isNaval(s.type))) {
       n.eliminated = true; n.collapsed = true;
       logEvent(n.name + ' выбывает из войны: столица и шахты уничтожены.', 'good');
     }
@@ -1256,6 +1436,14 @@ function checkEnd() {
 }
 function endGame(kind, why) {
   G.phase = 'over'; G.result = { kind, why: why || '' };
+  G.hist.push([Math.round(G.time), G.order.map(id => +G.nations[id].pop.toFixed(2)), G.nukes]);
+  if (kind === 'winter') unlock('winter');
+  if (kind === 'victory') {
+    unlock('win');
+    if (!G.stats.nukesBy) unlock('clean');
+    if (G.diff === 'hard') unlock('hard');
+    if (G.order.length >= 6) unlock('five');
+  }
   AU.setMode('over'); AU.play(kind === 'victory' ? 'win' : 'lose');
   try { localStorage.removeItem(SAVE_KEY); } catch (e) { }
   UI.showEnd();
@@ -1276,6 +1464,11 @@ function census(nid) {
 }
 /** Случайная точка на своей территории (опционально — рядом с точкой near). */
 function randomSpot(nid, type, near, radius) {
+  if (isNaval(type)) {
+    const c = byId(G.nations[nid].capital);
+    for (let i = 0; i < 150; i++) { const p = gdest(c.lon, c.lat, rand(360), rand(200, SUB.range)); if (!placeError(nid, type, p[0], p[1])) return p; }
+    return null;
+  }
   const polys = NATIONS[nid].polys;
   const total = polys.reduce((a, p) => a + p.area, 0);
   for (let i = 0; i < 120; i++) {
@@ -1317,7 +1510,8 @@ function aiInvest(n) {
     const bases = G.structs.filter(s => s.owner === n.id && isAirbase(s.type) && built(s));
     if (fac >= 1 && !bases.length && !(c.airfield || c.airbase) && Math.random() < (n.ai === 'aggressive' ? 0.25 : 0.15)) return aiBuild(n, fac >= 2 && Math.random() < 0.5 ? 'airbase' : 'airfield');
     if (bases.length && Math.random() < 0.3) { for (const b of bases) if (doPlane(n.id, b)) return true; }
-    const avail = ['silo_tac', 'silo_cru', 'silo_bal', 'silo_icbm'].filter(t => techOk(n.id, t));
+    if (techOk(n.id, 'silo_sub') && !(c.silo_sub >= 2) && Math.random() < (n.ai === 'sly' ? 0.3 : 0.12) && aiBuild(n, 'silo_sub')) return true;
+    const avail = ['silo_tac', 'silo_cru', 'silo_bal', 'silo_hyp', 'silo_icbm'].filter(t => techOk(n.id, t));
     let t;
     if (n.ai === 'aggressive') t = Math.random() < 0.65 ? avail[avail.length - 1] : pick(avail);
     else if (n.ai === 'cautious') t = pick(avail.filter(x => x !== 'silo_icbm').concat(avail.length > 3 && Math.random() < 0.3 ? ['silo_icbm'] : []));
@@ -1352,7 +1546,7 @@ function aiInvest(n) {
 function aiPickEnemy(n) {
   const cands = G.order.filter(id => id !== n.id && !G.nations[id].eliminated);
   if (!cands.length) return null;
-  const ws = cands.map(id => 1 + (n.grudge[id] || 0) / 120 + (id === G.player ? 0.35 : 0));
+  const ws = cands.map(id => 1 + (n.grudge[id] || 0) / 120 + (id === G.player ? DIFF[G.diff].bias : 0));
   let r = rand(ws.reduce((a, b) => a + b, 0));
   for (let i = 0; i < cands.length; i++) { r -= ws[i]; if (r <= 0) return cands[i]; }
   return cands[0];
@@ -1363,9 +1557,9 @@ function mostGrudge(n) {
   return b;
 }
 const AI_TPRIO = {
-  aggressive: { silo: 1, decoy: 1, capital: 2, city: 3, factory: 4, airbase: 5, airfield: 5, abm: 6, lrad: 6, radar: 7, shorad: 8, shelter: 9 },
-  cautious:   { silo: 1, decoy: 1, airbase: 2, airfield: 2, lrad: 3, abm: 3, factory: 4, radar: 5, capital: 6, city: 7, shorad: 8, shelter: 9 },
-  sly:        { silo: 1, decoy: 1, radar: 2, abm: 3, lrad: 4, factory: 5, capital: 6, airbase: 6, airfield: 6, city: 7, shorad: 8, shelter: 9 },
+  aggressive: { sub: 5, silo: 1, decoy: 1, capital: 2, city: 3, factory: 4, airbase: 5, airfield: 5, abm: 6, lrad: 6, radar: 7, shorad: 8, shelter: 9 },
+  cautious:   { sub: 5, silo: 1, decoy: 1, airbase: 2, airfield: 2, lrad: 3, abm: 3, factory: 4, radar: 5, capital: 6, city: 7, shorad: 8, shelter: 9 },
+  sly:        { sub: 4, silo: 1, decoy: 1, radar: 2, abm: 3, lrad: 4, factory: 5, capital: 6, airbase: 6, airfield: 6, city: 7, shorad: 8, shelter: 9 },
 };
 /** ИИ стреляет count ракетами по разведанным объектам врага. */
 function aiFire(n, enemy, count) {
@@ -1379,7 +1573,9 @@ function aiFire(n, enemy, count) {
     const inFlight = G.missiles.filter(m => !m.dead && m.owner === n.id && m.tgtId === tg.id).length;
     if (inFlight >= (tg.type === 'capital' ? 2 : 1)) continue;
     // дешёвое — по мелочи, ядерное — по столицам/городам/шахтам
-    const order = (tg.type === 'capital' || tg.type === 'city') && nukeOk ? ['icbm', 'bal', 'cru', 'tac'] : ['tac', 'cru', 'bal', nukeOk ? 'icbm' : null];
+    const order = (tg.type === 'capital' || tg.type === 'city') && nukeOk ? ['icbm', 'hyp', 'bal', 'slbm', 'cru', 'tac']
+      : visType(tg) === 'abm' || visType(tg) === 'silo' ? ['hyp', 'tac', 'cru', 'bal', 'slbm', nukeOk ? 'icbm' : null]
+      : ['tac', 'cru', 'bal', 'slbm', 'hyp', nukeOk ? 'icbm' : null];
     for (const t of order) {
       if (!t) continue;
       const silo = siloFor(n.id, t, tg);
@@ -1401,6 +1597,8 @@ function aiWar(n) {
     if (n.money > MISSILES[s.missile].cost + 60) doReload(n.id, s);
   }
   const c = census(n.id), cap = byId(n.capital);
+  // ремонт столицы и обороны
+  for (const s of G.structs) if (s.owner === n.id && built(s) && s.hp < s.maxHp * 0.7 && (s.type === 'capital' || (n.ai === 'cautious' && DEF[s.type])) && n.money > repairCost(s) + 150) doRepair(n.id, s);
   // отчаяние: массированный удар при угрозе гибели
   if (!n.desperate && c.ready >= 2 && (cap.hp < cap.maxHp * 0.45 || n.pop < n.popMax * 0.45)) {
     n.desperate = true;
@@ -1411,7 +1609,9 @@ function aiWar(n) {
   let enemy = aiPickEnemy(n); if (!enemy) return;
   let shots = 0;
   if (n.ai === 'aggressive') {
-    if (!n.firstStrike) { n.firstStrike = true; shots = Math.ceil(c.ready * 0.7); logEvent(n.name + ' наносит первый удар!', isPlayer(enemy) ? 'warn' : 'muted'); }
+    if (!n.firstStrike) {
+      n.firstStrike = true; shots = Math.ceil(c.ready * 0.7);
+      if (n.money > EW.cost + 100) doEW(n.id); logEvent(n.name + ' наносит первый удар!', isPlayer(enemy) ? 'warn' : 'muted'); }
     else shots = 1 + (Math.random() < 0.5 ? 1 : 0);
   } else if (n.ai === 'cautious') {
     const g = mostGrudge(n);
@@ -1420,11 +1620,20 @@ function aiWar(n) {
     if (G.warT < 8) shots = 0; else shots = Math.random() < 0.6 ? 2 : 1;
     const g = mostGrudge(n); if (g && Math.random() < 0.6) enemy = g;
   }
-  if (shots) aiFire(n, enemy, shots);
+  if (shots) {
+    if (n.ai === 'sly' && shots > 1 && Math.random() < 0.2 && n.money > EW.cost + 200) doEW(n.id);
+    aiFire(n, enemy, shots);
+  }
+  // разведка БПЛА, если о враге почти ничего не известно
+  const knownSilos = G.structs.filter(s => s.owner === enemy && !s.dead && s.known[n.id] && (isSilo(s.type) || s.type === 'decoy')).length;
+  if (knownSilos < 2 && n.money > 260 && Math.random() < (n.ai === 'sly' ? 0.4 : 0.15)) {
+    const cap2 = byId(G.nations[enemy].capital), p = gdest(cap2.lon, cap2.lat, rand(360), rand(0, 700));
+    launchDrone(n.id, p[0], p[1], enemy);
+  }
 }
 function aiTick(n, dt) {
   n.aiT -= dt; if (n.aiT > 0 || n.collapsed) return;
-  n.aiT = G.phase === 'war' ? rand(3, 7) : rand(1.5, 3.5);
+  n.aiT = (G.phase === 'war' ? rand(3, 7) : rand(1.5, 3.5)) * DIFF[G.diff].tick;
   if (G.phase === 'war') {
     if (n.ai === 'aggressive' && !n.firstStrike && G.warT < 2) { n.aiT = rand(1, 3); return; }
     aiWar(n);
@@ -1742,6 +1951,11 @@ function drawIcon(type, x, y, sz, col, s) {
     case 'abm': ctx.beginPath(); ctx.moveTo(x, y - h * 1.2); ctx.lineTo(x + h, y); ctx.lineTo(x, y + h * 1.2); ctx.lineTo(x - h, y); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#021'; ctx.beginPath(); ctx.moveTo(x, y - h * 0.6); ctx.lineTo(x, y + h * 0.6); ctx.stroke(); break;
     case 'radar': ctx.beginPath(); ctx.arc(x, y, h, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + h); ctx.stroke(); ctx.fillRect(x - 1.5, y - 1.5, 3, 3); break;
     case 'shelter': ctx.strokeRect(x - h, y - h * 0.4, h * 2, h * 1.4); ctx.beginPath(); ctx.moveTo(x - h * 1.2, y - h * 0.4); ctx.lineTo(x, y - h * 1.2); ctx.lineTo(x + h * 1.2, y - h * 0.4); ctx.stroke(); break;
+    case 'sub':
+      ctx.beginPath(); ctx.ellipse(x, y, h * 1.4, h * 0.45, 0, 0, TAU); ctx.fill();
+      ctx.fillRect(x - h * 0.25, y - h * 0.85, h * 0.5, h * 0.5);
+      ctx.strokeStyle = hexA(col.startsWith('#') ? col : '#3dffa8', 0.35); ctx.beginPath(); ctx.moveTo(x - h * 1.6, y); ctx.lineTo(x - h * 3, y + h * 0.4); ctx.moveTo(x - h * 1.6, y); ctx.lineTo(x - h * 3, y - h * 0.4); ctx.stroke();
+      break;
     case 'airfield': case 'airbase':
       ctx.beginPath(); ctx.moveTo(x, y - h * 1.1); ctx.lineTo(x + h * 0.25, y); ctx.lineTo(x + h * 1.1, y + h * 0.3); ctx.lineTo(x + h * 0.25, y + h * 0.3); ctx.lineTo(x + h * 0.4, y + h); ctx.lineTo(x - h * 0.4, y + h); ctx.lineTo(x - h * 0.25, y + h * 0.3); ctx.lineTo(x - h * 1.1, y + h * 0.3); ctx.lineTo(x - h * 0.25, y); ctx.closePath(); ctx.fill();
       if (type === 'airbase') { ctx.beginPath(); ctx.arc(x, y, h * 1.5, 0, TAU); ctx.stroke(); }
@@ -1772,7 +1986,8 @@ function drawStructs(now) {
     if (!detail && s.type !== 'capital') { ctx.fillStyle = col; ctx.fillRect(x - 1.5, y - 1.5, 3, 3); continue; }
     ctx.globalAlpha = s.build > 0 ? 0.45 : 1;
     let it = s.type;
-    if (isSilo(s.type)) it = 'silo';
+    if (isNaval(s.type)) it = 'sub';
+    else if (isSilo(s.type)) it = 'silo';
     if (s.type === 'decoy') it = mine ? 'decoy' : 'silo';
     drawIcon(it, x, y, s.type === 'capital' ? sz * 1.1 : sz, col, (it === 'silo' && !mine) ? { loaded: true } : s);
     ctx.globalAlpha = 1;
@@ -1784,6 +1999,7 @@ function drawStructs(now) {
     if (detail) {
       let lbl = '';
       if (s.type === 'capital') lbl = NATIONS[s.owner].capName.toUpperCase();
+      else if (isNaval(s.type) && !mine && !s.revealed) lbl = 'ПЛ';
       else if (isSilo(s.type) && (mine || s.revealed)) lbl = MISSILES[s.missile].short + (mine && s.camo ? '·М' : '');
       else if ((isSilo(s.type) || s.type === 'decoy') && !mine) lbl = '?';
       else if (s.type === 'decoy') lbl = 'Л';
@@ -1834,7 +2050,9 @@ function drawAircraft() {
     const f2 = Math.min(1, a.t / a.dur + 0.01), g2 = a.phase === 'out' ? gInterp(a.lon0, a.lat0, a.lon1, a.lat1, f2) : gInterp(a.lon1, a.lat1, a.lon0, a.lat0, f2);
     proj(g2[0], g2[1], p[2]); const ang = Math.atan2(PY - y, PX - x);
     ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.fillStyle = G.nations[a.owner].color;
-    ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-5, -5); ctx.lineTo(-2, 0); ctx.lineTo(-5, 5); ctx.closePath(); ctx.fill(); ctx.restore();
+    if (a.kind === 'drone') { ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(0, -6); ctx.lineTo(-3, 0); ctx.lineTo(0, 6); ctx.closePath(); ctx.fill(); }
+    else { ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-5, -5); ctx.lineTo(-2, 0); ctx.lineTo(-5, 5); ctx.closePath(); ctx.fill(); }
+    ctx.restore();
   }
 }
 function drawIcp() {
@@ -1861,6 +2079,18 @@ function drawFx() {
       g.addColorStop(0, `rgba(255,255,230,${1 - k})`); g.addColorStop(0.3, `rgba(255,160,60,${0.8 * (1 - k)})`); g.addColorStop(1, 'rgba(255,60,20,0)');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(PX, PY, r, 0, TAU); ctx.fill();
       ctx.strokeStyle = `rgba(255,240,200,${0.8 * (1 - k)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(PX, PY, r * (1 + k * 1.5), 0, TAU); ctx.stroke();
+      // ядерный гриб: столб и шапка поднимаются, затем рассеиваются
+      if (k > 0.05) {
+        const base = Math.max(14, e.km * kmPx), up = base * 1.3 * Math.min(1, (k - 0.05) * 2.2), a = Math.min(1, (1 - k) * 1.6);
+        const cg = ctx.createLinearGradient(PX, PY, PX, PY - up);
+        cg.addColorStop(0, `rgba(120,90,70,${0.5 * a})`); cg.addColorStop(1, `rgba(255,150,70,${0.75 * a})`);
+        ctx.fillStyle = cg; ctx.beginPath(); ctx.moveTo(PX - base * 0.12, PY); ctx.lineTo(PX - base * 0.07, PY - up); ctx.lineTo(PX + base * 0.07, PY - up); ctx.lineTo(PX + base * 0.12, PY); ctx.fill();
+        const cr = base * 0.45 * Math.min(1, k * 2.5 + 0.2), hg = ctx.createRadialGradient(PX, PY - up, 0, PX, PY - up, cr);
+        hg.addColorStop(0, `rgba(255,230,170,${0.85 * a})`); hg.addColorStop(0.5, `rgba(240,120,50,${0.7 * a})`); hg.addColorStop(1, `rgba(90,70,60,0)`);
+        ctx.fillStyle = hg; ctx.beginPath(); ctx.ellipse(PX, PY - up, cr, cr * 0.62, 0, 0, TAU); ctx.fill();
+      }
+    } else if (e.kind === 'scan') {
+      ctx.lineWidth = 1.5; geoCircle(e.lon, e.lat, e.km * Math.min(1, k * 2), null, `rgba(185,140,255,${0.8 * (1 - k)})`);
     } else if (e.kind === 'launch') {
       ctx.strokeStyle = `rgba(255,220,150,${1 - k})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(PX, PY, 3 + k * 14, 0, TAU); ctx.stroke();
     } else if (e.kind === 'miss') {
@@ -1875,8 +2105,23 @@ function drawFx() {
 }
 /** Призрак размещаемой постройки под курсором. */
 function drawGhost() {
+  if (UI.point) { // отмеченный квадрат на чужой территории
+    if (proj(UI.point.lon, UI.point.lat)) {
+      const k = 9 + 2 * Math.sin(frameNow / 180); ctx.strokeStyle = '#b98cff'; ctx.lineWidth = 1.5;
+      ctx.strokeRect(PX - k, PY - k, k * 2, k * 2); ctx.beginPath(); ctx.moveTo(PX - k - 6, PY); ctx.lineTo(PX + k + 6, PY); ctx.moveTo(PX, PY - k - 6); ctx.lineTo(PX, PY + k + 6); ctx.stroke();
+      ctx.setLineDash([3, 5]); geoCircle(UI.point.lon, UI.point.lat, DRONE.reveal, null, 'rgba(185,140,255,0.5)'); ctx.setLineDash([]);
+    }
+  }
   if (!UI.placing || !UI.mouse) return;
   const g = unproject(UI.mouse.x, UI.mouse.y); if (!g) return;
+  if (UI.placing === '#drone') {
+    const own = nationAt(g[0], g[1]), ok = own && own !== G.player && G.nations[own] && G.phase === 'war';
+    const col = ok ? '#b98cff' : '#ff4d4d';
+    ctx.setLineDash([3, 5]); geoCircle(g[0], g[1], DRONE.reveal, hexA(col, 0.06), hexA(col, 0.7)); ctx.setLineDash([]);
+    proj(g[0], g[1]); ctx.font = '11px Consolas, monospace'; ctx.textAlign = 'left'; ctx.fillStyle = col;
+    ctx.fillText(G.phase !== 'war' ? 'БПЛА — только во время войны' : ok ? 'Разведка БПЛА · ' + fmtMoney(DRONE.cost) : 'Выберите территорию противника', PX + 14, PY - 10);
+    return;
+  }
   const type = UI.placing, err = placeError(G.player, type, g[0], g[1]);
   proj(g[0], g[1]);
   const x = PX, y = PY, col = err ? '#ff4d4d' : PLAYER_COLOR;
@@ -1885,7 +2130,7 @@ function drawGhost() {
   if (isSilo(type)) { ctx.setLineDash([2, 6]); geoCircle(g[0], g[1], Math.min(MISSILES[BUILD[type].missile].range, 9000), null, hexA(col, 0.25), 90); ctx.setLineDash([]); }
   if (type === 'airfield' || type === 'airbase') { ctx.setLineDash([2, 6]); geoCircle(g[0], g[1], AIR.range, null, hexA(col, 0.25), 90); ctx.setLineDash([]); }
   proj(g[0], g[1]);
-  drawIcon(isSilo(type) ? 'silo' : type, x, y, 12, col, { loaded: true });
+  drawIcon(isNaval(type) ? 'sub' : isSilo(type) ? 'silo' : type, x, y, 12, col, { loaded: true });
   ctx.font = '11px Consolas, monospace'; ctx.textAlign = 'left'; ctx.fillStyle = col;
   ctx.fillText(err || (BUILD[type].name + ' · ' + fmtMoney(BUILD[type].cost)), x + 14, y - 10);
 }
@@ -1927,9 +2172,9 @@ function drawMini() {
    10. ИНТЕРФЕЙС
    ===================================================================== */
 const $ = id => document.getElementById(id);
-const GLYPH = { city: '▦', factory: '⚙', silo_tac: '◉', silo_cru: '◉', silo_bal: '◉', silo_icbm: '☢', airfield: '✈', airbase: '✈', shorad: '△', lrad: '▲', abm: '◆', radar: '◠', shelter: '⌂', decoy: '◌', '#plane': '✈', '#camo': '▒', '#intel': '◎' };
+const GLYPH = { silo_hyp: '➹', silo_sub: '▬', '#ew': '≋', '#drone': '◇', city: '▦', factory: '⚙', silo_tac: '◉', silo_cru: '◉', silo_bal: '◉', silo_icbm: '☢', airfield: '✈', airbase: '✈', shorad: '△', lrad: '▲', abm: '◆', radar: '◠', shelter: '⌂', decoy: '◌', '#plane': '✈', '#camo': '▒', '#intel': '◎' };
 const UI = {
-  sel: null, placing: null, mouse: null, showCov: false, tab: 'econ', lastSel: '', t: 0,
+  sel: null, point: null, placing: null, mouse: null, showCov: false, tab: 'econ', lastSel: '', t: 0,
   updateLog(e) { const li = $('logList').firstChild; if (li) li.innerHTML = '<i>' + esc(e.t) + '</i>' + esc(e.text); },
   pushLog(e) {
     const li = document.createElement('li'); li.className = e.cls; li.innerHTML = '<i>' + esc(e.t) + '</i>' + esc(e.text);
@@ -1946,38 +2191,64 @@ const UI = {
     requestAnimationFrame(() => { f.style.transition = 'opacity 1.6s'; f.style.opacity = 0; });
     cam.shake = vis ? 14 : 5;
   },
-  select(id) { this.sel = id; this.lastSel = ''; this.renderSel(); },
+  select(id) { this.sel = id; this.point = null; this.lastSel = ''; this.renderSel(); },
+  /** Всплывающее уведомление (достижения). */
+  toast(title, text) {
+    const d = document.createElement('div'); d.innerHTML = '<b>' + esc(title) + '</b>' + esc(text);
+    $('toast').appendChild(d); setTimeout(() => { d.style.opacity = 0; setTimeout(() => d.remove(), 700); }, 4500);
+  },
   setPlacing(type) {
     this.placing = type; cv.classList.toggle('placing', !!type);
     this.renderBuild(); if (type) { this.sel = null; this.renderSel(); }
   },
   /** Карточки построек текущей вкладки. */
+  /** Данные карточки: название, цена, описание, причина блокировки. */
+  cardInfo(key) {
+    const n = G.nations[G.player], fac = factoryCount(G.player);
+    let name, cost, desc, lock = '';
+    if (key === '#plane') { name = 'Бомбардировщик'; cost = AIR.cost; desc = 'Строится на выбранной (или любой) авиабазе. Радиус 5000 км'; }
+    else if (key === '#camo') { name = 'Маскировка шахты'; cost = CAMO_COST; desc = 'Выберите свою шахту на карте: разведка врага почти не заметит её'; }
+    else if (key === '#ew') {
+      name = 'РЭБ: подавление'; cost = EW.cost; desc = 'На ' + EW.dur + ' с ПВО/ПРО врага сбивают наши цели в 2,5 раза хуже, радары слепнут';
+      if (G.phase !== 'war') lock = 'в войну'; else if (n.ewReady > G.time) lock = 'КД ' + Math.ceil(n.ewReady - G.time) + 'с';
+    }
+    else if (key === '#drone') { name = 'БПЛА-разведчик'; cost = DRONE.cost; desc = 'Кликните по территории врага: раскроет объекты в радиусе ' + DRONE.reveal + ' км'; if (G.phase !== 'war') lock = 'в войну'; }
+    else if (key === '#intel') { name = 'Спутник разведки ' + (n.intel >= 3 ? '(макс.)' : 'ур.' + (n.intel + 1)); cost = INTEL_COST[n.intel] || 0; desc = 'Лучше видим объекты врага. Сейчас: ур.' + n.intel; if (n.intel >= 3) lock = 'МАКС'; }
+    else { const d = BUILD[key]; name = d.name; cost = d.cost; desc = d.desc; if (fac < d.req) lock = 'нужно заводов: ' + d.req; }
+    return { name, cost, desc, lock };
+  },
+  /** Карточки построек текущей вкладки. */
   renderBuild() {
     if (!G) return;
-    const n = G.nations[G.player], fac = factoryCount(G.player), box = $('buildList');
-    let h = '';
+    const n = G.nations[G.player];
+    let h = '', idx = 0;
     for (const key of TABS[this.tab]) {
-      let name, cost, desc, lock = '', no = false;
-      if (key === '#plane') { name = 'Бомбардировщик'; cost = AIR.cost; desc = 'Строится на выбранной (или любой) авиабазе. Радиус 5000 км'; }
-      else if (key === '#camo') { name = 'Маскировка шахты'; cost = CAMO_COST; desc = 'Выберите свою шахту на карте: разведка врага почти не заметит её'; }
-      else if (key === '#intel') { name = 'Спутник разведки ' + (n.intel >= 3 ? '(макс.)' : 'ур.' + (n.intel + 1)); cost = INTEL_COST[n.intel] || 0; desc = 'Лучше видим объекты врага. Сейчас: ур.' + n.intel; if (n.intel >= 3) lock = 'МАКС'; }
-      else {
-        const d = BUILD[key]; name = d.name; cost = d.cost; desc = d.desc;
-        if (fac < d.req) lock = 'нужно заводов: ' + d.req;
-      }
-      no = n.money < cost;
-      h += `<div class="card ${lock ? 'lock' : ''} ${no && !lock ? 'no' : ''} ${this.placing === key ? 'on' : ''}" data-k="${key}">
+      const { name, cost, desc, lock } = this.cardInfo(key); idx++;
+      const no = n.money < cost;
+      h += `<div class="card ${lock ? 'lock' : ''} ${no && !lock ? 'no' : ''} ${this.placing === key ? 'on' : ''}" data-k="${key}" data-lock="${esc(lock)}">
         ${lock ? `<span class="lk">🔒 ${esc(lock)}</span>` : ''}
         <div class="cn"><span style="color:var(--acc)">${GLYPH[key] || '■'}</span>${esc(name)}</div>
-        <div class="cc">${fmtMoney(cost)}</div><div class="cd">${esc(desc)}</div></div>`;
+        <div class="cc">${fmtMoney(cost)}</div><div class="cd">${esc(desc)}</div><span class="hk">${idx}</span></div>`;
     }
-    box.innerHTML = h;
+    $('buildList').innerHTML = h;
   },
   /** Панель выбранного объекта и доступных действий. */
   renderSel() {
     const box = $('selPanel'); if (!G) return;
     const s = this.sel ? byId(this.sel) : null;
-    box.classList.toggle('empty', !s || !seen(s));
+    box.classList.toggle('empty', (!s || !seen(s)) && !this.point);
+    if (!s && this.point) {
+      const pt = this.point, n = G.nations[G.player], key = 'pt' + pt.lon + Math.floor(n.money / 10) + G.phase;
+      if (this.lastSel === key) return; this.lastSel = key;
+      const base = droneBase(G.player, pt.lon, pt.lat);
+      box.innerHTML = `<h4>Квадрат ${Math.abs(pt.lat).toFixed(1)}°${pt.lat >= 0 ? 'с' : 'ю'}.ш. ${Math.abs(pt.lon).toFixed(1)}°${pt.lon >= 0 ? 'в' : 'з'}.д.</h4>
+        <div class="row">Территория<b>${esc(nname(pt.owner))}</b></div>
+        <div class="row">Радиус разведки<b>${DRONE.reveal} км</b></div>
+        <div class="row">Ближайшая база БПЛА<b>${base ? Math.round(gdist(base.lon, base.lat, pt.lon, pt.lat)) + ' км' : 'вне досягаемости'}</b></div>
+        <div style="color:var(--dim);font-size:11px;margin-top:4px">БПЛА может быть сбит ПВО. Замаскированные объекты он находит лишь с вероятностью 50%.</div>
+        <div class="acts"><button class="btn sm" data-act="drone" ${G.phase !== 'war' || !base || n.money < DRONE.cost ? 'disabled' : ''}>◇ БПЛА-разведчик ${fmtMoney(DRONE.cost)}</button></div>`;
+      return;
+    }
     if (!s || !seen(s)) {
       const n = G.nations[G.player], c = census(G.player);
       const key = 'none' + Math.floor(n.money) + c.ready + G.phase;
@@ -2006,6 +2277,8 @@ const UI = {
         row('Маскировка', s.camo ? 'да' : 'нет');
       }
       if (LEVELED[s.type]) row('Уровень · радиус', s.lvl + ' · ' + radiusOf(s) + ' км');
+      if (DEF[s.type] && s.build <= 0) row('Перехватчики', (s.ammo ?? ammoMax(s)) + ' / ' + ammoMax(s) + ' (+1 за ' + AMMO_REGEN + ' с)');
+      if (isNaval(s.type)) row('Патруль', 'радиус ' + SUB.patrol + ' км, враг теряет след через ' + SUB.memory + ' с');
       if (s.type === 'shelter') row('Защита жителей', Math.round(SHELTER.p[s.lvl - 1] * 100) + '%');
       if (isAirbase(s.type)) row('Самолётов', s.planes + ' готово · ' + s.pq + ' строится · ' + planesOut(s.id) + ' в воздухе');
       if (mine) { const k = Object.keys(s.known).filter(o => o !== G.player).length; row('Засвечен противнику', k ? '<span style="color:var(--red)">' + k + ' держав' + '</span>' : 'нет'); }
@@ -2020,6 +2293,7 @@ const UI = {
         if (G.phase === 'war' && !s.loaded && s.reload <= 0 && s.build <= 0) act('reload', 'Перезарядить ' + fmtMoney(MISSILES[s.missile].cost), n.money < MISSILES[s.missile].cost);
       }
       if (LEVELED[s.type] && s.lvl < 3 && s.build <= 0) act('upgrade', 'Улучшить до ур.' + (s.lvl + 1) + ' ' + fmtMoney(upgradeCost(s)), n.money < upgradeCost(s));
+      if (s.build <= 0 && s.hp < s.maxHp) act('repair', repairReady(s) ? 'Ремонт ½ ' + fmtMoney(repairCost(s)) : 'Ремонт через ' + Math.ceil(s.repT - G.time) + ' с', n.money < repairCost(s) || !repairReady(s));
       if (isAirbase(s.type) && s.build <= 0) act('plane', 'Бомбардировщик ' + fmtMoney(AIR.cost), n.money < AIR.cost || s.planes + s.pq + planesOut(s.id) >= BUILD[s.type].cap);
     }
     if (!mine && !s.dead && G.phase !== 'over') {
@@ -2061,7 +2335,7 @@ const UI = {
     if (G.phase === 'prep') {
       $('sTimer').textContent = fmtTime(G.prepLeft); $('sPhase').textContent = G.paused ? 'ПАУЗА · ЩИТ АКТИВЕН' : 'ПОДГОТОВКА · ЩИТ АКТИВЕН';
       document.body.classList.toggle('urgent', G.prepLeft < 30);
-    } else { $('sTimer').textContent = fmtTime(G.warT); $('sPhase').textContent = G.phase === 'over' ? 'КОНЕЦ ИГРЫ' : 'ВОЙНА · ЩИТА НЕТ'; }
+    } else { $('sTimer').textContent = fmtTime(G.warT); $('sPhase').textContent = G.phase === 'over' ? 'КОНЕЦ ИГРЫ' : ewOn(G.player) ? 'ВОЙНА · РЭБ ' + Math.ceil(n.ewUntil - G.time) + ' С' : 'ВОЙНА · ЩИТА НЕТ'; }
     $('logClock').textContent = G.phase === 'prep' ? 'П-' + fmtTime(G.prepLeft) : 'T+' + fmtTime(G.warT);
     $('sWinter').style.width = Math.min(100, G.nukes / WINTER_LIMIT * 100) + '%';
     $('sNukes').textContent = G.nukes + ' / ' + WINTER_LIMIT + ' взрывов';
@@ -2077,13 +2351,11 @@ const UI = {
     if (this.t % 10 === 0) this.renderNations();
   },
   refreshCards() {
-    const n = G.nations[G.player], fac = factoryCount(G.player);
+    const n = G.nations[G.player];
     for (const el of $('buildList').children) {
-      const k = el.dataset.k; let cost, lock = false;
-      if (k[0] === '#') cost = k === '#plane' ? AIR.cost : k === '#camo' ? CAMO_COST : (INTEL_COST[n.intel] || 1e9);
-      else { cost = BUILD[k].cost; lock = fac < BUILD[k].req; }
-      if (el.classList.contains('lock') !== lock) { this.renderBuild(); return; }
-      el.classList.toggle('no', !lock && n.money < cost);
+      const info = this.cardInfo(el.dataset.k);
+      if (el.dataset.lock !== info.lock) { const lk = el.querySelector('.lk'); if (lk && info.lock) { lk.textContent = '🔒 ' + info.lock; el.dataset.lock = info.lock; } else { this.renderBuild(); return; } }
+      el.classList.toggle('no', !info.lock && n.money < info.cost);
     }
   },
   showModal(html, buttons) {
@@ -2098,19 +2370,42 @@ const UI = {
       winter: '<h2 style="color:#ddd">ЯДЕРНАЯ ЗИМА</h2><p>Произошло ' + G.nukes + ' ядерных взрывов. Пепел закрыл солнце — проиграли все.</p>' }[r.kind];
     setTimeout(() => this.showModal(title +
       `<p style="color:var(--dim)">Время войны: ${fmtTime(G.warT)} · ракет запущено: ${s.launched} · перехвачено вашей обороной: ${s.intercepted}<br>
-      уничтожено объектов врага: ${s.kills} · потеряно своих: ${s.lostStructs} · ваших ядерных ударов: ${s.nukesBy}</p>`,
-      [{ label: 'Смотреть карту' }, { label: 'В главное меню', cls: 'on', fn: () => toMenu() }]), 1800);
+      уничтожено объектов врага: ${s.kills} · потеряно своих: ${s.lostStructs} · ваших ядерных ударов: ${s.nukesBy}</p>
+      <canvas id="endChart" width="940" height="340"></canvas><p style="color:var(--dim);font-size:11px">Население держав (млн) по ходу партии; пунктир — начало войны.</p>`,
+      [{ label: 'Смотреть карту' }, { label: 'В главное меню', cls: 'on', fn: () => toMenu() }]) || this.drawChart(), 1800);
+  },
+  /** График населения всех держав за партию. */
+  drawChart() {
+    const c = $('endChart'); if (!c || !G.hist.length) return;
+    const g = c.getContext('2d'), W = c.width, H = c.height, pad = 40, h = G.hist;
+    const tmax = Math.max(1, h[h.length - 1][0]), pmax = Math.max(1, ...h.map(r => Math.max(...r[1])));
+    g.fillStyle = '#031015'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#123'; g.fillStyle = '#5e8b83'; g.font = '18px Consolas, monospace';
+    for (let i = 0; i <= 4; i++) { const y = H - pad - (H - pad * 1.5) * i / 4; g.beginPath(); g.moveTo(pad, y); g.lineTo(W - 10, y); g.stroke(); g.fillText(Math.round(pmax * i / 4), 2, y + 6); }
+    const X = t => pad + (W - pad - 10) * t / tmax, Y = v => H - pad - (H - pad * 1.5) * v / pmax;
+    g.setLineDash([6, 6]); g.strokeStyle = '#ff3b3b'; g.beginPath(); g.moveTo(X(PREP_TIME), 10); g.lineTo(X(PREP_TIME), H - pad); g.stroke(); g.setLineDash([]);
+    G.order.forEach((id, k) => {
+      g.strokeStyle = G.nations[id].color; g.lineWidth = id === G.player ? 4 : 2; g.beginPath();
+      h.forEach((r, i) => { const x = X(r[0]), y = Y(r[1][k] || 0); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+    });
+    g.fillStyle = '#5e8b83'; g.fillText('время, с: 0 … ' + tmax, pad, H - 8);
   },
 };
 
 /* ---------- действия игрока ---------- */
 function playerAction(act) {
+  if (G && act === 'drone' && UI.point) {
+    const a = launchDrone(G.player, UI.point.lon, UI.point.lat, UI.point.owner);
+    if (a) logEvent('БПЛА-разведчик вылетел к квадрату (' + nname(UI.point.owner) + ')', 'launch');
+    AU.play(a ? 'click' : 'deny'); UI.lastSel = ''; UI.renderSel(); return;
+  }
   const s = UI.sel ? byId(UI.sel) : null; if (!G || !s) return;
   let ok = false;
   if (act === 'camo') { ok = doCamo(G.player, s); if (ok) logEvent('Шахта замаскирована.', 'good'); }
   else if (act === 'reload') ok = doReload(G.player, s);
   else if (act === 'upgrade') { ok = doUpgrade(G.player, s); if (ok) logEvent(BUILD[s.type].name + ' улучшено до ур.' + s.lvl, 'good'); }
   else if (act === 'plane') ok = doPlane(G.player, s);
+  else if (act === 'repair') { ok = doRepair(G.player, s); if (ok) logEvent('Отремонтировано: ' + BUILD[s.type].name, 'good'); }
   else if (act === 'prio') {
     const i = G.priority.indexOf(s.id); if (i >= 0) G.priority.splice(i, 1); else G.priority.push(s.id); ok = true;
   } else if (act.startsWith('fire:')) {
@@ -2123,6 +2418,8 @@ function playerAction(act) {
 function cardAction(k) {
   if (!G || G.phase === 'over') return;
   const n = G.nations[G.player];
+  if (k === '#ew') { if (doEW(G.player)) { AU.play('armageddon'); UI.renderBuild(); } else AU.play('deny'); return; }
+  if (k === '#drone') { if (G.phase !== 'war') { AU.play('deny'); logEvent('БПЛА доступны только во время войны.', 'muted'); return; } AU.play('click'); UI.setPlacing(UI.placing === k ? null : k); return; }
   if (k === '#intel') { if (doIntel(G.player)) { AU.play('build'); logEvent('Спутник разведки выведен на орбиту: ур.' + n.intel, 'good'); UI.renderBuild(); } else AU.play('deny'); return; }
   if (k === '#camo') {
     const s = UI.sel && byId(UI.sel);
@@ -2150,7 +2447,7 @@ function armageddon() {
     <p style="color:var(--amber)">После пуска боезапас будет пуст. Отменить удар невозможно.</p>`,
     [{ label: 'Отмена' }, { label: '☢ ПУСК', cls: 'warn', fn: () => {
       const k = massStrike(G.player);
-      if (k) { AU.play('armageddon'); UI.banner('АРМАГЕДДОН', 'ЗАПУЩЕНО РАКЕТ: ' + k); logEvent('АРМАГЕДДОН: одновременный пуск ' + k + ' ракет!', 'nuke'); }
+      if (k) { unlock('arma'); AU.play('armageddon'); UI.banner('АРМАГЕДДОН', 'ЗАПУЩЕНО РАКЕТ: ' + k); logEvent('АРМАГЕДДОН: одновременный пуск ' + k + ' ракет!', 'nuke'); }
       else logEvent('Нет целей в радиусе действия ракет.', 'warn');
     } }]);
 }
@@ -2181,6 +2478,14 @@ function pickStruct(sx, sy) {
 function onClick(sx, sy) {
   setupView();
   if (!G) { const g = unproject(sx, sy); if (g) { const id = nationAt(g[0], g[1]); if (id) { MENU.setPlayer(id); AU.play('click'); } } return; }
+  if (UI.placing === '#drone') {
+    const g = unproject(sx, sy); if (!g) return;
+    const own = nationAt(g[0], g[1]);
+    if (!own || own === G.player || !G.nations[own]) { AU.play('deny'); return; }
+    const a = launchDrone(G.player, g[0], g[1], own);
+    if (a) { AU.play('click'); logEvent('БПЛА-разведчик вылетел (' + nname(own) + ')', 'launch'); } else { AU.play('deny'); logEvent('БПЛА: нет денег или базы в радиусе ' + DRONE.range + ' км.', 'muted'); }
+    return;
+  }
   if (UI.placing) {
     const g = unproject(sx, sy); if (!g) return;
     const type = UI.placing, err = placeError(G.player, type, g[0], g[1]);
@@ -2190,7 +2495,10 @@ function onClick(sx, sy) {
     if (s) { AU.play('build'); UI.renderSel(); }
     return;
   }
-  const s = pickStruct(sx, sy); UI.select(s ? s.id : null); if (s) AU.play('click');
+  const s = pickStruct(sx, sy); UI.select(s ? s.id : null); if (s) { AU.play('click'); return; }
+  // пустая точка на территории противника — квадрат для разведки
+  const g = unproject(sx, sy), own = g && nationAt(g[0], g[1]);
+  if (own && own !== G.player && G.nations[own]) { UI.point = { lon: +g[0].toFixed(2), lat: +g[1].toFixed(2), owner: own }; UI.lastSel = ''; UI.renderSel(); AU.play('click'); }
 }
 cv.addEventListener('pointerdown', e => {
   AU.init(); cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -2241,17 +2549,23 @@ function hover(sx, sy) {
 }
 window.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'Escape') { if (!$('modal').classList.contains('hidden')) $('modal').classList.add('hidden'); else { UI.setPlacing(null); UI.select(null); } }
+  if (e.key === 'Escape') { if (!$('modal').classList.contains('hidden')) $('modal').classList.add('hidden'); else { UI.setPlacing(null); UI.select(null); UI.point = null; } }
   if (!G) return;
   if (e.code === 'Space') { e.preventDefault(); togglePause(); }
   if (e.key === '+' || e.key === '=') zoomAt(1.4); if (e.key === '-') zoomAt(1 / 1.4);
+  if (!$('modal').classList.contains('hidden') || e.ctrlKey || e.metaKey || e.altKey) return;
+  const tabKeys = { KeyQ: 'econ', KeyW: 'atk', KeyE: 'air', KeyR: 'def', KeyT: 'dec' };
+  if (tabKeys[e.code]) { UI.tab = tabKeys[e.code]; for (const x of $('tabs').children) x.classList.toggle('on', x.dataset.tab === UI.tab); UI.renderBuild(); AU.play('click'); }
+  if (/^Digit[1-9]$/.test(e.code)) { const k = TABS[UI.tab][+e.code.slice(5) - 1]; if (k) cardAction(k); }
+  if (e.code === 'KeyH') focusHome();
+  if (e.code === 'KeyZ') $('zCov').click();
 });
 function togglePause() { if (G && G.phase === 'prep') { G.paused = !G.paused; AU.play('click'); } }
 window.addEventListener('resize', resize);
 
 /* ---------- кнопки HUD ---------- */
 $('bPause').onclick = togglePause;
-$('bSpeed').onclick = () => { if (!G) return; G.speed = G.speed === 1 ? 2 : G.speed === 2 ? 4 : 1; AU.play('click'); };
+$('bSpeed').onclick = () => { if (!G) return; G.speed = { 1: 2, 2: 4, 4: 8, 8: 1 }[G.speed] || 1; AU.play('click'); };
 $('bSfx').onclick = () => { AU.setSfx(!AU.sfxOn); $('bSfx').classList.toggle('on', AU.sfxOn); saveOpts(); };
 $('bMus').onclick = () => { AU.init(); AU.setMus(!AU.musOn); $('bMus').classList.toggle('on', AU.musOn); saveOpts(); };
 $('bSave').onclick = () => saveGame(false);
@@ -2279,7 +2593,7 @@ mini.addEventListener('pointerdown', e => {
    12. ГЛАВНОЕ МЕНЮ
    ===================================================================== */
 const MENU = {
-  player: 'russia', count: 3, opps: [],
+  player: 'russia', count: 3, opps: [], diff: 'normal',
   init() {
     $('cGrid').innerHTML = NATION_IDS.map(id => `<button class="btn" data-id="${id}">${NATIONS[id].name}</button>`).join('');
     $('cGrid').onclick = e => { const b = e.target.closest('[data-id]'); if (b) { AU.init(); this.setPlayer(b.dataset.id); AU.play('click'); } };
@@ -2292,6 +2606,10 @@ const MENU = {
       AU.play('click'); this.render();
     };
     $('bStart').onclick = () => { AU.init(); startGame(); };
+    $('diffBox').innerHTML = Object.keys(DIFF).map(k => `<button class="btn" data-d="${k}">${DIFF[k].name}</button>`).join('');
+    $('diffBox').onclick = e => { const b = e.target.closest('[data-d]'); if (b) { AU.init(); this.diff = b.dataset.d; this.render(); AU.play('click'); } };
+    $('bNews').onclick = () => { AU.init(); AU.play('click'); showNews(); };
+    $('bAch').onclick = () => { AU.init(); AU.play('click'); showAch(); };
     $('bContinue').onclick = () => { AU.init(); if (loadGame()) enterGame(); };
     this.roll();
   },
@@ -2317,6 +2635,8 @@ const MENU = {
   render() {
     for (const b of $('cGrid').children) b.classList.toggle('on', b.dataset.id === this.player);
     for (const b of $('nCount').children) b.classList.toggle('on', +b.dataset.k === this.count);
+    for (const b of $('diffBox').children) b.classList.toggle('on', b.dataset.d === this.diff);
+    const got = Object.keys(achGet()).length; $('bAch').textContent = 'ДОСТИЖЕНИЯ ' + got + '/' + ACH.length;
     $('oppList').innerHTML = this.opps.map((o, i) => `<div class="nrow"><span class="dot" style="background:${ENEMY_COLORS[i]}"></span>
       <span class="nm">${NATIONS[o.id].name}<small>${PERS[o.ai].name} — ${PERS[o.ai].desc}</small></span>
       <button class="btn sm" data-r="${i}" data-what="id" title="Другая страна">↻</button>
@@ -2326,7 +2646,7 @@ const MENU = {
   },
 };
 function startGame() {
-  newGame(MENU.player, MENU.opps.map(o => ({ ...o })));
+  newGame(MENU.player, MENU.opps.map(o => ({ ...o })), MENU.diff);
   enterGame();
   saveGame(true);
 }
@@ -2340,6 +2660,25 @@ function enterGame() {
   focusHome();
   AU.setMode(G.phase === 'prep' ? 'prep' : G.phase === 'war' ? 'war' : 'over');
   if (G.phase === 'over') UI.showEnd();
+}
+function showNews() {
+  UI.showModal(`<h2 style="color:var(--amber)">v2.0 · ГЛОБАЛЬНОЕ ОБНОВЛЕНИЕ</h2><ul class="news">
+    <li><b>Подлодки ПЛАРБ</b> — патрулируют океан, враг теряет их след через ${SUB.memory} с; несут БРПЛ на 6 500 км.</li>
+    <li><b>Гиперзвуковые ракеты</b> — 4 500 км, скорость 260 км/с, почти не перехватываются.</li>
+    <li><b>БПЛА-разведка</b> — кликните по пустой территории врага и раскройте объекты в радиусе ${DRONE.reveal} км.</li>
+    <li><b>РЭБ</b> — подавление радаров и ПВО противника на ${EW.dur} секунд.</li>
+    <li><b>Ремонт</b> повреждённых объектов, <b>сложность</b> (лёгкая / нормальная / сложная), ускорение <b>×8</b>.</li>
+    <li><b>Новые страны:</b> Мексика, Казахстан, Пакистан — всего ${NATION_IDS.length}.</li>
+    <li><b>${ACH.length} достижений</b>, <b>советник</b> для новичков, итоговый <b>график</b> партии.</li>
+    <li>Ядерный <b>гриб</b>, горячие клавиши Q–T / 1–6 / H / Z, ИИ применяет РЭБ, БПЛА, ремонт и новое оружие.</li>
+    <li><b>Баланс:</b> у ПВО/ПРО ограниченный запас перехватчиков (+1 за ${AMMO_REGEN} с) — массированные залпы истощают оборону; не больше ${MAX_TRIES} перехватов по одной цели; ремонт восстанавливает половину урона раз в ${REPAIR_CD} с.</li>
+  </ul>`, [{ label: 'К бою', cls: 'on' }]);
+}
+function showAch() {
+  const a = achGet();
+  UI.showModal(`<h2>ДОСТИЖЕНИЯ · ${Object.keys(a).length}/${ACH.length}</h2><div id="achList">` +
+    ACH.map(d => `<div class="ach ${a[d[0]] ? 'on' : ''}"><i>${d[1]}</i><div><b>${esc(d[2])}</b><small>${esc(d[3])}${a[d[0]] ? ' · ' + new Date(a[d[0]]).toLocaleDateString('ru-RU') : ''}</small></div></div>`).join('') + '</div>',
+    [{ label: 'Закрыть', cls: 'on' }]);
 }
 function toMenu() {
   G = null; ICP = []; FX = [];
@@ -2382,7 +2721,7 @@ cam.R = cam.tR = V.m * 0.42;
 window.addEventListener('beforeunload', () => { if (G && G.phase !== 'over') saveGame(true); });
 requestAnimationFrame(frame);
 // хук для автотестов
-window.__game = { get G() { return G; }, step, cam, V, MENU, startGame, massStrike, dropShield, build, UI };
+window.__game = { get G() { return G; }, step, cam, V, MENU, startGame, massStrike, dropShield, build, UI, loadGame, enterGame, blast, unproject, setupView };
 </script>
 </body>
 </html>
