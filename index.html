@@ -1,0 +1,3227 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#060912">
+<title>Лунная утилизация</title>
+<style>
+/* =====================================================================
+   ТЕМА И БАЗОВЫЕ СТИЛИ
+   ===================================================================== */
+:root {
+  --bg: #060912;
+  --bg-2: #0b1020;
+  --panel: rgba(16, 21, 36, 0.86);
+  --panel-2: rgba(24, 31, 52, 0.9);
+  --panel-3: rgba(34, 43, 70, 0.9);
+  --border: rgba(148, 163, 200, 0.13);
+  --border-2: rgba(148, 163, 200, 0.24);
+  --text: #e7eaf3;
+  --muted: #8b94ab;
+  --dim: #5d6680;
+  --accent: #7c9cff;
+  --accent-2: #a78bfa;
+  --good: #4ade80;
+  --bad: #f87171;
+  --warn: #fbbf24;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background-color: var(--bg);
+  /* Звёздное небо и Земля на горизонте — только градиенты, без картинок */
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,.7), transparent 60%),
+    radial-gradient(1px 1px at 72% 12%, rgba(255,255,255,.55), transparent 60%),
+    radial-gradient(1.5px 1.5px at 38% 62%, rgba(255,255,255,.45), transparent 60%),
+    radial-gradient(1px 1px at 88% 48%, rgba(255,255,255,.6), transparent 60%),
+    radial-gradient(1px 1px at 22% 82%, rgba(255,255,255,.4), transparent 60%),
+    radial-gradient(1.5px 1.5px at 58% 32%, rgba(200,210,255,.5), transparent 60%),
+    radial-gradient(1px 1px at 92% 88%, rgba(255,255,255,.5), transparent 60%),
+    radial-gradient(900px 500px at 85% -10%, rgba(124,156,255,.13), transparent 70%),
+    radial-gradient(700px 500px at -10% 110%, rgba(167,139,250,.10), transparent 70%);
+  background-attachment: fixed;
+  color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* =====================================================================
+   ШАПКА
+   ===================================================================== */
+header.top {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 18px;
+  background: rgba(6, 9, 18, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .2px; white-space: nowrap; }
+.logo .moon {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f1f3f8, #a9b0c2 55%, #6b7288 100%);
+  box-shadow: inset -5px -4px 0 rgba(0,0,0,.25), 0 0 18px rgba(200,210,255,.25);
+  position: relative;
+}
+.logo .moon::after {
+  content: ""; position: absolute; width: 6px; height: 6px; border-radius: 50%;
+  left: 13px; top: 7px; background: rgba(90,96,115,.55);
+  box-shadow: -6px 8px 0 -1px rgba(90,96,115,.45), 2px 11px 0 -2px rgba(90,96,115,.4);
+}
+.logo small { display: block; font-weight: 500; color: var(--muted); font-size: 11px; }
+.top-stats { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 999px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  font-size: 13px; white-space: nowrap;
+}
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+.chip.wave-chip.danger { border-color: rgba(248,113,113,.5); color: #fecaca; }
+.save-ind { color: var(--dim); font-size: 12px; }
+
+/* =====================================================================
+   РАСКЛАДКА
+   ===================================================================== */
+.layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 330px;
+  grid-template-areas: "left main right";
+  gap: 16px; padding: 16px 18px 40px;
+  max-width: 1600px; margin: 0 auto;
+  align-items: start;
+}
+.col-left { grid-area: left; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 70px; }
+.col-main { grid-area: main; min-width: 0; }
+.col-right { grid-area: right; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 70px; }
+
+@media (max-width: 1180px) {
+  .layout { grid-template-columns: 290px minmax(0, 1fr); grid-template-areas: "left main" "right main"; }
+  .col-right { position: static; }
+  .col-left { position: static; }
+}
+@media (max-width: 760px) {
+  /* на телефоне: ресурсы → волна → вкладки → график и журнал */
+  .layout { display: flex; flex-direction: column; align-items: stretch; padding: 12px 12px 40px; gap: 12px; }
+  .col-left { order: 1; }
+  .col-right { display: contents; }
+  #waveCard { order: 2; }
+  .col-main { order: 3; }
+  .col-right > .card:not(#waveCard) { order: 4; }
+  header.top { padding: 8px 12px; gap: 10px; }
+  .logo small { display: none; }
+  .top-stats .chip { padding: 4px 8px; font-size: 12px; }
+  .save-ind { display: none; }
+}
+
+/* =====================================================================
+   КАРТОЧКИ
+   ===================================================================== */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+.card h3 {
+  margin: 0 0 10px; font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .9px; color: var(--muted);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.muted { color: var(--muted); }
+.dim { color: var(--dim); }
+.good { color: var(--good); }
+.bad { color: var(--bad); }
+.warn { color: var(--warn); }
+
+/* --- Кнопка клика --- */
+.clicker { display: flex; align-items: center; gap: 14px; }
+.click-btn {
+  position: relative; flex: 0 0 auto;
+  width: 96px; height: 96px; border-radius: 50%;
+  border: 1px solid rgba(200,210,255,.25);
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,.28), transparent 40%),
+    radial-gradient(circle at 50% 60%, #8a8fa3, #4a5066 70%, #2c3144 100%);
+  box-shadow: 0 0 0 6px rgba(124,156,255,.08), 0 10px 25px rgba(0,0,0,.45), inset 0 -8px 16px rgba(0,0,0,.35);
+  cursor: pointer; user-select: none; touch-action: manipulation;
+  transition: transform .06s ease, box-shadow .2s ease;
+  display: grid; place-items: center; font-weight: 700; font-size: 12px; letter-spacing: .5px;
+  text-shadow: 0 1px 2px rgba(0,0,0,.6);
+}
+.click-btn:hover { box-shadow: 0 0 0 8px rgba(124,156,255,.14), 0 10px 25px rgba(0,0,0,.45), inset 0 -8px 16px rgba(0,0,0,.35); }
+.click-btn:active { transform: scale(.95); }
+.click-info { min-width: 0; }
+.click-info .big { font-size: 22px; font-weight: 700; }
+.floater {
+  position: absolute; pointer-events: none; font-weight: 700; color: #e5e7eb;
+  animation: floatUp .9s ease-out forwards; font-size: 14px; text-shadow: 0 1px 3px #000;
+}
+@keyframes floatUp { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -46px); } }
+
+/* --- Ресурсы --- */
+.res-list { display: flex; flex-direction: column; gap: 2px; }
+.res-row {
+  display: grid; grid-template-columns: 10px 1fr auto; column-gap: 8px; row-gap: 3px;
+  align-items: center; padding: 6px 4px; border-radius: 8px;
+}
+.res-row:hover { background: rgba(255,255,255,.03); }
+.res-row .dot { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+.res-row .rname { font-weight: 500; }
+.res-row .rval { font-weight: 600; text-align: right; }
+.res-row .rrate { grid-column: 2 / 4; display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.res-row .bar { grid-column: 2 / 4; }
+.bar { height: 5px; border-radius: 99px; background: rgba(255,255,255,.07); overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0%; border-radius: 99px; transition: width .25s ease; }
+.res-section { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: .8px; margin: 8px 4px 2px; }
+
+/* =====================================================================
+   ВКЛАДКИ
+   ===================================================================== */
+.tabs {
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+  padding: 4px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; margin-bottom: 14px;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex: 0 0 auto; padding: 8px 14px; border-radius: 9px; border: 0; background: transparent;
+  color: var(--muted); cursor: pointer; font-weight: 500; white-space: nowrap; position: relative;
+}
+.tab:hover { color: var(--text); background: rgba(255,255,255,.04); }
+.tab.active { background: var(--panel-3); color: var(--text); box-shadow: inset 0 0 0 1px var(--border-2); }
+.tab .badge {
+  display: inline-block; min-width: 8px; height: 8px; border-radius: 50%; background: var(--warn);
+  margin-left: 6px; vertical-align: middle; box-shadow: 0 0 8px var(--warn);
+}
+.panel { display: none; }
+.panel.active { display: block; animation: fadeIn .18s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+.seg button { border: 0; background: transparent; padding: 5px 12px; border-radius: 7px; cursor: pointer; color: var(--muted); }
+.seg button.active { background: var(--panel-3); color: var(--text); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.section-title { margin: 18px 2px 10px; font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .3px; }
+.section-title:first-child { margin-top: 0; }
+
+/* --- Карточка здания --- */
+.bld { display: flex; flex-direction: column; gap: 8px; padding: 13px; position: relative; overflow: hidden; }
+.bld::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--cat, var(--accent)); opacity: .8;
+}
+.bld-head { display: flex; align-items: center; gap: 10px; }
+.bld-head .bld-name { flex: 1; min-width: 0; }
+.bld-icon { flex: 0 0 auto; width: 44px; height: 36px; border-radius: 9px; background: radial-gradient(circle at 50% 30%, rgba(124,156,255,.10), rgba(255,255,255,.02)); border: 1px solid var(--border); }
+.bld.locked .bld-icon { filter: grayscale(1) brightness(.6); }
+.card.scene-card { padding: 0; overflow: hidden; margin-bottom: 14px; position: relative; cursor: pointer; touch-action: manipulation; }
+#scene { height: 240px; }
+.scene-card .floater { z-index: 2; }
+.chain-card { padding: 8px 6px 4px; margin-bottom: 12px; }
+@media (max-width: 760px) { #scene { height: 190px; } }
+@media (max-width: 480px) {
+  .logo > div:not(.moon) { display: none; }   /* на узком экране остаётся только луна */
+  .top-stats { gap: 5px; flex-wrap: nowrap; }
+  .top-stats .chip { padding: 3px 7px; font-size: 11.5px; gap: 4px; }
+}
+.bld-name { font-weight: 650; font-size: 15px; }
+.bld-count { font-weight: 700; font-size: 18px; }
+.bld-count .broken { font-size: 12px; color: var(--bad); font-weight: 600; margin-left: 4px; }
+.bld-desc { color: var(--muted); font-size: 12.5px; }
+.bld-stats { font-size: 12.5px; display: flex; flex-direction: column; gap: 2px; }
+.bld-cost { font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.bld-cost .c { white-space: nowrap; }
+.bld-cost .c.no { color: var(--bad); }
+.bld-cost .hint { flex-basis: 100%; font-size: 11.5px; margin-top: 2px; }
+.bld-actions { display: flex; gap: 8px; margin-top: auto; }
+.bld.locked { opacity: .55; }
+.bld.locked .bld-name { color: var(--muted); }
+.bld.hidden { display: none; }
+.eff { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted); }
+.eff .bar { flex: 1; }
+
+.btn {
+  border: 1px solid var(--border-2); background: var(--panel-3); color: var(--text);
+  border-radius: 9px; padding: 8px 12px; cursor: pointer; font-weight: 600; font-size: 13px;
+  transition: background .15s, border-color .15s, opacity .15s, transform .05s;
+}
+.btn:hover:not(:disabled) { background: #2d3960; border-color: rgba(124,156,255,.45); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .42; cursor: not-allowed; }
+.btn.primary { background: linear-gradient(180deg, #5b7cff, #4561e6); border-color: rgba(160,180,255,.5); }
+.btn.primary:hover:not(:disabled) { background: linear-gradient(180deg, #6b8aff, #506cf0); }
+.btn.danger { background: rgba(248,113,113,.14); border-color: rgba(248,113,113,.45); color: #fecaca; }
+.btn.danger:hover:not(:disabled) { background: rgba(248,113,113,.24); }
+.btn.repair { background: rgba(251,191,36,.12); border-color: rgba(251,191,36,.45); color: #fde68a; }
+.btn.grow { flex: 1; }
+.btn.small { padding: 5px 9px; font-size: 12px; }
+
+/* --- Жильцы --- */
+.colony { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.stat-box { background: var(--panel-2); border: 1px solid var(--border); border-radius: 11px; padding: 10px 12px; }
+.stat-box .lbl { font-size: 11.5px; color: var(--muted); }
+.stat-box .val { font-size: 20px; font-weight: 700; margin-top: 2px; }
+.stat-box .sub { font-size: 12px; color: var(--muted); }
+.needs { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.need-row { display: grid; grid-template-columns: 90px 1fr auto; gap: 10px; align-items: center; font-size: 12.5px; }
+
+/* --- Волна --- */
+.wave-card { position: relative; overflow: hidden; }
+.wave-card.alert { border-color: rgba(248,113,113,.45); box-shadow: 0 0 0 1px rgba(248,113,113,.2), var(--shadow); }
+.wave-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wave-name { font-weight: 650; font-size: 15px; }
+.wave-timer { font-family: var(--mono); font-size: 26px; font-weight: 700; letter-spacing: 1px; margin: 4px 0 6px; }
+.wave-timer.soon { color: var(--bad); animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .55; } }
+.vs { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
+.vs-row { display: grid; grid-template-columns: 62px 1fr auto; gap: 8px; align-items: center; }
+.vs-row .bar { height: 8px; }
+.vs-row .num { white-space: nowrap; min-width: 48px; }
+.verdict { margin-top: 8px; padding: 7px 10px; border-radius: 9px; font-size: 12.5px; font-weight: 600; }
+.verdict.ok { background: rgba(74,222,128,.1); color: #bbf7d0; border: 1px solid rgba(74,222,128,.3); }
+.verdict.risk { background: rgba(251,191,36,.1); color: #fde68a; border: 1px solid rgba(251,191,36,.3); }
+.verdict.fail { background: rgba(248,113,113,.1); color: #fecaca; border: 1px solid rgba(248,113,113,.3); }
+canvas { display: block; width: 100%; }
+.chart-wrap { margin-top: 10px; }
+.chart-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+.chart-chips button {
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  padding: 3px 9px; border-radius: 999px; font-size: 11.5px; cursor: pointer;
+}
+.chart-chips button.active { color: var(--text); border-color: var(--border-2); background: var(--panel-3); }
+
+/* --- Журнал --- */
+.log { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; padding-right: 4px; }
+.log-item { padding: 5px 8px; border-radius: 7px; background: rgba(255,255,255,.025); border-left: 2px solid var(--dim); }
+.log-item time { color: var(--dim); font-family: var(--mono); font-size: 11px; margin-right: 6px; }
+.log-item.good { border-left-color: var(--good); color: var(--text); }
+.log-item.bad { border-left-color: var(--bad); color: var(--text); }
+.log-item.warn { border-left-color: var(--warn); color: var(--text); }
+.log-item.info { border-left-color: var(--accent); color: var(--text); }
+
+/* --- Баффы --- */
+.buffs { display: flex; flex-wrap: wrap; gap: 6px; }
+.buff { font-size: 11.5px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border-2); background: var(--panel-2); }
+.buff.up { border-color: rgba(74,222,128,.4); color: #bbf7d0; }
+.buff.down { border-color: rgba(248,113,113,.4); color: #fecaca; }
+
+/* --- Дерево улучшений --- */
+.prestige-card { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; margin-bottom: 14px;
+  background: linear-gradient(135deg, rgba(124,156,255,.12), rgba(167,139,250,.1)), var(--panel); }
+.crystal { display: inline-block; width: 11px; height: 11px; transform: rotate(45deg); border-radius: 2px;
+  background: linear-gradient(135deg, #e0e7ff, #a78bfa 60%, #6d28d9); box-shadow: 0 0 10px rgba(167,139,250,.7); margin-right: 4px; }
+.tree { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 900px) { .tree { grid-template-columns: minmax(0, 1fr); } }
+.branch { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+.branch h4 { margin: 0 0 10px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.branch h4 .sw { width: 10px; height: 10px; border-radius: 3px; }
+.node {
+  position: relative; background: var(--panel-2); border: 1px solid var(--border); border-radius: 11px;
+  padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px;
+}
+.node.depth-1 { margin-left: 14px; }
+.node.depth-2 { margin-left: 28px; }
+.node.depth-1::before, .node.depth-2::before {
+  content: ""; position: absolute; left: -10px; top: -11px; width: 9px; height: 30px;
+  border-left: 1px solid var(--border-2); border-bottom: 1px solid var(--border-2); border-bottom-left-radius: 6px;
+}
+.node.locked { opacity: .5; }
+.node.maxed { border-color: rgba(74,222,128,.35); }
+.node-head { display: flex; justify-content: space-between; gap: 6px; font-weight: 600; font-size: 13px; }
+.node-lvl { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.node-desc { font-size: 12px; color: var(--muted); }
+.pips { display: flex; gap: 3px; }
+.pips i { width: 14px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.1); }
+.pips i.on { background: var(--branch, var(--accent)); }
+
+/* --- Достижения --- */
+.ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.ach { display: flex; gap: 10px; align-items: flex-start; padding: 11px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); }
+.ach .medal { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,.05);
+  border: 1px solid var(--border-2); display: grid; place-items: center; font-weight: 700; color: var(--dim); font-size: 13px; }
+.ach.done .medal { background: radial-gradient(circle at 35% 30%, #fff7cc, #f5c84c 50%, #b7791f); color: #4a3200; border-color: rgba(245,200,76,.6); box-shadow: 0 0 12px rgba(245,200,76,.35); }
+.ach .t { font-weight: 600; font-size: 13px; }
+.ach .d { font-size: 12px; color: var(--muted); }
+.ach:not(.done) { opacity: .62; }
+
+/* --- Настройки --- */
+textarea {
+  width: 100%; min-height: 90px; resize: vertical; background: #0a0f1d; color: var(--text);
+  border: 1px solid var(--border-2); border-radius: 10px; padding: 10px; font-family: var(--mono); font-size: 12px;
+}
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.stats-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.stats-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
+.stats-table td:last-child { text-align: right; font-weight: 600; }
+
+/* =====================================================================
+   МОДАЛЬНЫЕ ОКНА И УВЕДОМЛЕНИЯ
+   ===================================================================== */
+.modal-bg {
+  position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center;
+  background: rgba(3, 5, 12, 0.72); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); padding: 16px;
+}
+.modal-bg.open { display: flex; animation: fadeIn .2s ease; }
+.modal {
+  width: min(560px, 100%); max-height: calc(100vh - 32px); overflow-y: auto;
+  background: linear-gradient(180deg, #151c31, #0f1526); border: 1px solid var(--border-2);
+  border-radius: 18px; padding: 20px; box-shadow: 0 30px 80px rgba(0,0,0,.6);
+}
+.modal .kicker { font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--warn); font-weight: 700; }
+.modal h2 { margin: 4px 0 8px; font-size: 20px; }
+.modal p { color: #c5cbe0; margin: 0 0 14px; }
+.choices { display: flex; flex-direction: column; gap: 10px; }
+.choice {
+  text-align: left; border: 1px solid var(--border-2); background: var(--panel-2); border-radius: 12px; padding: 12px 14px;
+  cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: border-color .15s, background .15s;
+}
+.choice:hover:not(:disabled) { border-color: rgba(124,156,255,.55); background: var(--panel-3); }
+.choice:disabled { opacity: .45; cursor: not-allowed; }
+.choice .cl { font-weight: 650; }
+.choice .cd { font-size: 12.5px; color: var(--muted); }
+.choice .cc { font-size: 12px; color: var(--warn); }
+.modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+.summary-list { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 0; font-size: 13px; }
+.summary-list div { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 4px 0; }
+
+.toasts { position: fixed; right: 16px; bottom: 16px; z-index: 60; display: flex; flex-direction: column; gap: 8px; max-width: min(360px, calc(100vw - 32px)); }
+.toast {
+  background: rgba(20, 27, 46, .96); border: 1px solid var(--border-2); border-left: 3px solid var(--accent);
+  border-radius: 11px; padding: 10px 12px; font-size: 13px; box-shadow: var(--shadow); animation: slideIn .25s ease;
+}
+.toast.good { border-left-color: var(--good); }
+.toast.bad { border-left-color: var(--bad); }
+.toast.warn { border-left-color: var(--warn); }
+.toast.gold { border-left-color: #f5c84c; }
+.toast.out { opacity: 0; transform: translateX(20px); transition: all .3s ease; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+@media (max-width: 760px) {
+  .toasts { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+  .toast { font-size: 12.5px; padding: 8px 10px; }
+  /* компактная левая колонка на телефоне */
+  .res-list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; }
+  .res-section { grid-column: 1 / -1; }
+  .click-btn { width: 78px; height: 78px; }
+  .click-info .big { font-size: 19px; }
+  .card { padding: 12px; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.hit-flash { position: fixed; inset: 0; pointer-events: none; z-index: 40; background: radial-gradient(circle, transparent 40%, rgba(248,113,113,.35)); opacity: 0; }
+.hit-flash.on { animation: hit .9s ease-out; }
+@keyframes hit { 0% { opacity: 1; } 100% { opacity: 0; } }
+body.shake .layout { animation: shake .45s ease; }
+@keyframes shake { 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="logo"><div class="moon"></div><div>Лунная утилизация<small>Станция переработки «Море Спокойствия»</small></div></div>
+  <div class="top-stats">
+    <span class="chip num" title="Кредиты"><span class="dot" style="background:#f5c84c"></span><span id="topCredits">0</span></span>
+    <span class="chip num" title="Лунные кристаллы (непотраченные)"><span class="crystal"></span><span id="topCrystals">0</span></span>
+    <span class="chip num" title="Жильцы"><span class="dot" style="background:#8ec5ff"></span><span id="topResidents">0</span></span>
+    <span class="chip num wave-chip" id="topWave" title="До следующей волны">Волна 1 · 0:00</span>
+    <span class="save-ind" id="saveInd"></span>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- ЛЕВАЯ КОЛОНКА: клик и ресурсы -->
+  <aside class="col-left">
+    <div class="card">
+      <div class="clicker">
+        <button class="click-btn" id="clickBtn" aria-label="Чистить пыль">ЧИСТИТЬ</button>
+        <div class="click-info">
+          <div class="muted" style="font-size:12px">Ручная уборка</div>
+          <div class="big num" id="clickPower">+1 пыль</div>
+          <div class="muted num" style="font-size:12px" id="clickSub">за клик</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Ресурсы <span class="dim" style="text-transform:none;letter-spacing:0">в секунду</span></h3>
+      <div class="res-list" id="resList"></div>
+    </div>
+    <div class="card" id="buffCard" style="display:none">
+      <h3>Активные эффекты</h3>
+      <div class="buffs" id="buffList"></div>
+    </div>
+  </aside>
+
+  <!-- ЦЕНТР: вкладки -->
+  <main class="col-main">
+    <div class="card scene-card" id="sceneCard">
+      <canvas id="scene" aria-label="Панорама лунной базы"></canvas>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="prod">Производство</button>
+      <button class="tab" data-tab="life">Жизнеобеспечение</button>
+      <button class="tab" data-tab="def">Оборона</button>
+      <button class="tab" data-tab="research">Исследования</button>
+      <button class="tab" data-tab="tech">Технологии</button>
+      <button class="tab" data-tab="ach">Достижения</button>
+      <button class="tab" data-tab="opts">Настройки</button>
+    </nav>
+
+    <div class="toolbar" id="buyToolbar">
+      <span class="muted" style="font-size:12px">Покупать по:</span>
+      <div class="seg" id="buySeg">
+        <button data-buy="1" class="active">×1</button>
+        <button data-buy="10">×10</button>
+        <button data-buy="max">Макс</button>
+      </div>
+    </div>
+
+    <section class="panel active" id="panel-prod">
+      <div class="card chain-card"><canvas id="chainFlow" height="92"></canvas></div>
+      <div class="grid" id="grid-prod"></div>
+    </section>
+
+    <section class="panel" id="panel-life">
+      <div class="card" style="margin-bottom:12px">
+        <h3>Колония</h3>
+        <div class="colony" id="colonyStats"></div>
+        <div class="needs" id="needsList"></div>
+      </div>
+      <div class="section-title">Энергия и системы жизнеобеспечения</div>
+      <div class="grid" id="grid-life"></div>
+    </section>
+
+    <section class="panel" id="panel-def">
+      <div class="card" style="margin-bottom:12px">
+        <h3>Оборонный штаб</h3>
+        <div class="colony" id="defStats"></div>
+        <div class="muted" style="font-size:12.5px;margin-top:10px" id="defHint"></div>
+      </div>
+      <div class="section-title">Оборонительные сооружения</div>
+      <div class="grid" id="grid-def"></div>
+    </section>
+
+    <section class="panel" id="panel-research">
+      <div class="muted" style="margin-bottom:12px;font-size:13px" id="researchInfo"></div>
+      <div id="researchGroups"></div>
+    </section>
+
+    <section class="panel" id="panel-tech">
+      <div class="card prestige-card">
+        <div>
+          <h3 style="margin-bottom:6px">Престиж: эвакуация базы</h3>
+          <div id="prestigeInfo" class="muted" style="font-size:13px"></div>
+        </div>
+        <button class="btn primary" id="prestigeBtn">Эвакуироваться</button>
+      </div>
+      <div class="tree" id="tree"></div>
+    </section>
+
+    <section class="panel" id="panel-ach">
+      <div class="muted" style="margin-bottom:10px" id="achSummary"></div>
+      <div class="ach-grid" id="achGrid"></div>
+    </section>
+
+    <section class="panel" id="panel-opts">
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+        <div class="card">
+          <h3>Сохранение</h3>
+          <p class="muted" style="margin:0 0 10px;font-size:13px">Игра сохраняется автоматически каждые 15 секунд и при закрытии вкладки.</p>
+          <div class="row" style="margin-bottom:10px">
+            <button class="btn" id="saveNow">Сохранить сейчас</button>
+            <button class="btn" id="exportBtn">Экспорт</button>
+            <button class="btn" id="copyBtn">Копировать</button>
+          </div>
+          <textarea id="saveText" placeholder="Сюда выводится код сохранения. Вставьте свой код и нажмите «Импорт»."></textarea>
+          <div class="row" style="margin-top:10px">
+            <button class="btn primary" id="importBtn">Импорт</button>
+            <button class="btn danger" id="resetBtn">Полный сброс</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Статистика</h3>
+          <table class="stats-table" id="statsTable"></table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ПРАВАЯ КОЛОНКА: волна, график, журнал -->
+  <aside class="col-right">
+    <div class="card wave-card" id="waveCard">
+      <div class="muted" style="font-size:12px" id="waveNum">Волна №1</div>
+      <div class="wave-name" id="waveName">—</div>
+      <div class="muted" style="font-size:12px" id="waveTypeHint"></div>
+      <div class="wave-timer num" id="waveTimer">0:00</div>
+      <div class="bar"><i id="waveBar" style="background:linear-gradient(90deg,#7c9cff,#f87171)"></i></div>
+      <div class="vs">
+        <div class="vs-row"><span class="muted">Угроза</span><div class="bar"><i id="threatBar" style="background:#f87171"></i></div><span class="num" id="threatVal" style="text-align:right">0</span></div>
+        <div class="vs-row"><span class="muted">Оборона</span><div class="bar"><i id="defBar" style="background:#7c9cff"></i></div><span class="num" id="defVal" style="text-align:right">0</span></div>
+      </div>
+      <div class="verdict ok" id="verdict">—</div>
+      <div class="chart-wrap">
+        <div class="muted" style="font-size:11.5px;margin-bottom:4px">Прошлые волны: <span style="color:#f87171">■</span> угроза <span style="color:#7c9cff">■</span> оборона</div>
+        <canvas id="waveChart" height="80"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3>График</h3>
+      <div class="chart-chips" id="chartChips"></div>
+      <canvas id="resChart" height="130"></canvas>
+    </div>
+    <div class="card">
+      <h3>Журнал базы</h3>
+      <div class="log" id="log"></div>
+    </div>
+  </aside>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
+<div class="toasts" id="toasts"></div>
+<div class="hit-flash" id="hitFlash"></div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   1. БАЛАНС
+   Все числа игры собраны здесь. Меняйте смело — остальной код читает
+   значения только отсюда.
+   ===================================================================== */
+const BALANCE = {
+  tickSeconds: 0.1,          // фиксированный шаг симуляции
+  costGrowth: 1.15,          // множитель цены за каждую покупку здания
+  autosaveSeconds: 15,
+
+  click: { base: 1 },        // пыль за клик
+
+  offline: {
+    efficiency: 0.5,         // доля времени отсутствия, которая симулируется
+    maxHours: 8,             // предел офлайн-прогресса
+    minSeconds: 60,          // разрыв дольше этого считается «офлайном»
+  },
+
+  storage: {                 // ёмкость хранилищ «текучих» ресурсов
+    energyBase: 100, energyPerSolar: 50,
+    lifeBase: 100, lifePerBuilding: 40,
+  },
+
+  residents: {
+    housingPerDome: 5,                                   // мест в одном куполе
+    needs: { oxygen: 0.10, heat: 0.10, food: 0.08 },     // потребление на жильца в секунду
+    tax: 0.25,                                           // кредитов с жильца в секунду
+    immigrationBase: 0.15,                               // прибытие жильцов в секунду
+    immigrationPct: 0.02,                                // + доля от вместимости в секунду
+    leaveRate: 0.06,                                     // скорость отъезда при дефиците
+  },
+
+  /* Здания.
+     cost — базовая цена, prod/cons — производство/потребление одного здания в секунду,
+     unlock — порог максимума ресурса за забег, при котором здание появляется. */
+  buildings: {
+    worker:      { cat: 'prod', name: 'Рабочий-уборщик', desc: 'Метёт лунную пыль в контейнеры.',
+                   cost: { dust: 10 }, prod: { dust: 0.4 } },
+    autoclicker: { cat: 'prod', auto: true, name: 'Автоклик-манипулятор', desc: 'Механическая рука, повторяет ваш клик.',
+                   cost: { dust: 60 }, clicks: 1, unlock: { dust: 30 } },
+    sinter:      { cat: 'prod', name: 'Печь спекания', desc: 'Спекает пыль в плотный реголит.',
+                   cost: { dust: 80 }, cons: { dust: 3 }, prod: { regolith: 1 }, unlock: { dust: 40 } },
+    drone:       { cat: 'prod', auto: true, name: 'Дрон-сборщик', desc: 'Автономно прочёсывает кратеры.',
+                   cost: { dust: 300, regolith: 30 }, prod: { dust: 5 }, unlock: { regolith: 20 } },
+    press:       { cat: 'prod', name: 'Кирпичный пресс', desc: 'Прессует реголит в строительные блоки.',
+                   cost: { dust: 150, regolith: 80 }, cons: { regolith: 2, energy: 0.5 }, prod: { bricks: 1 }, unlock: { regolith: 30 } },
+    shipyard:    { cat: 'prod', name: 'Купольная верфь', desc: 'Собирает жилые купола из кирпичей.',
+                   cost: { dust: 300, bricks: 120 }, cons: { bricks: 2, energy: 1 }, prod: { domes: 0.025 }, unlock: { bricks: 15 } },
+    factory:     { cat: 'prod', auto: true, name: 'Нанофабрика', desc: 'Оптимизирует всю цепочку переработки.',
+                   cost: { bricks: 250, credits: 200 }, bonus: 0.08, unlock: { credits: 50 } },
+
+    solar:       { cat: 'life', name: 'Солнечная панель', desc: 'Источник энергии для всей базы.',
+                   cost: { dust: 50, regolith: 8 }, prod: { energy: 1.5 }, unlock: { regolith: 3 } },
+    oxygen:      { cat: 'life', name: 'Генератор O₂', desc: 'Электролиз кислорода из реголита.',
+                   cost: { regolith: 40, bricks: 15 }, cons: { energy: 0.5 }, prod: { oxygen: 2 }, unlock: { bricks: 5 } },
+    heater:      { cat: 'life', name: 'Обогреватель', desc: 'Не даёт куполам промёрзнуть лунной ночью.',
+                   cost: { regolith: 40, bricks: 15 }, cons: { energy: 0.5 }, prod: { heat: 2 }, unlock: { bricks: 5 } },
+    greenhouse:  { cat: 'life', name: 'Теплица', desc: 'Гидропоника под искусственным солнцем.',
+                   cost: { regolith: 60, bricks: 25 }, cons: { energy: 0.4 }, prod: { food: 1.5 }, unlock: { bricks: 5 } },
+
+    turret:      { cat: 'def', name: 'Турель «Игла»', desc: 'Сбивает цели кинетическими иглами.',
+                   cost: { dust: 100, regolith: 20 }, cons: { energy: 0.3 }, power: 4, unlock: { regolith: 5 } },
+    shield:      { cat: 'def', name: 'Щит-купол', desc: 'Энергетический барьер над базой.',
+                   cost: { bricks: 60, credits: 40 }, cons: { energy: 1 }, power: 10, unlock: { bricks: 20 } },
+    repair:      { cat: 'def', name: 'Ремонтная станция', desc: 'Сама чинит сломанные здания, пока есть кирпичи.',
+                   cost: { bricks: 100, credits: 80 }, cons: { energy: 0.4, bricks: 0.3 }, unlock: { credits: 30 } },
+  },
+
+  factoryChain: ['dust', 'regolith', 'bricks', 'domes'],   // на что действует нанофабрика
+
+  repair: { costFraction: 0.35 },   // ручной ремонт = доля текущей цены здания
+  repairStation: {
+    interval: 20,                   // секунд на один ремонт одной станцией
+    breakReduction: 0.04,           // каждая станция снижает число поломок на 4%
+    breakReductionCap: 0.4,
+  },
+
+  waves: {
+    firstDelay: 270,                // секунд до первой волны
+    intervalMin: 120, intervalMax: 180,
+    baseStrength: 3,                // сила первой волны
+    growth: 1.22,                   // рост силы за каждую отбитую волну
+    garrison: 4,                    // постоянная мощь охраны базы: без энергии и строительства
+    growthOnLoss: 0,                // рост уровня угрозы после прорыва (0 — передышка, база успевает восстановиться)
+    maxBreakShare: 0.2,             // прорыв ломает не больше этой доли работающих зданий
+    jitter: 0.1,                    // случайный разброс силы ±10%
+    forecastSpread: 0.25,           // неточность прогноза ±25%
+    rewardPerStrength: 6,           // кредитов за единицу силы отбитой волны
+    breakBase: 2,                   // поломок при полном провале
+    breakPerWave: 0.35,             // + поломок за номер волны
+    types: {
+      meteor: { name: 'Метеоритный дождь', turret: 0.6, shield: 1.5, hint: 'Щиты ×1.5, турели ×0.6' },
+      raiders: { name: 'Лунные мародёры', turret: 1.4, shield: 0.7, steal: 0.3, hint: 'Турели ×1.4, щиты ×0.7, крадут ресурсы' },
+      robots: { name: 'Сбойные роботы', turret: 1.0, shield: 1.0, autoWeight: 4, hint: 'Бьют по автоматике' },
+    },
+  },
+
+  prestige: {
+    creditsPerCrystal: 1000,        // кристаллы = √(кредиты за забег / это число)
+    wavesPerCrystal: 5,             // + 1 кристалл за каждые N отбитых волн
+    bonusPerCrystal: 0.02,          // +2% ко всему производству за каждый полученный кристалл
+  },
+
+  achievementBonus: 0.01,           // +1% производства за достижение
+
+  /* Дерево улучшений (покупается кристаллами, сохраняется при престиже).
+     per — сила эффекта за уровень, cost — цена 1-го уровня, costMult — рост цены. */
+  tree: {
+    eco1: { branch: 'eco', req: null,   max: 5, cost: 1, costMult: 1.6, per: 0.25 },
+    eco2: { branch: 'eco', req: 'eco1', max: 5, cost: 2, costMult: 1.6, per: 0.15 },
+    eco3: { branch: 'eco', req: 'eco1', max: 5, cost: 2, costMult: 1.6, per: 0.20 },
+    eco4: { branch: 'eco', req: 'eco2', max: 3, cost: 3, costMult: 1.8, per: 0.10 },
+    eco5: { branch: 'eco', req: 'eco3', max: 3, cost: 3, costMult: 2.0, per: 1 },
+    def1: { branch: 'def', req: null,   max: 5, cost: 1, costMult: 1.6, per: 0.20 },
+    def2: { branch: 'def', req: 'def1', max: 5, cost: 2, costMult: 1.6, per: 0.20 },
+    def3: { branch: 'def', req: 'def1', max: 3, cost: 2, costMult: 1.8, per: 0.08 },
+    def4: { branch: 'def', req: 'def2', max: 3, cost: 3, costMult: 1.8, per: 0.20 },
+    def5: { branch: 'def', req: 'def3', max: 3, cost: 3, costMult: 1.8, per: 0.50 },
+    aut1: { branch: 'aut', req: null,   max: 5, cost: 1, costMult: 1.6, per: 1 },
+    aut2: { branch: 'aut', req: 'aut1', max: 5, cost: 2, costMult: 1.6, per: 0.25 },
+    aut3: { branch: 'aut', req: 'aut1', max: 3, cost: 2, costMult: 1.8, per: 0.15 },
+    aut4: { branch: 'aut', req: 'aut2', max: 3, cost: 4, costMult: 2.0, per: 0.01 },
+    aut5: { branch: 'aut', req: 'aut3', max: 3, cost: 3, costMult: 1.8, per: 0.25 },
+  },
+  startKit: { dust: 200, regolith: 60, bricks: 25 },   // стартовый набор за уровень eco5
+
+  /* Исследования: покупаются кредитами, сбрасываются при эвакуации.
+     Уровни бесконечные (если не задан max), цена = cost × costMult^уровень. */
+  research: {
+    brushes:    { cost: 40,  costMult: 1.5,  per: 0.12 },            // +12% добычи пыли
+    logistics:  { cost: 100, costMult: 1.55, per: 0.10 },            // +10% реголита, кирпичей, куполов
+    turretCal:  { cost: 60,  costMult: 1.45, per: 0.15 },            // +15% мощи турелей
+    shieldHarm: { cost: 150, costMult: 1.45, per: 0.15 },            // +15% мощи щитов
+    armor:      { cost: 200, costMult: 1.7,  per: 0.08, max: 6 },    // −8% поломок
+    recycling:  { cost: 150, costMult: 1.65, per: 0.06, max: 10 },   // −6% потребностей жильцов (мультипликативно)
+    density:    { cost: 300, costMult: 1.8,  per: 1 },               // +1 место в каждом куполе
+  },
+
+  events: {
+    firstDelay: 90, intervalMin: 70, intervalMax: 150,
+    /* Параметры конкретных событий. *Sec — цена в секундах текущего производства,
+       *Min — минимальная цена, *Dur — длительность эффекта, *Mult — множитель. */
+    tuning: {
+      dustStorm: { dur: 60, shelterMult: 0.5, workMult: 1.6 },
+      cache:     { dustSec: 120, dustMin: 150, regSec: 120, regMin: 30, credSec: 90, credMin: 40 },
+      crack:     { patchSec: 60, patchMin: 30, evacuate: 0.2, riskChance: 0.5, riskResidents: 0.3 },
+      refugees:  { acceptPct: 0.3, foodSec: 60, foodMin: 20, engSec: 60, engMin: 60, engMult: 1.25, engDur: 180, refuseTax: 0.85, refuseDur: 120 },
+      flare:     { shelterMult: 0.3, shelterDur: 45, overMult: 2.5, overDur: 60, overBreakChance: 0.35, overBreakMax: 3 },
+      caravan:   { regSec: 90, regMin: 100, credPerReg: 0.4, droneSec: 120, droneMin: 150, drones: 2 },
+      strike:    { foodSec: 60, foodMin: 25, rationMult: 1.15, rationDur: 120, forceMult: 1.4, forceDur: 90, forceLeave: 0.15, ignoreMult: 0.5, ignoreDur: 120 },
+      probe:     { studySec: 90, studyMin: 80, studyWave: 0.7, sellSec: 150, sellMin: 100, scrapSec: 120, scrapMin: 40 },
+      leak:      { bricksSec: 60, bricksMin: 25, energyCost: 40, sealO2: 0.6, sealResidents: 0.1 },
+      truce:     { tributeSec: 120, tributeMin: 100, tributeWave: 0.5, mercSec: 200, mercMin: 180, mercMult: 1.5, mercWaves: 2, refuseWave: 1.25, refuseReward: 2 },
+    },
+  },
+
+  history: { sampleSeconds: 2, points: 150 },   // точки графика
+};
+
+/* =====================================================================
+   2. СПРАВОЧНИКИ: ресурсы, тексты дерева, достижения
+   ===================================================================== */
+const RES = {
+  dust:     { name: 'Пыль', gen: 'пыли',      color: '#b8b2a7', group: 'Цепочка' },
+  regolith: { name: 'Реголит', gen: 'реголита',   color: '#d9a75f', group: 'Цепочка' },
+  bricks:   { name: 'Кирпичи', gen: 'кирпичей',   color: '#e57c5d', group: 'Цепочка' },
+  domes:    { name: 'Купола', gen: 'куполов',    color: '#8ec5ff', group: 'Цепочка' },
+  credits:  { name: 'Кредиты', gen: 'кредитов',   color: '#f5c84c', group: 'Финансы' },
+  energy:   { name: 'Энергия', gen: 'энергии',   color: '#a78bfa', group: 'Жизнеобеспечение', capped: true },
+  oxygen:   { name: 'Кислород', gen: 'кислорода',  color: '#5eead4', group: 'Жизнеобеспечение', capped: true },
+  heat:     { name: 'Тепло', gen: 'тепла',     color: '#fb923c', group: 'Жизнеобеспечение', capped: true },
+  food:     { name: 'Еда', gen: 'еды',       color: '#86efac', group: 'Жизнеобеспечение', capped: true },
+};
+const RES_KEYS = Object.keys(RES);
+const CAT_COLOR = { prod: '#d9a75f', life: '#5eead4', def: '#7c9cff' };
+const BUILD_ORDER = Object.keys(BALANCE.buildings);   // порядок важен: кто раньше — тот первым получает ресурсы
+// конвертеры — здания, которые перерабатывают один ресурс цепочки в другой
+const CONVERTERS = BUILD_ORDER.filter(id => { const d = BALANCE.buildings[id]; return d.prod && d.cons && Object.keys(d.cons).some(r => BALANCE.factoryChain.includes(r)); });
+
+const BRANCHES = {
+  eco: { name: 'Экономика',     color: '#f5c84c' },
+  def: { name: 'Оборона',       color: '#7c9cff' },
+  aut: { name: 'Автоматизация', color: '#5eead4' },
+};
+const RESEARCH_TEXT = {
+  brushes:    { name: 'Абразивные щётки',  group: 'Экономика', desc: p => `+${pct(p)} к добыче пыли за уровень` },
+  logistics:  { name: 'Логистика цепочки', group: 'Экономика', desc: p => `+${pct(p)} к выходу реголита, кирпичей и куполов` },
+  density:    { name: 'Плотная застройка', group: 'Колония',   desc: p => `+${p} место в каждом куполе` },
+  recycling:  { name: 'Рециркуляция',      group: 'Колония',   desc: p => `−${pct(p)} к потреблению воздуха, тепла и еды` },
+  turretCal:  { name: 'Калибровка турелей', group: 'Оборона',  desc: p => `+${pct(p)} к мощи турелей` },
+  shieldHarm: { name: 'Гармоники щитов',   group: 'Оборона',   desc: p => `+${pct(p)} к мощи щитов` },
+  armor:      { name: 'Бронирование',      group: 'Оборона',   desc: p => `−${pct(p)} поломок при прорыве` },
+};
+const TREE_TEXT = {
+  eco1: { name: 'Глубокая экскавация', desc: p => `+${pct(p)} к добыче пыли за уровень` },
+  eco2: { name: 'Плотная упаковка',    desc: p => `+${pct(p)} к выходу реголита, кирпичей и куполов` },
+  eco3: { name: 'Налоговая реформа',   desc: p => `+${pct(p)} к налогам жильцов` },
+  eco4: { name: 'Замкнутый цикл',      desc: p => `−${pct(p)} к потреблению воздуха, тепла и еды` },
+  eco5: { name: 'Стартовый капитал',   desc: () => `После эвакуации база стартует с запасом ресурсов` },
+  def1: { name: 'Закалённые иглы',     desc: p => `+${pct(p)} к мощи турелей` },
+  def2: { name: 'Фазовые щиты',        desc: p => `+${pct(p)} к мощи щитов` },
+  def3: { name: 'Дальний радар',       desc: p => `Прогноз волн точнее на ${pct(p)}` },
+  def4: { name: 'Аварийные протоколы', desc: p => `−${pct(p)} поломок при прорыве` },
+  def5: { name: 'Охота за трофеями',   desc: p => `+${pct(p)} к награде за отбитую волну` },
+  aut1: { name: 'Сервоприводы',        desc: p => `+${p} пыли к каждому клику` },
+  aut2: { name: 'Рой дронов',          desc: p => `+${pct(p)} к производству дронов` },
+  aut3: { name: 'Офлайн-ядро',         desc: p => `+${pct(p)} к эффективности офлайн-прогресса` },
+  aut4: { name: 'Самосборка',          desc: p => `Множитель цены зданий −${p}` },
+  aut5: { name: 'Ремонтные наниты',    desc: p => `Ремонт дешевле и станции быстрее на ${pct(p)}` },
+};
+
+/* Достижения: check(state) → true, когда выполнено. */
+const ACHIEVEMENTS = [
+  { id: 'click1',    name: 'Первая метла',       desc: 'Сделать первый клик',            check: s => s.stats.clicks >= 1 },
+  { id: 'click500',  name: 'Мозоли',             desc: 'Сделать 500 кликов',             check: s => s.stats.clicks >= 500 },
+  { id: 'click3k',   name: 'Пылесос в душе',     desc: 'Сделать 3000 кликов',            check: s => s.stats.clicks >= 3000 },
+  { id: 'reg',       name: 'Алхимия спекания',   desc: 'Получить первый реголит',        check: s => s.peak.regolith >= 1 },
+  { id: 'brick',     name: 'Кирпичик к кирпичику', desc: 'Получить первый кирпич',       check: s => s.peak.bricks >= 1 },
+  { id: 'dome',      name: 'Крыша над головой',  desc: 'Построить первый купол',         check: s => s.peak.domes >= 1 },
+  { id: 'res1',      name: 'Новосёлы',           desc: 'Заселить первого жильца',        check: s => s.residents >= 1 },
+  { id: 'res50',     name: 'Посёлок',            desc: '50 жильцов одновременно',        check: s => s.residents >= 50 },
+  { id: 'res250',    name: 'Лунный город',       desc: '250 жильцов одновременно',       check: s => s.residents >= 250 },
+  { id: 'bld50',     name: 'Стройка века',       desc: 'Иметь 50 зданий',                check: s => totalBuildings(s) >= 50 },
+  { id: 'bld200',    name: 'Промзона',           desc: 'Иметь 200 зданий',               check: s => totalBuildings(s) >= 200 },
+  { id: 'wave1',     name: 'Первая кровь',       desc: 'Отбить волну',                   check: s => s.stats.wavesWon >= 1 },
+  { id: 'wave10',    name: 'Несокрушимые',       desc: 'Отбить 10 волн за всё время',    check: s => s.stats.wavesWon >= 10 },
+  { id: 'waveN15',   name: 'Пятнадцатый рубеж',  desc: 'Дожить до 15-й волны',           check: s => s.wave.num >= 15 },
+  { id: 'lost',      name: 'Боевое крещение',    desc: 'Пережить прорыв обороны',        check: s => s.stats.wavesLost >= 1 },
+  { id: 'cr1k',      name: 'Бюджет колонии',     desc: 'Заработать 1 тыс. кредитов',     check: s => s.stats.totalCredits >= 1e3 },
+  { id: 'cr100k',    name: 'Лунный банкир',      desc: 'Заработать 100 тыс. кредитов',   check: s => s.stats.totalCredits >= 1e5 },
+  { id: 'cr10m',     name: 'Олигарх кратера',    desc: 'Заработать 10 млн кредитов',     check: s => s.stats.totalCredits >= 1e7 },
+  { id: 'events5',   name: 'Трудные решения',    desc: 'Принять 5 решений в событиях',   check: s => s.stats.events >= 5 },
+  { id: 'events25',  name: 'Совет колонии',      desc: 'Принять 25 решений в событиях',  check: s => s.stats.events >= 25 },
+  { id: 'prestige1', name: 'Новое начало',       desc: 'Совершить эвакуацию (престиж)',  check: s => s.prestige.count >= 1 },
+  { id: 'prestige5', name: 'Кочевники Луны',     desc: 'Совершить 5 эвакуаций',          check: s => s.prestige.count >= 5 },
+  { id: 'tree10',    name: 'Технократ',          desc: 'Купить 10 уровней улучшений',    check: s => Object.values(s.tree).reduce((a, b) => a + b, 0) >= 10 },
+];
+
+/* =====================================================================
+   3. УТИЛИТЫ
+   ===================================================================== */
+const $ = (sel, root = document) => root.querySelector(sel);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+const randInt = (a, b) => Math.floor(rand(a, b + 1));
+const pct = x => `${Math.round(x * 100)}%`;
+const SUFFIXES = ['', ' тыс.', ' млн', ' млрд', ' трлн', ' квдрлн', ' квинтлн', ' секстлн'];
+
+/** Форматирование чисел: 12.3 · 1 234 · 12.3 тыс. · 4.56 млн … */
+function fmt(x, digits = 1) {
+  if (!isFinite(x)) return '∞';
+  const sign = x < 0 ? '−' : '';
+  const a = Math.abs(x);
+  if (a < 1000) {
+    if (a === 0) return '0';
+    if (a < 10) return sign + trimZeros(a.toFixed(a < 0.1 ? 3 : digits + (a < 1 ? 1 : 0)));
+    if (a < 100) return sign + trimZeros(a.toFixed(digits));
+    return sign + Math.floor(a);
+  }
+  const tier = Math.floor(Math.log10(a) / 3);
+  if (tier < SUFFIXES.length) {
+    const v = a / Math.pow(1000, tier);
+    return sign + trimZeros(v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0)) + SUFFIXES[tier];
+  }
+  return sign + a.toExponential(2).replace('+', '');
+}
+function trimZeros(s) { return s.includes('.') ? s.replace(/\.?0+$/, '') : s; }
+function fmtRate(x) { if (Math.abs(x) < 0.0005) return '0/с'; return (x > 0 ? '+' : '') + fmt(x, 2) + '/с'; }
+function fmtTime(sec) {
+  sec = Math.max(0, Math.ceil(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
+function fmtCost(cost) { return Object.entries(cost).map(([r, v]) => `${fmt(v)} ${RES[r].gen}`).join(', '); }
+function plural(n, one, few, many) {
+  n = Math.abs(Math.floor(n)) % 100; const n1 = n % 10;
+  if (n > 10 && n < 20) return many; if (n1 > 1 && n1 < 5) return few; if (n1 === 1) return one; return many;
+}
+function weightedPick(items, weightFn) {
+  const total = items.reduce((a, it) => a + weightFn(it), 0);
+  if (total <= 0) return null;
+  let r = Math.random() * total;
+  for (const it of items) { r -= weightFn(it); if (r <= 0) return it; }
+  return items[items.length - 1];
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+/* =====================================================================
+   4. СОСТОЯНИЕ ИГРЫ
+   ===================================================================== */
+const SAVE_KEY = 'lunar-recycling-save-v1';
+let state;
+
+/** Чистое состояние нового забега. */
+function newState() {
+  const s = {
+    v: 1,
+    time: 0,                               // игровое время забега, с
+    res: Object.fromEntries(RES_KEYS.map(r => [r, 0])),
+    peak: Object.fromEntries(RES_KEYS.map(r => [r, 0])),   // максимум за забег (для открытия зданий)
+    residents: 0,
+    b: Object.fromEntries(BUILD_ORDER.map(id => [id, { n: 0, broken: 0, off: false }])),
+    unlocked: {},
+    wave: { num: 1, level: 0, timeLeft: 0, total: 0, type: 'meteor', strength: 0, lo: 0, hi: 0 },
+    research: {},                          // исследования за кредиты (сбрасываются при эвакуации)
+    waveHistory: [],
+    waveMod: 1, rewardMod: 1, mercWaves: 0,  // модификаторы от событий
+    event: { nextIn: BALANCE.events.firstDelay, active: null, last: null },
+    buffs: [],
+    repairProgress: 0,
+    run: { credits: 0, wavesWon: 0 },
+    prestige: { crystals: 0, total: 0, count: 0 },
+    tree: {},
+    ach: {},
+    stats: { clicks: 0, totalCredits: 0, wavesWon: 0, wavesLost: 0, events: 0, maxResidents: 0, totalTime: 0, bestWave: 1, buildingsBought: 0 },
+    log: [],
+    settings: { buy: '1' },
+    lastSave: Date.now(),
+  };
+  scheduleWave(s, BALANCE.waves.firstDelay);
+  return s;
+}
+
+/** Накладывает сохранение на свежее состояние — так новые поля из обновлений получают значения по умолчанию. */
+function mergeDeep(base, saved) {
+  if (saved === null || typeof saved !== 'object' || Array.isArray(saved)) return saved === undefined ? base : saved;
+  const out = Array.isArray(base) ? [] : { ...base };
+  for (const k of Object.keys(saved)) {
+    out[k] = (base && typeof base[k] === 'object' && base[k] !== null && !Array.isArray(base[k]))
+      ? mergeDeep(base[k], saved[k]) : saved[k];
+  }
+  return out;
+}
+
+/* Неперсистентные данные (пересчитываются на лету) */
+const FLOW = { prod: {}, cons: {}, t: 0 };           // накопители потоков за текущую секунду
+const RATE = { prod: {}, cons: {}, net: {} };        // сглаженные скорости в секунду
+const EFF = {};                                      // загрузка каждого типа зданий (0..1) на последнем шаге
+let lastSatisfaction = 1;                            // удовлетворённость жильцов
+let residentRate = 0, residentAcc = 0;
+let HIST = [];                                       // история для графика
+let histTimer = 0, secondTimer = 0;
+let offlineSim = false;
+let QUIET = false;                                   // симулятор баланса: без уведомлений, анимаций и окон                              // во время офлайн-симуляции волны и события на паузе
+RES_KEYS.forEach(r => { FLOW.prod[r] = 0; FLOW.cons[r] = 0; RATE.prod[r] = 0; RATE.cons[r] = 0; RATE.net[r] = 0; });
+
+/* =====================================================================
+   5. ЭКОНОМИКА: множители, цены, покупки
+   ===================================================================== */
+const lvl = id => state.tree[id] || 0;
+const rl = id => (state.research && state.research[id]) || 0;     // уровень исследования
+const rp = id => BALANCE.research[id].per;
+const turretMult = () => (1 + lvl('def1') * tp('def1')) * (1 + rl('turretCal') * rp('turretCal'));
+const shieldMult = () => (1 + lvl('def2') * tp('def2')) * (1 + rl('shieldHarm') * rp('shieldHarm'));
+const tp = id => BALANCE.tree[id].per;
+const bOf = id => state.b[id];
+const nEff = id => Math.max(0, state.b[id].n - state.b[id].broken);
+const totalBuildings = s => BUILD_ORDER.reduce((a, id) => a + s.b[id].n, 0);
+const totalBroken = () => BUILD_ORDER.reduce((a, id) => a + state.b[id].broken, 0);
+const achCount = () => Object.keys(state.ach).length;
+
+function buffMult(key) {
+  let m = 1;
+  for (const b of state.buffs) if (b.key === key) m *= b.mult;
+  return m;
+}
+/** Общий множитель: кристаллы × достижения × глобальные баффы. */
+function globalMult() {
+  return (1 + state.prestige.total * BALANCE.prestige.bonusPerCrystal)
+       * (1 + achCount() * BALANCE.achievementBonus)
+       * buffMult('all');
+}
+function factoryMult() { return 1 + nEff('factory') * BALANCE.buildings.factory.bonus; }
+
+/** Множитель выхода ресурса res у здания id. */
+function outMult(id, res) {
+  let m = globalMult() * buffMult(res);
+  if (res === 'dust') m *= (1 + lvl('eco1') * tp('eco1')) * (1 + rl('brushes') * rp('brushes'));
+  if (id === 'drone') m *= 1 + lvl('aut2') * tp('aut2');
+  if (res === 'regolith' || res === 'bricks' || res === 'domes') m *= (1 + lvl('eco2') * tp('eco2')) * (1 + rl('logistics') * rp('logistics'));
+  if (BALANCE.factoryChain.includes(res)) m *= factoryMult();
+  return m;
+}
+function clickPower() { return BALANCE.click.base + lvl('aut1') * tp('aut1'); }
+function clickGain() { return clickPower() * outMult('click', 'dust'); }
+function taxMult() { return globalMult() * (1 + lvl('eco3') * tp('eco3')) * buffMult('tax'); }
+function needMult() { return Math.max(0.1, 1 - lvl('eco4') * tp('eco4')) * Math.pow(1 - rp('recycling'), rl('recycling')); }
+function housingPerDome() { return BALANCE.residents.housingPerDome + rl('density') * rp('density'); }
+function housing() { return Math.floor(state.res.domes) * housingPerDome(); }
+function costGrowth() { return Math.max(1.05, BALANCE.costGrowth - lvl('aut4') * tp('aut4')); }
+
+function capOf(res) {
+  const S = BALANCE.storage;
+  switch (res) {
+    case 'energy': return S.energyBase + S.energyPerSolar * state.b.solar.n;
+    case 'oxygen': return S.lifeBase + S.lifePerBuilding * state.b.oxygen.n;
+    case 'heat':   return S.lifeBase + S.lifePerBuilding * state.b.heater.n;
+    case 'food':   return S.lifeBase + S.lifePerBuilding * state.b.greenhouse.n;
+    default: return Infinity;
+  }
+}
+
+/** Стоимость покупки amount штук здания: сумма геометрической прогрессии. */
+function costFor(id, amount) {
+  const def = BALANCE.buildings[id], n = state.b[id].n, g = costGrowth();
+  const f = Math.pow(g, n) * (Math.pow(g, amount) - 1) / (g - 1);
+  const out = {};
+  for (const r in def.cost) out[r] = Math.ceil(def.cost[r] * f);
+  return out;
+}
+/** Сколько штук здания можно купить прямо сейчас. */
+function maxAffordable(id) {
+  const def = BALANCE.buildings[id], n = state.b[id].n, g = costGrowth();
+  let m = Infinity;
+  for (const r in def.cost) {
+    const first = def.cost[r] * Math.pow(g, n);
+    const k = Math.floor(Math.log(state.res[r] * (g - 1) / first + 1) / Math.log(g));
+    m = Math.min(m, k);
+  }
+  m = Math.max(0, m);
+  while (m > 0 && !canAfford(costFor(id, m))) m--;   // защита от погрешности округления
+  return m;
+}
+function canAfford(cost) { for (const r in cost) if (state.res[r] < cost[r] - 1e-9) return false; return true; }
+function pay(cost) { for (const r in cost) state.res[r] -= cost[r]; }
+function buyAmountFor(id) {
+  const mode = state.settings.buy;
+  return mode === 'max' ? maxAffordable(id) : Number(mode);
+}
+function buyBuilding(id) {
+  const amount = buyAmountFor(id);
+  if (amount <= 0) return;
+  const cost = costFor(id, amount);
+  if (!canAfford(cost)) return;
+  pay(cost);
+  state.b[id].n += amount;
+  state.stats.buildingsBought += amount;
+  render(true);
+}
+/** Пауза для зданий-потребителей: например, остановить печи, чтобы накопить пыль на покупку. */
+function toggleBuilding(id) {
+  const b = state.b[id];
+  b.off = !b.off;
+  log(`${BALANCE.buildings[id].name}: ${b.off ? 'остановлено' : 'запущено'}`, 'info');
+  render(true);
+}
+function repairCost(id) {
+  const def = BALANCE.buildings[id], g = costGrowth(), n = Math.max(0, state.b[id].n - 1);
+  const k = BALANCE.repair.costFraction * Math.pow(g, n) * Math.max(0.1, 1 - lvl('aut5') * tp('aut5'));
+  const out = {};
+  for (const r in def.cost) out[r] = Math.ceil(def.cost[r] * k);
+  return out;
+}
+function repairBuilding(id) {
+  const b = state.b[id];
+  if (b.broken <= 0) return;
+  const cost = repairCost(id);
+  if (!canAfford(cost)) return;
+  pay(cost);
+  b.broken--;
+  render(true);
+}
+function isUnlocked(id) {
+  if (state.unlocked[id]) return true;
+  const def = BALANCE.buildings[id];
+  if (!def.unlock) return (state.unlocked[id] = true);
+  for (const r in def.unlock) if (state.peak[r] < def.unlock[r]) return false;
+  state.unlocked[id] = true;
+  log(`Открыто новое здание: ${def.name}`, 'info');
+  return true;
+}
+
+/* Изменение ресурсов с учётом статистики потоков */
+function gain(res, x) {
+  if (x <= 0) return;
+  state.res[res] += x;
+  FLOW.prod[res] += x;
+  if (res === 'credits') { state.run.credits += x; state.stats.totalCredits += x; }
+}
+function spend(res, x) {
+  if (x <= 0) return;
+  state.res[res] = Math.max(0, state.res[res] - x);
+  FLOW.cons[res] += x;
+}
+function addResource(res, x) {   // разовые изменения (события, награды)
+  if (x > 0) gain(res, x); else state.res[res] = Math.max(0, state.res[res] + x);
+}
+
+/* =====================================================================
+   6. СИМУЛЯЦИЯ — один фиксированный шаг
+   ===================================================================== */
+function tick(dt) {
+  const s = state;
+  s.time += dt;
+  s.stats.totalTime += dt;
+
+  // 6.1 Автокликеры
+  const ac = nEff('autoclicker');
+  if (ac > 0) gain('dust', ac * BALANCE.buildings.autoclicker.clicks * clickGain() * dt);
+
+  // 6.2 Здания по порядку: каждое берёт входные ресурсы, сколько есть, и выдаёт продукт пропорционально
+  const anyBroken = totalBroken() > 0;
+  for (const id of BUILD_ORDER) {
+    const def = BALANCE.buildings[id];
+    const n = nEff(id);
+    if (n <= 0) { EFF[id] = 0; continue; }
+    if (!def.prod && !def.cons) { EFF[id] = 1; continue; }
+    if (s.b[id].off) { EFF[id] = 0; continue; }                      // здание поставлено на паузу игроком
+    if (id === 'repair' && !anyBroken) { EFF[id] = 1; continue; }   // станции простаивают без поломок
+    let ratio = 1;
+    if (def.cons) {
+      for (const r in def.cons) {
+        const need = def.cons[r] * n * dt;
+        if (need > 0) ratio = Math.min(ratio, s.res[r] / need);
+      }
+      ratio = clamp(ratio, 0, 1);
+      for (const r in def.cons) spend(r, def.cons[r] * n * dt * ratio);
+    }
+    if (def.prod) for (const r in def.prod) gain(r, def.prod[r] * n * dt * ratio * outMult(id, r));
+    EFF[id] = ratio;
+  }
+
+  // 6.3 Жильцы, ремонт, ограничения складов
+  residentsTick(dt);
+  repairTick(dt);
+  for (const r of RES_KEYS) {
+    const cap = capOf(r);
+    if (s.res[r] > cap) s.res[r] = cap;
+    if (s.res[r] > s.peak[r]) s.peak[r] = s.res[r];
+  }
+
+  // 6.4 Временные эффекты, волны, события
+  if (s.buffs.length) s.buffs = s.buffs.filter(b => b.until > s.time);
+  if (!offlineSim) {
+    s.wave.timeLeft -= dt;
+    if (s.wave.timeLeft <= 0) resolveWave();
+    if (!s.event.active) {
+      s.event.nextIn -= dt;
+      if (s.event.nextIn <= 0) triggerEvent();
+    }
+  }
+
+  // 6.5 Раз в секунду: сглаженные скорости, открытия, достижения
+  secondTimer += dt;
+  if (secondTimer >= 1) {
+    for (const r of RES_KEYS) {
+      const p = FLOW.prod[r] / secondTimer, c = FLOW.cons[r] / secondTimer;
+      RATE.prod[r] = RATE.prod[r] * 0.5 + p * 0.5;
+      RATE.cons[r] = RATE.cons[r] * 0.5 + c * 0.5;
+      RATE.net[r] = RATE.prod[r] - RATE.cons[r];
+      FLOW.prod[r] = 0; FLOW.cons[r] = 0;
+    }
+    residentRate = residentRate * 0.5 + (residentAcc / secondTimer) * 0.5; residentAcc = 0;
+    secondTimer = 0;
+    BUILD_ORDER.forEach(isUnlocked);
+    if (s.residents > s.stats.maxResidents) s.stats.maxResidents = s.residents;
+    if (!offlineSim) checkAchievements();
+  }
+
+  // 6.6 История для графика
+  histTimer += dt;
+  if (histTimer >= BALANCE.history.sampleSeconds) {
+    histTimer = 0;
+    const point = { residents: s.residents };
+    for (const r of RES_KEYS) point[r] = s.res[r];
+    HIST.push(point);
+    if (HIST.length > BALANCE.history.points) HIST.shift();
+  }
+}
+
+/** Жильцы: потребляют воздух/тепло/еду, платят налоги, прибывают и уезжают. */
+function residentsTick(dt) {
+  const s = state, R = BALANCE.residents;
+  const cap = housing();
+  let r = s.residents;
+  let sat = 1;
+  if (r > 0) {
+    const nm = needMult();
+    for (const k in R.needs) {
+      const req = r * R.needs[k] * nm * dt;
+      if (req > 0) sat = Math.min(sat, s.res[k] / req);
+    }
+    sat = clamp(sat, 0, 1);
+    for (const k in R.needs) spend(k, r * R.needs[k] * nm * dt * sat);
+    gain('credits', r * R.tax * taxMult() * sat * dt);
+  }
+  lastSatisfaction = sat;
+  const before = r;
+  const suppliesOk = Object.keys(R.needs).every(k => s.res[k] > 0.5);
+  if (sat < 0.999) r -= r * (1 - sat) * R.leaveRate * dt;                       // дефицит — люди уезжают
+  else if (r < cap && suppliesOk) r = Math.min(cap, r + (R.immigrationBase + cap * R.immigrationPct) * dt);
+  if (r > cap) r = Math.max(cap, r - Math.max(0.2, r * 0.05) * dt);          // теснота — тоже уезжают
+  s.residents = Math.max(0, r);
+  residentAcc += s.residents - before;
+}
+
+/** Ремонтные станции постепенно чинят сломанные здания. */
+function repairTick(dt) {
+  const n = nEff('repair');
+  if (n <= 0 || totalBroken() === 0) { state.repairProgress = 0; return; }
+  const speed = (1 + lvl('aut5') * tp('aut5')) * (EFF.repair ?? 1);
+  state.repairProgress += n * speed * dt / BALANCE.repairStation.interval;
+  while (state.repairProgress >= 1 && totalBroken() > 0) {
+    state.repairProgress -= 1;
+    const pick = weightedPick(BUILD_ORDER, id => state.b[id].broken);
+    if (pick) { state.b[pick].broken--; if (!offlineSim) log(`Ремонтники восстановили: ${BALANCE.buildings[pick].name}`, 'good'); }
+  }
+}
+
+/* =====================================================================
+   7. ВОЛНЫ И ОБОРОНА
+   ===================================================================== */
+function scheduleWave(s, delay) {
+  const W = BALANCE.waves;
+  const types = Object.keys(W.types);
+  s.wave.type = types[Math.floor(Math.random() * types.length)];
+  // сила зависит от уровня угрозы: он растёт после отбитых волн и замирает после прорыва
+  s.wave.strength = W.baseStrength * Math.pow(W.growth, s.wave.level || 0) * rand(1 - W.jitter, 1 + W.jitter);
+  const spread = Math.max(0, W.forecastSpread - (s.tree.def3 || 0) * BALANCE.tree.def3.per);
+  // Настоящая сила всегда внутри диапазона прогноза
+  s.wave.lo = s.wave.strength * (1 - spread * rand(0.3, 1));
+  s.wave.hi = s.wave.strength * (1 + spread * rand(0.3, 1));
+  s.wave.timeLeft = delay;
+  s.wave.total = delay;
+}
+
+/** Мощь обороны против волны указанного типа (учитывает энергию, поломки, улучшения). */
+function defensePower(type) {
+  const T = BALANCE.waves.types[type], B = BALANCE.buildings;
+  const turrets = nEff('turret') * B.turret.power * (EFF.turret ?? 1) * turretMult() * T.turret;
+  const shields = nEff('shield') * B.shield.power * (EFF.shield ?? 1) * shieldMult() * T.shield;
+  const merc = state.mercWaves > 0 ? BALANCE.events.tuning.truce.mercMult : 1;
+  return (BALANCE.waves.garrison + turrets + shields) * buffMult('defense') * merc;
+}
+function breakReduction() {
+  const R = BALANCE.repairStation;
+  const st = Math.min(R.breakReductionCap, nEff('repair') * R.breakReduction);
+  return clamp(1 - (1 - st) * (1 - lvl('def4') * tp('def4')) * (1 - rl('armor') * rp('armor')), 0, 0.9);
+}
+
+/** Ломает count случайных работающих зданий. weightFn позволяет целиться в определённые типы. */
+function breakRandom(count, weightFn = () => 1) {
+  const broken = {};
+  for (let i = 0; i < count; i++) {
+    const pick = weightedPick(BUILD_ORDER, id => nEff(id) * weightFn(id));
+    if (!pick) break;
+    state.b[pick].broken++;
+    broken[pick] = (broken[pick] || 0) + 1;
+  }
+  return broken;
+}
+function breakSpecific(id, count) {
+  const k = Math.min(count, nEff(id));
+  state.b[id].broken += k;
+  return k;
+}
+
+function resolveWave() {
+  const s = state, W = BALANCE.waves, T = W.types[s.wave.type];
+  const strength = s.wave.strength * s.waveMod;
+  const def = defensePower(s.wave.type);
+  const win = def >= strength;
+  let lastBroken = {};
+  s.waveHistory.push({ n: s.wave.num, type: s.wave.type, str: strength, def, win });
+  if (s.waveHistory.length > 14) s.waveHistory.shift();
+
+  if (win) {
+    const reward = strength * W.rewardPerStrength * (1 + lvl('def5') * tp('def5')) * s.rewardMod;
+    gain('credits', reward);
+    s.stats.wavesWon++; s.run.wavesWon++;
+    log(`Волна №${s.wave.num} (${T.name}) отбита: ${fmt(def)} против ${fmt(strength)}. Трофеи: +${fmt(reward)} кредитов.`, 'good');
+    toast(`Волна №${s.wave.num} отбита! +${fmt(reward)} кредитов`, 'good');
+  } else {
+    const deficit = 1 - def / strength;
+    let count = Math.max(1, Math.round(deficit * (W.breakBase + s.wave.num * W.breakPerWave) * (1 - breakReduction())));
+    const working = BUILD_ORDER.reduce((a, id) => a + nEff(id), 0);
+    count = Math.min(count, Math.max(1, Math.floor(working * W.maxBreakShare)));
+    const weight = T.autoWeight ? (id => BALANCE.buildings[id].auto ? T.autoWeight : 1) : undefined;
+    const broken = breakRandom(count, weight);
+    lastBroken = broken;
+    const list = Object.entries(broken).map(([id, k]) => `${BALANCE.buildings[id].name} ×${k}`).join(', ') || 'ничего — ломать было нечего';
+    let stolen = '';
+    if (T.steal) {
+      const frac = T.steal * deficit;
+      const parts = [];
+      for (const r of ['dust', 'regolith', 'bricks', 'credits']) {
+        const x = state.res[r] * frac;
+        if (x >= 1) { state.res[r] -= x; parts.push(`${fmt(x)} ${RES[r].gen}`); }
+      }
+      if (parts.length) stolen = ` Украдено: ${parts.join(', ')}.`;
+    }
+    s.stats.wavesLost++;
+    log(`Прорыв! Волна №${s.wave.num} (${T.name}): ${fmt(def)} против ${fmt(strength)}. Сломано: ${list}.${stolen}`, 'bad');
+    toast(`Оборона прорвана! Сломано зданий: ${Object.values(broken).reduce((a, b) => a + b, 0)}`, 'bad');
+    hitEffect();
+  }
+
+  if (!offlineSim && !QUIET) Scene.wave({ type: s.wave.type, win, deficit: 1 - def / strength, broken: lastBroken, num: s.wave.num });
+
+  // Сбрасываем разовые модификаторы событий
+  s.waveMod = 1; s.rewardMod = 1;
+  if (s.mercWaves > 0) s.mercWaves--;
+  s.wave.num++;
+  s.wave.level = (s.wave.level || 0) + (win ? 1 : W.growthOnLoss);
+  if (s.wave.num > s.stats.bestWave) s.stats.bestWave = s.wave.num;
+  scheduleWave(s, rand(W.intervalMin, W.intervalMax));
+  checkAchievements();
+}
+
+/* =====================================================================
+   8. СОБЫТИЯ С ВЫБОРОМ
+   Каждое событие: cond(s) — может ли случиться; make(s) — фиксирует цены
+   на момент появления; choices(p) — варианты (cost, apply).
+   ===================================================================== */
+const ET = BALANCE.events.tuning;
+/** Цена «в секундах производства»: так события масштабируются вместе с базой. */
+const scaled = (res, sec, min) => Math.max(min, Math.round(RATE.prod[res] * sec));
+function addBuff(key, mult, dur, label) { state.buffs.push({ key, mult, until: state.time + dur, label }); }
+
+const EVENTS = [
+  {
+    id: 'dustStorm', title: 'Электростатическая буря', cond: () => true,
+    text: 'Над кратером поднялась пылевая буря. Частицы липнут к оптике, видимость почти нулевая. Бригадир ждёт решения.',
+    make: () => ({}),
+    choices: () => [
+      { label: 'Переждать в укрытии', desc: `Добыча пыли ×${ET.dustStorm.shelterMult} на ${ET.dustStorm.dur} с. Все целы.`,
+        apply: () => addBuff('dust', ET.dustStorm.shelterMult, ET.dustStorm.dur, 'Буря: укрытие') },
+      { label: 'Работать в бурю', desc: `Пыль липнет сама: добыча ×${ET.dustStorm.workMult} на ${ET.dustStorm.dur} с, но один рабочий выйдет из строя.`,
+        apply: () => { addBuff('dust', ET.dustStorm.workMult, ET.dustStorm.dur, 'Буря: аврал'); breakSpecific('worker', 1); } },
+    ],
+  },
+  {
+    id: 'cache', title: 'Тайник старой экспедиции', cond: s => s.time > 60,
+    text: 'Рабочие откопали запечатанные контейнеры и бортовой журнал экспедиции, пропавшей полвека назад.',
+    make: () => ({ dust: scaled('dust', ET.cache.dustSec, ET.cache.dustMin), reg: scaled('regolith', ET.cache.regSec, ET.cache.regMin), cred: scaled('credits', ET.cache.credSec, ET.cache.credMin) }),
+    choices: p => [
+      { label: 'Вскрыть контейнеры', desc: `+${fmt(p.dust)} пыли из старых фильтров.`, apply: () => addResource('dust', p.dust) },
+      { label: 'Сдать на переработку', desc: `+${fmt(p.reg)} реголита из обшивки.`, apply: () => addResource('regolith', p.reg) },
+      { label: 'Передать архивы музею Земли', desc: `+${fmt(p.cred)} кредитов, но контейнеры уйдут вместе с архивом.`, apply: () => addResource('credits', p.cred) },
+    ],
+  },
+  {
+    id: 'crack', title: 'Трещина в куполе', cond: s => s.res.domes >= 1 && s.residents >= 3,
+    text: 'Датчики фиксируют микротрещину в одном из жилых куполов. Давление медленно падает.',
+    make: () => ({ bricks: scaled('bricks', ET.crack.patchSec, ET.crack.patchMin) }),
+    choices: p => [
+      { label: 'Залатать кирпичами', desc: 'Надёжный ремонт, жизнь продолжается.', cost: { bricks: p.bricks }, apply: () => {} },
+      { label: 'Эвакуировать сектор', desc: `Уедут ${pct(ET.crack.evacuate)} жильцов, зато без риска.`,
+        apply: () => { state.residents *= 1 - ET.crack.evacuate; } },
+      { label: 'Рискнуть и ждать', desc: `Шанс ${pct(ET.crack.riskChance)}, что трещина разойдётся: купол будет потерян вместе с частью жильцов.`,
+        apply: () => {
+          if (Math.random() < ET.crack.riskChance) {
+            state.res.domes = Math.max(0, state.res.domes - 1);
+            state.residents *= 1 - ET.crack.riskResidents;
+            log('Трещина разошлась — купол потерян.', 'bad');
+          } else log('Трещина затянулась пылью и льдом. Повезло.', 'good');
+        } },
+    ],
+  },
+  {
+    id: 'refugees', title: 'Беженцы с орбиты', cond: s => s.residents >= 5,
+    text: 'Аварийный челнок со станции «Гелиос» просит посадки. На борту инженеры и их семьи.',
+    make: () => ({ add: Math.max(2, Math.round(housing() * ET.refugees.acceptPct)), food: scaled('food', ET.refugees.foodSec, ET.refugees.foodMin), cred: scaled('credits', ET.refugees.engSec, ET.refugees.engMin) }),
+    choices: p => [
+      { label: 'Принять всех', desc: `+${p.add} жильцов (сверх мест — временно), нужен запас еды.`, cost: { food: p.food },
+        apply: () => { state.residents += p.add; } },
+      { label: 'Принять только инженеров', desc: `Оплатить переселение: всё производство ×${ET.refugees.engMult} на ${ET.refugees.engDur} с.`, cost: { credits: p.cred },
+        apply: () => addBuff('all', ET.refugees.engMult, ET.refugees.engDur, 'Инженеры с «Гелиоса»') },
+      { label: 'Отказать в посадке', desc: `Репутация колонии упадёт: налоги ×${ET.refugees.refuseTax} на ${ET.refugees.refuseDur} с.`,
+        apply: () => addBuff('tax', ET.refugees.refuseTax, ET.refugees.refuseDur, 'Позор колонии') },
+    ],
+  },
+  {
+    id: 'flare', title: 'Солнечная вспышка', cond: s => s.b.solar.n >= 3,
+    text: 'Обсерватория предупреждает о мощной вспышке класса X. Через минуту поток частиц накроет базу.',
+    make: () => ({}),
+    choices: () => [
+      { label: 'Свернуть панели', desc: `Энергия ×${ET.flare.shelterMult} на ${ET.flare.shelterDur} с. Оборудование в безопасности.`,
+        apply: () => addBuff('energy', ET.flare.shelterMult, ET.flare.shelterDur, 'Панели свёрнуты') },
+      { label: 'Перегрузить панели', desc: `Энергия ×${ET.flare.overMult} на ${ET.flare.overDur} с, но шанс ${pct(ET.flare.overBreakChance)} сжечь до ${ET.flare.overBreakMax} панелей.`,
+        apply: () => {
+          addBuff('energy', ET.flare.overMult, ET.flare.overDur, 'Перегрузка панелей');
+          if (Math.random() < ET.flare.overBreakChance) {
+            const k = breakSpecific('solar', randInt(1, ET.flare.overBreakMax));
+            log(`Вспышка сожгла солнечных панелей: ${k}.`, 'bad');
+          }
+        } },
+    ],
+  },
+  {
+    id: 'caravan', title: 'Торговый караван', cond: s => s.peak.regolith >= 100,
+    text: 'Вездеходы вольных торговцев остановились у шлюза. Они готовы торговать, но спешат.',
+    make: () => { const reg = scaled('regolith', ET.caravan.regSec, ET.caravan.regMin); return { reg, cred: Math.round(reg * ET.caravan.credPerReg), price: scaled('credits', ET.caravan.droneSec, ET.caravan.droneMin) }; },
+    choices: p => [
+      { label: 'Продать реголит', desc: `Получить ${fmt(p.cred)} кредитов.`, cost: { regolith: p.reg }, apply: () => addResource('credits', p.cred) },
+      { label: 'Купить списанных дронов', desc: `+${ET.caravan.drones} дрона-сборщика без роста цены.`, cost: { credits: p.price },
+        apply: () => { state.b.drone.n += ET.caravan.drones; state.unlocked.drone = true; } },
+      { label: 'Отпустить караван', desc: 'Ничего не меняется.', apply: () => {} },
+    ],
+  },
+  {
+    id: 'strike', title: 'Забастовка рабочих', cond: s => s.b.worker.n >= 5,
+    text: 'Уборщики устали глотать пыль и требуют двойной паёк. Метлы брошены у шлюза.',
+    make: () => ({ food: scaled('food', ET.strike.foodSec, ET.strike.foodMin) }),
+    choices: p => [
+      { label: 'Выдать двойной паёк', desc: `Довольные рабочие: всё производство ×${ET.strike.rationMult} на ${ET.strike.rationDur} с.`, cost: { food: p.food },
+        apply: () => addBuff('all', ET.strike.rationMult, ET.strike.rationDur, 'Сытые рабочие') },
+      { label: 'Заставить работать', desc: `Добыча пыли ×${ET.strike.forceMult} на ${ET.strike.forceDur} с, но ${pct(ET.strike.forceLeave)} жильцов уедут в знак протеста.`,
+        apply: () => { addBuff('dust', ET.strike.forceMult, ET.strike.forceDur, 'Принудительный аврал'); state.residents *= 1 - ET.strike.forceLeave; } },
+      { label: 'Игнорировать', desc: `Забастовка продолжится: добыча пыли ×${ET.strike.ignoreMult} на ${ET.strike.ignoreDur} с.`,
+        apply: () => addBuff('dust', ET.strike.ignoreMult, ET.strike.ignoreDur, 'Забастовка') },
+    ],
+  },
+  {
+    id: 'probe', title: 'Обломок древнего зонда', cond: s => s.wave.num >= 2,
+    text: 'В воронке от метеорита найден зонд неизвестной конструкции. Его сенсоры всё ещё что-то сканируют.',
+    make: () => ({ study: scaled('credits', ET.probe.studySec, ET.probe.studyMin), sell: scaled('credits', ET.probe.sellSec, ET.probe.sellMin), scrap: scaled('bricks', ET.probe.scrapSec, ET.probe.scrapMin) }),
+    choices: p => [
+      { label: 'Изучить сенсоры', desc: `Данные о траекториях: следующая волна слабее (×${ET.probe.studyWave}).`, cost: { credits: p.study },
+        apply: () => { state.waveMod *= ET.probe.studyWave; } },
+      { label: 'Продать коллекционерам', desc: `+${fmt(p.sell)} кредитов.`, apply: () => addResource('credits', p.sell) },
+      { label: 'Разобрать на детали', desc: `+${fmt(p.scrap)} кирпичей из сверхпрочного сплава.`, apply: () => addResource('bricks', p.scrap) },
+    ],
+  },
+  {
+    id: 'leak', title: 'Утечка кислорода', cond: s => s.b.oxygen.n >= 1 && s.residents >= 3,
+    text: 'В магистрали генератора O₂ лопнул клапан. Воздух уходит в вакуум.',
+    make: () => ({ bricks: scaled('bricks', ET.leak.bricksSec, ET.leak.bricksMin) }),
+    choices: p => [
+      { label: 'Срочный ремонт', desc: 'Перекрыть утечку на ходу — нужны кирпичи и энергия.', cost: { bricks: p.bricks, energy: ET.leak.energyCost }, apply: () => {} },
+      { label: 'Перекрыть сектор', desc: `Потеря ${pct(ET.leak.sealO2)} запаса кислорода, ${pct(ET.leak.sealResidents)} жильцов уедут.`,
+        apply: () => { state.res.oxygen *= 1 - ET.leak.sealO2; state.residents *= 1 - ET.leak.sealResidents; } },
+    ],
+  },
+  {
+    id: 'truce', title: 'Посланник мародёров', cond: s => s.wave.num >= 3,
+    text: 'К шлюзу подъехал багги под белым флагом. Главарь мародёров предлагает сделку.',
+    make: () => ({ tribute: scaled('credits', ET.truce.tributeSec, ET.truce.tributeMin), merc: scaled('credits', ET.truce.mercSec, ET.truce.mercMin) }),
+    choices: p => [
+      { label: 'Заплатить дань', desc: `Следующая волна ослабнет (×${ET.truce.tributeWave}).`, cost: { credits: p.tribute },
+        apply: () => { state.waveMod *= ET.truce.tributeWave; } },
+      { label: 'Нанять их как наёмников', desc: `Оборона ×${ET.truce.mercMult} на ${ET.truce.mercWaves} волны.`, cost: { credits: p.merc },
+        apply: () => { state.mercWaves = ET.truce.mercWaves; } },
+      { label: 'Прогнать', desc: `Следующая волна злее (×${ET.truce.refuseWave}), зато награда за неё ×${ET.truce.refuseReward}.`,
+        apply: () => { state.waveMod *= ET.truce.refuseWave; state.rewardMod *= ET.truce.refuseReward; } },
+    ],
+  },
+];
+const EVENT_BY_ID = Object.fromEntries(EVENTS.map(e => [e.id, e]));
+
+function triggerEvent() {
+  const s = state;
+  const pool = EVENTS.filter(e => e.id !== s.event.last && e.cond(s));
+  const ev = pool[Math.floor(Math.random() * pool.length)];
+  s.event.nextIn = rand(BALANCE.events.intervalMin, BALANCE.events.intervalMax);
+  if (!ev) return;
+  s.event.active = { id: ev.id, params: ev.make(s) };
+  s.event.last = ev.id;
+  toast(`Событие: ${ev.title}`, 'warn');
+}
+/** Применяет выбранный вариант события. Возвращает true, если получилось. */
+function applyEventChoice(index) {
+  const a = state.event.active;
+  if (!a) return false;
+  const ev = EVENT_BY_ID[a.id];
+  const choice = ev.choices(a.params)[index];
+  if (!choice) return false;
+  if (choice.cost && !canAfford(choice.cost)) return false;
+  if (choice.cost) pay(choice.cost);
+  choice.apply();
+  state.stats.events++;
+  state.event.active = null;
+  log(`${ev.title}: «${choice.label}»`, 'warn');
+  return true;
+}
+function resolveEventChoice(index) {
+  if (!applyEventChoice(index)) return;
+  closeModal();
+  checkAchievements();
+  render(true);
+}
+
+/* =====================================================================
+   8б. ИССЛЕДОВАНИЯ ЗА КРЕДИТЫ
+   ===================================================================== */
+function researchCost(id) { const d = BALANCE.research[id]; return Math.ceil(d.cost * Math.pow(d.costMult, rl(id))); }
+function researchAvailable(id) { const d = BALANCE.research[id]; return d.max == null || rl(id) < d.max; }
+function buyResearch(id) {
+  if (!researchAvailable(id)) return false;
+  const c = researchCost(id);
+  if (state.res.credits < c) return false;
+  state.res.credits -= c;
+  state.research[id] = rl(id) + 1;
+  if (!QUIET) log(`Исследовано: ${RESEARCH_TEXT[id].name} (ур. ${state.research[id]})`, 'info');
+  render(true);
+  return true;
+}
+
+/* =====================================================================
+   9. ПРЕСТИЖ И ДЕРЕВО УЛУЧШЕНИЙ
+   ===================================================================== */
+function prestigeGain() {
+  const P = BALANCE.prestige;
+  return Math.floor(Math.sqrt(state.run.credits / P.creditsPerCrystal)) + Math.floor(state.run.wavesWon / P.wavesPerCrystal);
+}
+function nextCrystalCredits() {
+  const k = Math.floor(Math.sqrt(state.run.credits / BALANCE.prestige.creditsPerCrystal));
+  return Math.pow(k + 1, 2) * BALANCE.prestige.creditsPerCrystal;
+}
+function doPrestige() {
+  const gainC = prestigeGain();
+  if (gainC < 1) return;
+  const keep = { prestige: state.prestige, tree: state.tree, ach: state.ach, stats: state.stats, settings: state.settings, log: state.log };
+  state = newState();
+  Object.assign(state, keep);
+  state.prestige.crystals += gainC;
+  state.prestige.total += gainC;
+  state.prestige.count++;
+  applyStartKit();
+  resetTransient();
+  log(`Эвакуация завершена. Получено кристаллов: ${gainC}. Новая база основана.`, 'info');
+  toast(`+${gainC} лунных кристаллов`, 'gold');
+  checkAchievements();
+  render(true);
+}
+function applyStartKit() {
+  const k = lvl('eco5');
+  if (!k) return;
+  for (const r in BALANCE.startKit) { state.res[r] += BALANCE.startKit[r] * k; state.peak[r] = Math.max(state.peak[r], state.res[r]); }
+}
+function treeCost(id) { const d = BALANCE.tree[id]; return Math.ceil(d.cost * Math.pow(d.costMult, lvl(id))); }
+function treeAvailable(id) { const d = BALANCE.tree[id]; return !d.req || lvl(d.req) >= 1; }
+function buyTree(id) {
+  const d = BALANCE.tree[id];
+  if (lvl(id) >= d.max || !treeAvailable(id)) return;
+  const c = treeCost(id);
+  if (state.prestige.crystals < c) return;
+  state.prestige.crystals -= c;
+  state.tree[id] = lvl(id) + 1;
+  log(`Изучено: ${TREE_TEXT[id].name} (ур. ${state.tree[id]})`, 'info');
+  checkAchievements();
+  render(true);
+}
+
+/* =====================================================================
+   10. ДОСТИЖЕНИЯ, ЖУРНАЛ, УВЕДОМЛЕНИЯ
+   ===================================================================== */
+function checkAchievements() {
+  for (const a of ACHIEVEMENTS) {
+    if (!state.ach[a.id] && a.check(state)) {
+      state.ach[a.id] = true;
+      if (!offlineSim) { toast(`Достижение: ${a.name} (+${pct(BALANCE.achievementBonus)} к производству)`, 'gold'); markTab('ach', true); }
+      log(`Достижение получено: «${a.name}»`, 'good');
+    }
+  }
+}
+let logDirty = true;
+function log(text, type = 'info') {
+  state.log.unshift({ t: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }), text, type });
+  if (state.log.length > 60) state.log.length = 60;
+  logDirty = true;
+}
+function toast(text, type = 'info') {
+  if (QUIET) return;
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = text;
+  $('#toasts').appendChild(el);
+  while ($('#toasts').children.length > 4) $('#toasts').firstChild.remove();
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 320); }, 4200);
+}
+function hitEffect() {
+  if (QUIET) return;
+  const f = $('#hitFlash');
+  f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
+  document.body.classList.add('shake');
+  setTimeout(() => document.body.classList.remove('shake'), 500);
+}
+
+/* =====================================================================
+   11. СОХРАНЕНИЕ, ЭКСПОРТ, ИМПОРТ, ОФЛАЙН-ПРОГРЕСС
+   ===================================================================== */
+function save(showIndicator = false) {
+  state.lastSave = Date.now();
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    if (showIndicator) $('#saveInd').textContent = 'Сохранено ' + new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch (e) { $('#saveInd').textContent = 'Ошибка сохранения'; }
+}
+function encodeSave() { return btoa(unescape(encodeURIComponent(JSON.stringify(state)))); }
+function decodeSave(str) {
+  str = str.trim();
+  const json = str.startsWith('{') ? str : decodeURIComponent(escape(atob(str)));
+  const obj = JSON.parse(json);
+  if (!obj || typeof obj !== 'object' || !obj.res || !obj.b) throw new Error('Не похоже на сохранение');
+  return obj;
+}
+function loadFrom(obj) {
+  state = mergeDeep(newState(), obj);
+  // Гарантируем наличие всех зданий и ресурсов, если сохранение старое
+  for (const id of BUILD_ORDER) state.b[id] = { n: 0, broken: 0, off: false, ...(state.b[id] || {}) };
+  for (const r of RES_KEYS) { if (typeof state.res[r] !== 'number' || !isFinite(state.res[r])) state.res[r] = 0; }
+  if (state.event.active && !EVENT_BY_ID[state.event.active.id]) state.event.active = null;
+  // миграция: в старых сохранениях не было уровня угрозы — берём его из номера волны
+  if (!obj.wave || obj.wave.level == null) state.wave.level = Math.max(0, (state.wave.num || 1) - 1);
+  if (!state.research) state.research = {};
+  resetTransient();
+}
+function resetTransient() {
+  HIST = []; histTimer = 0; secondTimer = 0;
+  for (const r of RES_KEYS) { FLOW.prod[r] = FLOW.cons[r] = RATE.prod[r] = RATE.cons[r] = RATE.net[r] = 0; }
+  for (const id of BUILD_ORDER) delete EFF[id];
+  logDirty = true;
+}
+
+/** Офлайн-прогресс: симулирует часть отсутствия крупным шагом. Волны и события на паузе. */
+function applyOffline(seconds) {
+  const O = BALANCE.offline;
+  const capped = Math.min(seconds, O.maxHours * 3600);
+  const efficiency = Math.min(1, O.efficiency + lvl('aut3') * tp('aut3'));
+  const simSeconds = capped * efficiency;
+  if (simSeconds < 1) return;
+  const before = { ...state.res, residents: state.residents };
+  offlineSim = true;
+  const step = 1;
+  let left = simSeconds;
+  while (left > 0) { const d = Math.min(step, left); tick(d); left -= d; }
+  offlineSim = false;
+  checkAchievements();
+  const lines = [];
+  for (const r of RES_KEYS) {
+    const d = state.res[r] - before[r];
+    if (Math.abs(d) >= 0.5 && !RES[r].capped) lines.push(`<div><span>${RES[r].name}</span><span class="${d >= 0 ? 'good' : 'bad'} num">${d >= 0 ? '+' : ''}${fmt(d)}</span></div>`);
+  }
+  const dr = state.residents - before.residents;
+  if (Math.abs(dr) >= 1) lines.push(`<div><span>Жильцы</span><span class="${dr >= 0 ? 'good' : 'bad'} num">${dr >= 0 ? '+' : ''}${fmt(dr)}</span></div>`);
+  log(`Офлайн-прогресс: ${fmtTime(capped)} (эффективность ${pct(efficiency)}).`, 'info');
+  showModal({
+    kicker: 'С возвращением',
+    title: 'Пока вас не было',
+    html: `<p>Прошло ${fmtTime(seconds)}${seconds > capped ? ` (учтено ${O.maxHours} ч)` : ''}. База работала на ${pct(efficiency)} мощности, волны и события ждали вас.</p>
+           <div class="summary-list">${lines.join('') || '<div><span>Изменений нет</span><span></span></div>'}</div>`,
+    buttons: [{ label: 'Продолжить', cls: 'primary', onClick: closeModal }],
+  });
+}
+
+/* =====================================================================
+   12. ИНТЕРФЕЙС: построение
+   ===================================================================== */
+const UI = { res: {}, bld: {}, tree: {}, ach: {}, research: {} };
+let activeTab = 'prod';
+let chartRes = 'dust';
+
+function buildUI() {
+  // Ресурсы
+  const list = $('#resList');
+  let lastGroup = '';
+  for (const r of RES_KEYS) {
+    const meta = RES[r];
+    if (meta.group !== lastGroup) {
+      const sec = document.createElement('div');
+      sec.className = 'res-section'; sec.textContent = meta.group; sec.dataset.group = meta.group;
+      list.appendChild(sec); lastGroup = meta.group;
+    }
+    const row = document.createElement('div');
+    row.className = 'res-row';
+    row.innerHTML = `<span class="dot" style="background:${meta.color};color:${meta.color}"></span>
+      <span class="rname">${meta.name}</span><span class="rval num">0</span>
+      <div class="rrate num"><span class="rnet">0/с</span><span class="rcap"></span></div>
+      ${meta.capped ? `<div class="bar"><i style="background:${meta.color}"></i></div>` : ''}`;
+    list.appendChild(row);
+    UI.res[r] = { row, val: $('.rval', row), net: $('.rnet', row), cap: $('.rcap', row), bar: $('.bar > i', row) };
+  }
+
+  // Здания
+  for (const id of BUILD_ORDER) {
+    const def = BALANCE.buildings[id];
+    const el = document.createElement('div');
+    el.className = 'card bld';
+    el.style.setProperty('--cat', CAT_COLOR[def.cat]);
+    el.innerHTML = `
+      <div class="bld-head"><canvas class="bld-icon"></canvas><div class="bld-name">${def.name}</div><div class="bld-count num"></div></div>
+      <div class="bld-desc">${def.desc}</div>
+      <div class="bld-stats"></div>
+      <div class="eff"><span class="eff-lbl">Загрузка</span><div class="bar"><i></i></div><span class="eff-val num"></span></div>
+      <div class="bld-cost"></div>
+      <div class="bld-actions"><button class="btn grow buy"></button><button class="btn toggle small" style="display:none"></button><button class="btn repair" style="display:none"></button></div>`;
+    $(`#grid-${def.cat}`).appendChild(el);
+    const ui = { el, count: $('.bld-count', el), stats: $('.bld-stats', el), eff: $('.eff', el), effBar: $('.eff .bar > i', el),
+      effVal: $('.eff-val', el), cost: $('.bld-cost', el), buy: $('.buy', el), repair: $('.repair', el), toggle: $('.toggle', el), desc: $('.bld-desc', el) };
+    Scene.icon($('.bld-icon', el), id);
+    ui.buy.addEventListener('click', () => buyBuilding(id));
+    ui.toggle.addEventListener('click', () => toggleBuilding(id));
+    ui.repair.addEventListener('click', () => repairBuilding(id));
+    UI.bld[id] = ui;
+  }
+
+  // Дерево
+  const tree = $('#tree');
+  for (const br in BRANCHES) {
+    const col = document.createElement('div');
+    col.className = 'branch';
+    col.style.setProperty('--branch', BRANCHES[br].color);
+    col.innerHTML = `<h4><span class="sw" style="background:${BRANCHES[br].color}"></span>${BRANCHES[br].name}</h4>`;
+    // порядок: обход в глубину, чтобы дочерние узлы шли под родителем
+    const ids = Object.keys(BALANCE.tree).filter(id => BALANCE.tree[id].branch === br);
+    const ordered = [];
+    const visit = (parent, depth) => ids.filter(id => BALANCE.tree[id].req === parent).forEach(id => { ordered.push([id, depth]); visit(id, depth + 1); });
+    visit(null, 0);
+    for (const [id, depth] of ordered) {
+      const d = BALANCE.tree[id];
+      const node = document.createElement('div');
+      node.className = `node depth-${Math.min(depth, 2)}`;
+      node.innerHTML = `
+        <div class="node-head"><span>${TREE_TEXT[id].name}</span><span class="node-lvl num"></span></div>
+        <div class="pips">${'<i></i>'.repeat(d.max)}</div>
+        <div class="node-desc">${TREE_TEXT[id].desc(d.per)}</div>
+        <div class="node-req dim" style="font-size:11.5px"></div>
+        <button class="btn small"></button>`;
+      col.appendChild(node);
+      const ui = { node, lvl: $('.node-lvl', node), pips: [...node.querySelectorAll('.pips i')], req: $('.node-req', node), btn: $('button', node) };
+      ui.btn.addEventListener('click', () => buyTree(id));
+      UI.tree[id] = ui;
+    }
+    tree.appendChild(col);
+  }
+
+  // Исследования
+  const rg = $('#researchGroups');
+  const groups = [...new Set(Object.values(RESEARCH_TEXT).map(t => t.group))];
+  for (const g of groups) {
+    const title = document.createElement('div'); title.className = 'section-title'; title.textContent = g; rg.appendChild(title);
+    const grid = document.createElement('div'); grid.className = 'grid'; rg.appendChild(grid);
+    for (const id of Object.keys(RESEARCH_TEXT).filter(k => RESEARCH_TEXT[k].group === g)) {
+      const node = document.createElement('div');
+      node.className = 'node';
+      node.innerHTML = `
+        <div class="node-head"><span>${RESEARCH_TEXT[id].name}</span><span class="node-lvl num"></span></div>
+        <div class="node-desc">${RESEARCH_TEXT[id].desc(BALANCE.research[id].per)}</div>
+        <div class="node-desc r-total"></div>
+        <button class="btn small"></button>`;
+      grid.appendChild(node);
+      const ui = { node, lvl: $('.node-lvl', node), total: $('.r-total', node), btn: $('button', node) };
+      ui.btn.addEventListener('click', () => buyResearch(id));
+      UI.research[id] = ui;
+    }
+  }
+
+  // Достижения
+  const ag = $('#achGrid');
+  ACHIEVEMENTS.forEach((a, i) => {
+    const el = document.createElement('div');
+    el.className = 'ach';
+    el.innerHTML = `<div class="medal">${i + 1}</div><div><div class="t">${a.name}</div><div class="d">${a.desc}</div></div>`;
+    ag.appendChild(el);
+    UI.ach[a.id] = el;
+  });
+
+  // Графики
+  const chips = $('#chartChips');
+  for (const k of ['dust', 'regolith', 'bricks', 'credits', 'residents', 'energy']) {
+    const b = document.createElement('button');
+    b.textContent = k === 'residents' ? 'Жильцы' : RES[k].name;
+    b.dataset.k = k;
+    if (k === chartRes) b.classList.add('active');
+    b.addEventListener('click', () => { chartRes = k; chips.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b)); drawCharts(); });
+    chips.appendChild(b);
+  }
+
+  // Вкладки
+  $('#tabs').addEventListener('click', e => {
+    const t = e.target.closest('.tab'); if (!t) return;
+    activeTab = t.dataset.tab;
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + activeTab));
+    $('#buyToolbar').style.display = ['prod', 'life', 'def'].includes(activeTab) ? '' : 'none';
+    markTab(activeTab, false);
+    render(true);
+  });
+  $('#buySeg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.settings.buy = b.dataset.buy;
+    render(true);
+  });
+
+  // Клик: по кнопке или прямо по лунной поверхности на панораме
+  function manualClick(e, host, onScene) {
+    const g = clickGain();
+    gain('dust', g);
+    state.stats.clicks++;
+    const rect = host.getBoundingClientRect();
+    const x = (e.clientX || rect.left + rect.width / 2) - rect.left, y = (e.clientY || rect.top + rect.height / 2) - rect.top;
+    const f = document.createElement('div');
+    f.className = 'floater num';
+    f.textContent = '+' + fmt(g);
+    f.style.left = x + 'px'; f.style.top = (y - 10) + 'px';
+    host.appendChild(f);
+    setTimeout(() => f.remove(), 900);
+    if (onScene) Scene.puff(x, Math.max(y, Scene.gy + 4)); else Scene.puff();
+  }
+  const cb = $('#clickBtn');
+  cb.addEventListener('click', e => manualClick(e, cb, false));
+  $('#sceneCard').addEventListener('click', e => manualClick(e, $('#sceneCard'), true));
+
+  // Престиж
+  $('#prestigeBtn').addEventListener('click', () => {
+    const g = prestigeGain();
+    if (g < 1) return;
+    showModal({
+      kicker: 'Престиж', title: 'Эвакуировать базу?',
+      html: `<p>Вы получите <b>${g}</b> ${plural(g, 'лунный кристалл', 'лунных кристалла', 'лунных кристаллов')}. Здания, ресурсы, жильцы и номер волны будут сброшены. Улучшения, достижения и кристаллы сохранятся.</p>`,
+      buttons: [{ label: 'Отмена', onClick: closeModal }, { label: 'Эвакуироваться', cls: 'primary', onClick: () => { closeModal(); doPrestige(); } }],
+    });
+  });
+
+  // Настройки
+  $('#saveNow').addEventListener('click', () => { save(true); toast('Игра сохранена', 'good'); });
+  $('#exportBtn').addEventListener('click', () => { $('#saveText').value = encodeSave(); $('#saveText').select(); toast('Код сохранения в поле ниже', 'info'); });
+  $('#copyBtn').addEventListener('click', async () => {
+    const t = $('#saveText');
+    if (!t.value) t.value = encodeSave();
+    try { await navigator.clipboard.writeText(t.value); toast('Скопировано в буфер обмена', 'good'); }
+    catch { t.select(); document.execCommand('copy'); toast('Скопировано', 'good'); }
+  });
+  $('#importBtn').addEventListener('click', () => {
+    const txt = $('#saveText').value;
+    if (!txt.trim()) { toast('Вставьте код сохранения в поле', 'warn'); return; }
+    try {
+      const obj = decodeSave(txt);
+      loadFrom(obj);
+      state.lastSave = Date.now();
+      save(true);
+      closeModal();
+      log('Сохранение импортировано.', 'info');
+      toast('Сохранение загружено', 'good');
+      render(true);
+    } catch (e) { toast('Не удалось прочитать сохранение: ' + e.message, 'bad'); }
+  });
+  $('#resetBtn').addEventListener('click', () => {
+    showModal({
+      kicker: 'Осторожно', title: 'Полный сброс',
+      html: '<p>Будет удалено всё: база, кристаллы, улучшения, достижения и статистика. Отменить нельзя.</p>',
+      buttons: [{ label: 'Отмена', onClick: closeModal }, { label: 'Стереть всё', cls: 'danger', onClick: () => {
+        localStorage.removeItem(SAVE_KEY); state = newState(); resetTransient(); closeModal();
+        log('База основана. Возьмите метлу и начните чистить пыль.', 'info'); save(); render(true);
+      } }],
+    });
+  });
+
+  window.addEventListener('resize', () => drawCharts());
+}
+
+function markTab(tab, on) {
+  if (QUIET) return;
+  const t = document.querySelector(`.tab[data-tab="${tab}"]`);
+  if (!t) return;
+  const b = $('.badge', t);
+  if (on && activeTab !== tab && !b) { const s = document.createElement('span'); s.className = 'badge'; t.appendChild(s); }
+  if (!on && b) b.remove();
+}
+
+/* =====================================================================
+   13. ИНТЕРФЕЙС: обновление (вызывается ~10 раз в секунду)
+   ===================================================================== */
+/** Если ресурс для покупки съедают конвертеры — подсказываем поставить их на паузу. */
+function starvationHint(cost) {
+  for (const r in cost) {
+    if (state.res[r] >= cost[r] || RATE.net[r] > 0.01) continue;
+    const eaters = CONVERTERS.filter(id => nEff(id) > 0 && !state.b[id].off && BALANCE.buildings[id].cons[r]);
+    if (eaters.length) return `<div class="hint warn">${RES[r].name} уходит в «${eaters.map(id => BALANCE.buildings[id].name).join('», «')}». Поставьте на паузу, чтобы накопить.</div>`;
+  }
+  return '';
+}
+function costHtml(cost) {
+  return Object.entries(cost).map(([r, v]) =>
+    `<span class="c${state.res[r] < v ? ' no' : ''}"><span style="color:${RES[r].color}">●</span> ${fmt(v)} ${RES[r].gen}</span>`).join('');
+}
+function setText(el, txt) { if (el.textContent !== txt) el.textContent = txt; }
+function setHtml(el, html) { if (el._h !== html) { el.innerHTML = html; el._h = html; } }
+
+function render(force = false) {
+  if (QUIET) return;
+  const s = state;
+
+  // Шапка
+  setText($('#topCredits'), fmt(s.res.credits));
+  setText($('#topCrystals'), fmt(s.prestige.crystals));
+  setText($('#topResidents'), `${Math.floor(s.residents)} / ${housing()}`);
+  const wc = $('#topWave');
+  setText(wc, `Волна ${s.wave.num} · ${fmtTime(s.wave.timeLeft)}`);
+  wc.classList.toggle('danger', s.wave.timeLeft < 20);
+
+  // Клик
+  setText($('#clickPower'), `+${fmt(clickGain())} пыли`);
+  const ac = nEff('autoclicker');
+  setText($('#clickSub'), ac > 0 ? `за клик · автоклик ${fmt(ac * BALANCE.buildings.autoclicker.clicks)}/с` : 'за клик');
+
+  // Ресурсы
+  const visibleGroups = new Set();
+  for (const r of RES_KEYS) {
+    const ui = UI.res[r];
+    const show = r === 'dust' || s.peak[r] > 0 || RATE.prod[r] > 0;
+    ui.row.style.display = show ? '' : 'none';
+    if (!show) continue;
+    visibleGroups.add(RES[r].group);
+    setText(ui.val, fmt(s.res[r]));
+    const net = RATE.net[r];
+    setText(ui.net, fmtRate(net));
+    ui.net.className = 'rnet ' + (net > 0.0005 ? 'good' : net < -0.0005 ? 'bad' : '');
+    ui.row.title = `Производство ${fmtRate(RATE.prod[r])}, потребление ${fmtRate(-RATE.cons[r])}`;
+    if (RES[r].capped) {
+      const cap = capOf(r);
+      setText(ui.cap, `макс ${fmt(cap)}`);
+      ui.bar.style.width = clamp(s.res[r] / cap * 100, 0, 100) + '%';
+    } else if (r === 'domes') {
+      setText(ui.cap, `мест: ${housing()}`);
+    } else setText(ui.cap, '');
+  }
+  document.querySelectorAll('.res-section').forEach(el => { el.style.display = visibleGroups.has(el.dataset.group) ? '' : 'none'; });
+
+  // Баффы
+  const bl = $('#buffList');
+  $('#buffCard').style.display = s.buffs.length || s.mercWaves || s.waveMod !== 1 ? '' : 'none';
+  const buffs = s.buffs.map(b => `<span class="buff ${b.mult >= 1 ? 'up' : 'down'}">${esc(b.label)} · ×${trimZeros(b.mult.toFixed(2))} · ${fmtTime(b.until - s.time)}</span>`);
+  if (s.mercWaves) buffs.push(`<span class="buff up">Наёмники · волн: ${s.mercWaves}</span>`);
+  if (s.waveMod !== 1) buffs.push(`<span class="buff ${s.waveMod < 1 ? 'up' : 'down'}">След. волна ×${trimZeros(s.waveMod.toFixed(2))}</span>`);
+  setHtml(bl, buffs.join(''));
+
+  // Волна
+  renderWave();
+
+  // Вкладки
+  if (['prod', 'life', 'def'].includes(activeTab)) renderBuildings(activeTab);
+  if (activeTab === 'life') renderColony();
+  if (activeTab === 'def') renderDefense();
+  if (activeTab === 'tech') renderTech();
+  if (activeTab === 'research') renderResearch();
+  if (activeTab === 'ach') renderAch();
+  if (activeTab === 'opts') renderStats();
+  document.querySelectorAll('#buySeg button').forEach(b => b.classList.toggle('active', b.dataset.buy === s.settings.buy));
+
+  // Журнал
+  if (logDirty) {
+    $('#log').innerHTML = s.log.map(l => `<div class="log-item ${l.type}"><time>${l.t}</time>${esc(l.text)}</div>`).join('') || '<div class="dim">Пока тихо.</div>';
+    logDirty = false;
+  }
+
+  // Событие: если активно и окно не открыто — показываем
+  if (s.event.active && !modalOpen) showEventModal();
+  if (modalOpen === 'event') updateEventModal();
+}
+
+function buildingStats(id) {
+  const def = BALANCE.buildings[id], n = nEff(id);
+  const lines = [];
+  const rr = r => `<span style="color:${RES[r].color}">${RES[r].gen}</span>`;
+  if (def.prod) {
+    const outs = Object.entries(def.prod).map(([r, v]) => `+${fmt(v * outMult(id, r), 2)} ${rr(r)}`).join(', ');
+    const ins = def.cons ? Object.entries(def.cons).map(([r, v]) => `−${fmt(v, 2)} ${rr(r)}`).join(', ') : '';
+    lines.push(`<div>Каждое: ${ins ? ins + ' → ' : ''}${outs} /с</div>`);
+    if (n > 0) {
+      const tot = Object.entries(def.prod).map(([r, v]) => `+${fmt(v * outMult(id, r) * n * (EFF[id] ?? 1), 2)} ${rr(r)}`).join(', ');
+      lines.push(`<div class="muted">Всего: ${tot} /с</div>`);
+    }
+  }
+  if (id === 'autoclicker') lines.push(`<div>Каждый: ${def.clicks} клик/с (+${fmt(def.clicks * clickGain(), 2)} пыли/с)</div>`);
+  if (id === 'factory') lines.push(`<div>+${pct(def.bonus)} к цепочке за штуку · сейчас +${pct(factoryMult() - 1)}</div>`);
+  if (def.power) {
+    const up = id === 'turret' ? turretMult() : shieldMult();
+    lines.push(`<div>Мощь: ${fmt(def.power * up, 1)} · ${Object.entries(def.cons).map(([r, v]) => `${RES[r].gen} −${fmt(v, 2)}/с`).join(', ')}</div>`);
+    if (n > 0) lines.push(`<div class="muted">Всего: ${fmt(def.power * up * n * (EFF[id] ?? 1), 1)} мощи (до типовых множителей)</div>`);
+  }
+  if (id === 'repair') {
+    lines.push(`<div>1 ремонт / ${fmt(BALANCE.repairStation.interval / (1 + lvl('aut5') * tp('aut5')), 1)} с · −${pct(BALANCE.repairStation.breakReduction)} поломок</div>`);
+    lines.push(`<div class="muted">Тратит ${fmt(def.cons.bricks, 2)} кирпича/с, только пока есть поломки</div>`);
+  }
+  return lines.join('');
+}
+
+function renderBuildings(cat) {
+  let shownLocked = false;
+  for (const id of BUILD_ORDER) {
+    const def = BALANCE.buildings[id];
+    if (def.cat !== cat) continue;
+    const ui = UI.bld[id], b = state.b[id];
+    const unlocked = isUnlocked(id);
+    if (!unlocked) {
+      // показываем только одно ближайшее закрытое здание как подсказку
+      if (shownLocked) { ui.el.classList.add('hidden'); continue; }
+      shownLocked = true;
+      ui.el.classList.remove('hidden'); ui.el.classList.add('locked');
+      setText(ui.count, '');
+      setHtml(ui.stats, `<div class="muted">Откроется при: ${Object.entries(def.unlock).map(([r, v]) => `${RES[r].gen} ≥ ${fmt(v)}`).join(', ')}</div>`);
+      ui.eff.style.display = 'none'; setHtml(ui.cost, ''); ui.buy.style.display = 'none'; ui.repair.style.display = 'none'; ui.toggle.style.display = 'none';
+      continue;
+    }
+    ui.el.classList.remove('hidden', 'locked'); ui.buy.style.display = '';
+    setHtml(ui.count, `${b.n}${b.broken ? `<span class="broken">(${b.broken} слом.)</span>` : ''}`);
+    setHtml(ui.stats, buildingStats(id));
+    // Загрузка: для потребителей показываем, хватает ли входных ресурсов
+    if (def.cons && nEff(id) > 0) {
+      ui.eff.style.display = '';
+      const e = EFF[id] ?? 1;
+      ui.effBar.style.width = (e * 100) + '%';
+      ui.effBar.style.background = b.off ? 'var(--dim)' : e > 0.95 ? 'var(--good)' : e > 0.5 ? 'var(--warn)' : 'var(--bad)';
+      setText(ui.effVal, b.off ? 'пауза' : id === 'repair' && totalBroken() === 0 ? 'ожидание' : pct(e));
+    } else ui.eff.style.display = 'none';
+    ui.toggle.style.display = def.cons && b.n > 0 ? '' : 'none';
+    setText(ui.toggle, b.off ? '▶ Пуск' : '❚❚ Пауза');
+    ui.toggle.title = b.off ? 'Запустить здание' : 'Остановить здание и не тратить его входные ресурсы';
+    ui.el.style.opacity = b.off ? '0.75' : '';
+    const amount = buyAmountFor(id);
+    const shownAmount = Math.max(1, amount);
+    const cost = costFor(id, shownAmount);
+    setHtml(ui.cost, costHtml(cost) + starvationHint(cost));
+    setText(ui.buy, `Купить ×${amount}`);
+    ui.buy.disabled = amount <= 0 || !canAfford(cost);
+    if (b.broken > 0) {
+      const rc = repairCost(id);
+      ui.repair.style.display = '';
+      setText(ui.repair, `Починить (${fmtCost(rc)})`);
+      ui.repair.disabled = !canAfford(rc);
+    } else ui.repair.style.display = 'none';
+  }
+}
+
+function renderColony() {
+  const s = state, R = BALANCE.residents;
+  const tax = s.residents * R.tax * taxMult() * lastSatisfaction;
+  const sat = lastSatisfaction;
+  setHtml($('#colonyStats'), `
+    <div class="stat-box"><div class="lbl">Жильцы</div><div class="val num">${Math.floor(s.residents)} <span class="muted" style="font-size:14px">/ ${housing()}</span></div><div class="sub num">${fmtRate(residentRate)}</div></div>
+    <div class="stat-box"><div class="lbl">Обеспеченность</div><div class="val num ${sat > 0.99 ? 'good' : sat > 0.6 ? 'warn' : 'bad'}">${pct(sat)}</div><div class="sub">${sat > 0.99 ? 'всем хватает' : 'дефицит — люди уезжают'}</div></div>
+    <div class="stat-box"><div class="lbl">Налоги</div><div class="val num" style="color:#f5c84c">${fmtRate(tax)}</div><div class="sub">${fmt(R.tax * taxMult(), 2)} с жильца</div></div>
+    <div class="stat-box"><div class="lbl">Купола</div><div class="val num">${Math.floor(s.res.domes)}</div><div class="sub">${fmt(housingPerDome())} мест в каждом</div></div>`);
+  const nm = needMult();
+  setHtml($('#needsList'), Object.entries(R.needs).map(([k, v]) => {
+    const need = s.residents * v * nm, prod = RATE.prod[k];
+    const ok = prod >= need - 1e-6;
+    const ratio = need > 0 ? clamp(prod / need, 0, 2) / 2 : 1;
+    return `<div class="need-row"><span style="color:${RES[k].color}">${RES[k].name}</span>
+      <div class="bar"><i style="width:${ratio * 100}%;background:${ok ? RES[k].color : 'var(--bad)'}"></i></div>
+      <span class="num ${ok ? 'muted' : 'bad'}">${fmt(prod, 2)} / ${fmt(need, 2)} в с</span></div>`;
+  }).join('') + `<div class="dim" style="font-size:12px">Каждый жилец потребляет: ${Object.entries(R.needs).map(([k, v]) => `${fmt(v * nm, 3)} ${RES[k].gen}`).join(', ')} в секунду. Новые жильцы прибывают, пока есть свободные места и запасы.</div>`);
+}
+
+function renderDefense() {
+  const s = state;
+  const types = BALANCE.waves.types;
+  setHtml($('#defStats'), Object.entries(types).map(([k, t]) => `
+    <div class="stat-box" style="${k === s.wave.type ? 'border-color:rgba(248,113,113,.45)' : ''}">
+      <div class="lbl">${t.name}${k === s.wave.type ? ' · <span class="bad">следующая</span>' : ''}</div>
+      <div class="val num">${fmt(defensePower(k), 1)}</div><div class="sub">${t.hint}</div></div>`).join('') + `
+    <div class="stat-box"><div class="lbl">Гарнизон базы</div><div class="val num">${fmt(BALANCE.waves.garrison)}</div><div class="sub">охрана, работает всегда</div></div>
+    <div class="stat-box"><div class="lbl">Снижение поломок</div><div class="val num">${pct(breakReduction())}</div><div class="sub">станции и протоколы</div></div>`);
+  const eT = EFF.turret ?? 1, eS = EFF.shield ?? 1;
+  const warn = (nEff('turret') && eT < 0.99) || (nEff('shield') && eS < 0.99);
+  setHtml($('#defHint'), (warn ? `<span class="bad">Обороне не хватает энергии: турели ${pct(eT)}, щиты ${pct(eS)}. Стройте солнечные панели.</span> ` : '') +
+    'Оборона потребляет энергию из общей сети и получает её после производства и жизнеобеспечения. Если мощь ниже силы волны, ломаются случайные здания.');
+}
+
+function renderWave() {
+  const s = state, W = s.wave, T = BALANCE.waves.types[W.type];
+  setText($('#waveNum'), `Волна №${W.num}`);
+  setText($('#waveName'), T.name);
+  setText($('#waveTypeHint'), T.hint);
+  const timer = $('#waveTimer');
+  setText(timer, fmtTime(W.timeLeft));
+  timer.classList.toggle('soon', W.timeLeft < 20);
+  $('#waveBar').style.width = clamp((1 - W.timeLeft / W.total) * 100, 0, 100) + '%';
+  const lo = W.lo * s.waveMod, hi = W.hi * s.waveMod;
+  const def = defensePower(W.type);
+  const max = Math.max(hi, def, 1);
+  $('#threatBar').style.width = (hi / max * 100) + '%';
+  $('#defBar').style.width = (def / max * 100) + '%';
+  setText($('#threatVal'), `${fmt(lo)}–${fmt(hi)}`);
+  setText($('#defVal'), fmt(def));
+  const v = $('#verdict');
+  if (def >= hi) { v.className = 'verdict ok'; setText(v, 'Оборона выдержит при любом раскладе'); }
+  else if (def >= lo) { v.className = 'verdict risk'; setText(v, 'Шансы есть, но риск прорыва велик'); }
+  else { v.className = 'verdict fail'; setText(v, 'Оборона слабее волны — ждите поломок'); }
+  $('#waveCard').classList.toggle('alert', W.timeLeft < 20 && def < hi);
+}
+
+function researchTotal(id) {
+  const L = rl(id), p = rp(id);
+  switch (id) {
+    case 'recycling': return `Сейчас: −${pct(1 - Math.pow(1 - p, L))}`;
+    case 'density':   return `Сейчас: +${L} ${plural(L, 'место', 'места', 'мест')} в куполе`;
+    case 'armor':     return `Сейчас: −${pct(L * p)}`;
+    default:          return `Сейчас: +${pct(L * p)}`;
+  }
+}
+function renderResearch() {
+  setHtml($('#researchInfo'), `Исследования оплачиваются кредитами и действуют до эвакуации. Уровни бесконечные, цена растёт с каждым уровнем.
+    Кредиты: <b class="num" style="color:#f5c84c">${fmt(state.res.credits)}</b> (${fmtRate(RATE.net.credits)}).`);
+  for (const id in UI.research) {
+    const ui = UI.research[id], d = BALANCE.research[id], L = rl(id);
+    setText(ui.lvl, d.max != null ? `${L}/${d.max}` : `ур. ${L}`);
+    setText(ui.total, researchTotal(id));
+    if (!researchAvailable(id)) { setText(ui.btn, 'Максимум'); ui.btn.disabled = true; ui.node.classList.add('maxed'); continue; }
+    const c = researchCost(id);
+    setText(ui.btn, `Изучить · ${fmt(c)} кредитов`);
+    ui.btn.disabled = state.res.credits < c;
+  }
+}
+function renderTech() {
+  const s = state, g = prestigeGain();
+  setHtml($('#prestigeInfo'), `
+    Кристаллов: <b class="num">${fmt(s.prestige.crystals)}</b> (всего получено ${fmt(s.prestige.total)}, бонус +${pct(s.prestige.total * BALANCE.prestige.bonusPerCrystal)} ко всему производству).<br>
+    За эвакуацию сейчас: <b class="num" style="color:#c4b5fd">+${g}</b>. Кредиты за забег: ${fmt(s.run.credits)}, следующий кристалл при ${fmt(nextCrystalCredits())}.
+    Отбитые волны: ${s.run.wavesWon} (кристалл за каждые ${BALANCE.prestige.wavesPerCrystal}).`);
+  $('#prestigeBtn').disabled = g < 1;
+  for (const id in UI.tree) {
+    const ui = UI.tree[id], d = BALANCE.tree[id], L = lvl(id);
+    const avail = treeAvailable(id), maxed = L >= d.max;
+    ui.node.classList.toggle('locked', !avail);
+    ui.node.classList.toggle('maxed', maxed);
+    setText(ui.lvl, `${L}/${d.max}`);
+    ui.pips.forEach((p, i) => p.classList.toggle('on', i < L));
+    setText(ui.req, avail ? '' : `Требует: ${TREE_TEXT[d.req].name}`);
+    if (maxed) { setText(ui.btn, 'Максимум'); ui.btn.disabled = true; }
+    else { const c = treeCost(id); setText(ui.btn, `Изучить · ${c} кр.`); ui.btn.disabled = !avail || s.prestige.crystals < c; }
+  }
+}
+
+function renderAch() {
+  let done = 0;
+  for (const a of ACHIEVEMENTS) { const on = !!state.ach[a.id]; if (on) done++; UI.ach[a.id].classList.toggle('done', on); }
+  setText($('#achSummary'), `Открыто ${done} из ${ACHIEVEMENTS.length}. Каждое достижение навсегда даёт +${pct(BALANCE.achievementBonus)} ко всему производству (сейчас +${pct(done * BALANCE.achievementBonus)}).`);
+}
+
+function renderStats() {
+  const st = state.stats;
+  const rows = [
+    ['Время в игре', fmtTime(st.totalTime)],
+    ['Время текущего забега', fmtTime(state.time)],
+    ['Кликов', fmt(st.clicks)],
+    ['Куплено зданий', fmt(st.buildingsBought)],
+    ['Кредитов заработано', fmt(st.totalCredits)],
+    ['Волн отбито / прорывов', `${st.wavesWon} / ${st.wavesLost}`],
+    ['Лучшая волна', st.bestWave],
+    ['Максимум жильцов', fmt(Math.floor(st.maxResidents))],
+    ['Решений в событиях', st.events],
+    ['Эвакуаций', state.prestige.count],
+  ];
+  setHtml($('#statsTable'), rows.map(([a, b]) => `<tr><td class="muted">${a}</td><td class="num">${b}</td></tr>`).join(''));
+}
+
+/* =====================================================================
+   14. ГРАФИКИ НА CANVAS
+   ===================================================================== */
+function prepCanvas(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = c.clientWidth;
+  if (!c._baseH) c._baseH = Number(c.getAttribute('height')) || 100;
+  const H = c._baseH;
+  if (c.width !== Math.round(w * dpr) || c._dpr !== dpr) {
+    c.width = Math.round(w * dpr); c.height = Math.round(H * dpr); c._dpr = dpr;
+    c.style.height = H + 'px';
+  }
+  const ctx = c.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, H);
+  return { ctx, w, h: H };
+}
+function drawResChart() {
+  const c = $('#resChart');
+  if (!c.clientWidth) return;
+  const { ctx, w, h } = prepCanvas(c);
+  const key = chartRes;
+  const color = key === 'residents' ? '#8ec5ff' : RES[key].color;
+  const data = HIST.map(p => p[key]);
+  ctx.font = '11px system-ui, sans-serif';
+  if (data.length < 2) { ctx.fillStyle = '#5d6680'; ctx.fillText('Собираем данные…', 8, h / 2); return; }
+  let min = Math.min(...data), max = Math.max(...data);
+  if (max - min < 1e-9) { max += 1; min = Math.max(0, min - 1); }
+  const pad = { l: 4, r: 4, t: 16, b: 4 };
+  const X = i => pad.l + (i / (BALANCE.history.points - 1)) * (w - pad.l - pad.r) + (BALANCE.history.points - data.length) / (BALANCE.history.points - 1) * (w - pad.l - pad.r);
+  const Y = v => pad.t + (1 - (v - min) / (max - min)) * (h - pad.t - pad.b);
+  // сетка
+  ctx.strokeStyle = 'rgba(148,163,200,.08)'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) { const y = pad.t + i * (h - pad.t - pad.b) / 3; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+  // заливка
+  const grad = ctx.createLinearGradient(0, pad.t, 0, h);
+  grad.addColorStop(0, color + '55'); grad.addColorStop(1, color + '00');
+  ctx.beginPath(); ctx.moveTo(X(0), h);
+  data.forEach((v, i) => ctx.lineTo(X(i), Y(v)));
+  ctx.lineTo(X(data.length - 1), h); ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+  // линия
+  ctx.beginPath(); data.forEach((v, i) => i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)));
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+  // подписи
+  ctx.fillStyle = '#8b94ab';
+  ctx.fillText(`макс ${fmt(max)}`, 6, 11);
+  const txt = `за ${fmtTime(data.length * BALANCE.history.sampleSeconds)}`;
+  ctx.fillText(txt, w - ctx.measureText(txt).width - 6, 11);
+}
+function drawWaveChart() {
+  const c = $('#waveChart');
+  if (!c.clientWidth) return;
+  const { ctx, w, h } = prepCanvas(c);
+  const hist = state.waveHistory;
+  ctx.font = '10px system-ui, sans-serif';
+  if (!hist.length) { ctx.fillStyle = '#5d6680'; ctx.fillText('Волн ещё не было', 8, h / 2); return; }
+  const max = Math.max(...hist.map(x => Math.max(x.str, x.def)), 1);
+  const slot = w / 14, bw = Math.max(3, slot * 0.32);
+  hist.forEach((x, i) => {
+    const cx = i * slot + slot / 2;
+    const hs = (x.str / max) * (h - 16), hd = (x.def / max) * (h - 16);
+    ctx.fillStyle = '#f87171'; ctx.fillRect(cx - bw - 1, h - 12 - hs, bw, hs);
+    ctx.fillStyle = '#7c9cff'; ctx.fillRect(cx + 1, h - 12 - hd, bw, hd);
+    ctx.fillStyle = x.win ? '#4ade80' : '#f87171';
+    ctx.fillRect(cx - bw - 1, h - 6, bw * 2 + 2, 3);
+  });
+}
+function drawCharts() { drawResChart(); drawWaveChart(); }
+
+/* =====================================================================
+   14б. ВИЗУАЛ БАЗЫ — живая панорама на canvas
+   Всё рисуется процедурно: здания появляются по мере покупки, сломанные
+   дымят, волны разыгрываются как короткий бой.
+   ===================================================================== */
+const Scene = (() => {
+  const cv = document.getElementById('scene');
+  const ctx = cv.getContext('2d');
+  let W = 0, H = 0, dpr = 1, gy = 0, bg = null, lastT = performance.now();
+  const parts = [], enemies = [], tracers = [], booms = [];
+  let banner = null, shieldFlash = 0, shake = 0;
+  const slotCache = {};
+  const TAU = Math.PI * 2;
+
+  /* Где на панораме стоят здания каждого типа.
+     x — доля ширины, d — глубина (0 — у горизонта, 1 — на переднем плане),
+     cap — сколько экземпляров рисовать максимум, order — порядок заполнения. */
+  const LAYOUT = {
+    factory:     { cap: 2,  x: [0.05, 0.25], d: [0.00, 0.10], order: 'shuffle' },
+    sinter:      { cap: 6,  x: [0.02, 0.17], d: [0.25, 0.65], order: 'shuffle' },
+    press:       { cap: 4,  x: [0.15, 0.27], d: [0.30, 0.70], order: 'shuffle' },
+    shipyard:    { cap: 2,  x: [0.25, 0.34], d: [0.05, 0.25], order: 'shuffle' },
+    repair:      { cap: 3,  x: [0.27, 0.35], d: [0.35, 0.55], order: 'shuffle' },
+    autoclicker: { cap: 4,  x: [0.27, 0.37], d: [0.65, 0.82], order: 'shuffle' },
+    domes:       { cap: 14, x: [0.37, 0.63], d: [0.02, 0.72], order: 'center' },
+    shield:      { cap: 4,  x: [0.38, 0.62], d: [0.80, 0.86], order: 'center' },
+    oxygen:      { cap: 3,  x: [0.64, 0.72], d: [0.05, 0.35], order: 'shuffle' },
+    heater:      { cap: 3,  x: [0.71, 0.80], d: [0.05, 0.35], order: 'shuffle' },
+    greenhouse:  { cap: 3,  x: [0.64, 0.80], d: [0.48, 0.75], order: 'shuffle' },
+    solar:       { cap: 12, x: [0.80, 0.985], d: [0.02, 0.75], order: 'shuffle' },
+    turret:      { cap: 10, x: [0.02, 0.98], d: [0.90, 1.00], order: 'edges' },
+  };
+
+  /* --- детерминированный генератор: одно и то же здание всегда на своём месте --- */
+  function mulberry(seed) {
+    return () => {
+      seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function hash(str) { let h = 2166136261; for (const c of str) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function slots(type) {
+    if (slotCache[type]) return slotCache[type];
+    const L = LAYOUT[type], r = mulberry(hash(type)), arr = [];
+    const span = L.x[1] - L.x[0];
+    for (let i = 0; i < L.cap; i++) {
+      const jitter = L.order === 'edges' ? 0 : (r() - 0.5) * span / L.cap * 0.7;
+      arr.push({ x: L.x[0] + (i + 0.5) / L.cap * span + jitter, d: L.d[0] + r() * (L.d[1] - L.d[0]), ph: r() * 10 });
+    }
+    if (L.order === 'center') arr.sort((a, b) => Math.abs(a.x - 0.5) - Math.abs(b.x - 0.5));
+    else if (L.order === 'edges') arr.sort((a, b) => Math.abs(b.x - 0.5) - Math.abs(a.x - 0.5));
+    else for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+    return (slotCache[type] = arr);
+  }
+  const scaleK = () => H / 230;
+  function toScreen(sl) {
+    return { x: sl.x * W, y: gy + 6 + sl.d * (H - gy - 12), s: (0.68 + 0.7 * sl.d) * scaleK() };
+  }
+  function visibleCount(type) {
+    const L = LAYOUT[type];
+    const n = type === 'domes' ? Math.floor(state.res.domes) : state.b[type].n;
+    return Math.min(n, L.cap);
+  }
+
+  /* --- примитивы --- */
+  function rr(c, x, y, w, h, r) {
+    c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  }
+  function glow(c, x, y, r, color, a) {
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, color.replace('A', a)); g.addColorStop(1, color.replace('A', 0));
+    c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
+  function shadow(c, x, y, w) { c.fillStyle = 'rgba(0,0,0,.35)'; c.beginPath(); c.ellipse(x, y + 0.5, w, w * 0.22, 0, 0, TAU); c.fill(); }
+
+  /* --- частицы --- */
+  function emit(x, y, kind, n = 1) {
+    for (let i = 0; i < n; i++) {
+      if (parts.length > 600) parts.shift();
+      const p = { x, y, kind, life: 0 };
+      if (kind === 'smoke' || kind === 'blacksmoke') Object.assign(p, { vx: rand(-4, 4), vy: rand(-14, -8), max: rand(1.8, 3), size: rand(2, 3.5) * scaleK() });
+      else if (kind === 'spark') Object.assign(p, { vx: rand(-60, 60), vy: rand(-80, -10), max: rand(0.4, 0.9), size: rand(1, 2) });
+      else if (kind === 'dust') Object.assign(p, { vx: rand(-30, 30), vy: rand(-28, -6), max: rand(0.6, 1.2), size: rand(1.5, 3) * scaleK() });
+      else if (kind === 'weld') Object.assign(p, { vx: rand(-25, 25), vy: rand(-40, -5), max: rand(0.2, 0.5), size: rand(0.8, 1.6) });
+      else if (kind === 'streak') Object.assign(p, { vx: rand(120, 220) * (Math.random() < 0.5 ? -1 : 1), vy: rand(60, 120), max: rand(0.5, 0.9), size: 1 });
+      parts.push(p);
+    }
+  }
+  const chance = (rate, dt) => Math.random() < rate * dt;
+
+  /* =================================================================
+     Рисование зданий: f(ctx, x, y, s, o), где (x, y) — точка на грунте,
+     s — масштаб, o = { t, eff, broken, ph, fx } (fx — генерировать частицы)
+     ================================================================= */
+  const DRAW = {
+    worker(c, x, y, s, o) {
+      const sw = Math.sin(o.t * 5 + o.ph);
+      shadow(c, x, y, 4 * s);
+      c.strokeStyle = '#9aa3b8'; c.lineWidth = 1.6 * s; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(x - 1.2 * s, y - 4 * s); c.lineTo(x - 1.5 * s + sw * s, y); c.moveTo(x + 1.2 * s, y - 4 * s); c.lineTo(x + 1.5 * s - sw * s, y); c.stroke();
+      c.fillStyle = '#e3e7f0'; rr(c, x - 2.6 * s, y - 10 * s, 5.2 * s, 6.5 * s, 2 * s); c.fill();
+      c.fillStyle = '#c8cedb'; c.fillRect(x - 3.6 * s, y - 9.5 * s, 1.4 * s, 4 * s);   // ранец
+      c.beginPath(); c.arc(x, y - 12 * s, 2.7 * s, 0, TAU); c.fillStyle = '#f2f4f8'; c.fill();
+      c.beginPath(); c.arc(x + 0.9 * s, y - 12 * s, 1.6 * s, -1.2, 1.2); c.fillStyle = '#f5c84c'; c.fill();
+      // метла
+      c.strokeStyle = '#a07a52'; c.lineWidth = 1 * s;
+      const bx = x + 5 * s + sw * 2.5 * s;
+      c.beginPath(); c.moveTo(x + 2 * s, y - 7 * s); c.lineTo(bx, y - 0.5 * s); c.stroke();
+      c.strokeStyle = '#d9c08a'; c.lineWidth = 2 * s;
+      c.beginPath(); c.moveTo(bx - 1.5 * s, y); c.lineTo(bx + 1.5 * s, y); c.stroke();
+      if (o.fx && chance(1.2, o.dt)) emit(bx, y, 'dust');
+    },
+    autoclicker(c, x, y, s, o) {
+      const a = Math.sin(o.t * 3 + o.ph) * 0.5 * o.eff;
+      shadow(c, x, y, 7 * s);
+      c.fillStyle = '#4b5470'; rr(c, x - 6 * s, y - 4 * s, 12 * s, 4 * s, 1.5 * s); c.fill();
+      c.strokeStyle = '#f5c84c'; c.lineWidth = 2.4 * s; c.lineCap = 'round';
+      const j1x = x + Math.sin(-0.4 + a) * 9 * s, j1y = y - 4 * s - Math.cos(-0.4 + a) * 9 * s;
+      const j2x = j1x + Math.sin(1.4 - a * 2) * 8 * s, j2y = j1y - Math.cos(1.4 - a * 2) * 8 * s;
+      c.beginPath(); c.moveTo(x, y - 4 * s); c.lineTo(j1x, j1y); c.lineTo(j2x, j2y); c.stroke();
+      c.fillStyle = '#2b3145'; c.beginPath(); c.arc(j1x, j1y, 1.8 * s, 0, TAU); c.fill();
+      c.fillStyle = '#e3e7f0'; c.beginPath(); c.arc(j2x, j2y, 1.6 * s, 0, TAU); c.fill();
+    },
+    sinter(c, x, y, s, o) {
+      shadow(c, x, y, 13 * s);
+      c.fillStyle = '#5a6074'; c.fillRect(x + 3 * s, y - 24 * s, 4 * s, 10 * s);           // труба
+      c.fillStyle = '#3d4356'; rr(c, x - 11 * s, y - 16 * s, 22 * s, 16 * s, 2 * s); c.fill();
+      c.fillStyle = '#4b5268'; c.fillRect(x - 11 * s, y - 16 * s, 22 * s, 3 * s);
+      const e = o.eff * (0.8 + 0.2 * Math.sin(o.t * 7 + o.ph));
+      c.fillStyle = `rgba(${Math.round(60 + 195 * e)},${Math.round(40 + 100 * e)},30,1)`;
+      rr(c, x - 6 * s, y - 10 * s, 9 * s, 6 * s, 1.5 * s); c.fill();
+      if (e > 0.05) glow(c, x - 1.5 * s, y - 7 * s, 12 * s, 'rgba(255,140,50,A)', 0.35 * e);
+      if (o.fx && o.eff > 0 && chance(2.2 * o.eff, o.dt)) emit(x + 5 * s, y - 25 * s, 'smoke');
+    },
+    press(c, x, y, s, o) {
+      shadow(c, x, y, 12 * s);
+      const p = o.eff > 0 ? (Math.sin(o.t * 4 + o.ph) * 0.5 + 0.5) : 0.2;
+      c.fillStyle = '#454c62'; c.fillRect(x - 9 * s, y - 22 * s, 3 * s, 22 * s); c.fillRect(x + 6 * s, y - 22 * s, 3 * s, 22 * s);
+      c.fillStyle = '#596079'; c.fillRect(x - 10 * s, y - 25 * s, 20 * s, 4 * s);
+      c.fillStyle = '#8b93a8'; c.fillRect(x - 1 * s, y - 21 * s, 2 * s, 4 * s + p * 8 * s);
+      c.fillStyle = '#b7bfd1'; c.fillRect(x - 5 * s, y - 17 * s + p * 8 * s, 10 * s, 3 * s);
+      c.fillStyle = '#333a4d'; c.fillRect(x - 7 * s, y - 4 * s, 14 * s, 4 * s);
+      c.fillStyle = '#e57c5d';                                                           // кирпичи
+      for (let i = 0; i < 3; i++) c.fillRect(x + 11 * s, y - (i + 1) * 3 * s, 5 * s, 2.4 * s);
+      if (o.fx && o.eff > 0 && p > 0.97 && chance(30, o.dt)) emit(x, y - 4 * s, 'dust', 2);
+    },
+    shipyard(c, x, y, s, o) {
+      shadow(c, x, y, 18 * s);
+      c.strokeStyle = '#f5c84c'; c.lineWidth = 1.6 * s;
+      c.beginPath(); c.moveTo(x - 16 * s, y); c.lineTo(x - 16 * s, y - 34 * s); c.lineTo(x + 14 * s, y - 34 * s); c.stroke();
+      for (let i = 0; i < 5; i++) { c.beginPath(); c.moveTo(x - 16 * s, y - i * 7 * s); c.lineTo(x - 13 * s, y - (i + 1) * 7 * s); c.stroke(); }
+      const hook = x + 4 * s + Math.sin(o.t * 0.8 + o.ph) * 6 * s * o.eff;
+      c.lineWidth = 0.8 * s; c.beginPath(); c.moveTo(hook, y - 34 * s); c.lineTo(hook, y - 20 * s); c.stroke();
+      // недостроенный купол — показывает прогресс следующего
+      const prog = o.prog != null ? o.prog : (state.res.domes % 1);
+      c.strokeStyle = 'rgba(160,200,255,.35)'; c.lineWidth = 1 * s;
+      c.beginPath(); c.ellipse(x + 2 * s, y, 12 * s, 11 * s, 0, Math.PI, TAU); c.stroke();
+      c.fillStyle = 'rgba(142,197,255,.45)';
+      c.beginPath(); c.ellipse(x + 2 * s, y, 12 * s, 11 * s, 0, Math.PI, Math.PI + Math.PI * prog); c.lineTo(x + 2 * s, y); c.fill();
+      if (o.fx && o.eff > 0 && chance(6 * o.eff, o.dt)) emit(x + 2 * s + Math.cos(Math.PI + Math.PI * prog) * 12 * s, y + Math.sin(Math.PI + Math.PI * prog) * 11 * s, 'weld');
+    },
+    factory(c, x, y, s, o) {
+      shadow(c, x, y, 26 * s);
+      c.fillStyle = '#4a5066'; c.fillRect(x + 12 * s, y - 40 * s, 5 * s, 18 * s);
+      c.fillStyle = '#353b50'; c.fillRect(x - 24 * s, y - 24 * s, 48 * s, 24 * s);
+      c.fillStyle = '#41485f';
+      for (let i = 0; i < 4; i++) { c.beginPath(); c.moveTo(x - 24 * s + i * 12 * s, y - 24 * s); c.lineTo(x - 24 * s + i * 12 * s, y - 31 * s); c.lineTo(x - 12 * s + i * 12 * s, y - 24 * s); c.fill(); }
+      for (let i = 0; i < 6; i++) {
+        const lit = o.eff > 0 && Math.sin(o.t * 0.7 + i * 1.7 + o.ph) > -0.6;
+        c.fillStyle = lit ? 'rgba(125,211,252,.85)' : '#2a2f40';
+        c.fillRect(x - 20 * s + i * 7 * s, y - 16 * s, 4 * s, 5 * s);
+      }
+      if (o.fx && o.eff > 0 && chance(2.5, o.dt)) emit(x + 14.5 * s, y - 41 * s, 'smoke');
+    },
+    solar(c, x, y, s, o) {
+      shadow(c, x, y, 9 * s);
+      c.strokeStyle = '#6b7288'; c.lineWidth = 1.2 * s;
+      c.beginPath(); c.moveTo(x, y); c.lineTo(x, y - 9 * s); c.stroke();
+      c.save(); c.translate(x, y - 11 * s); c.transform(1, 0, -0.45, 0.55, 0, 0);
+      c.fillStyle = o.eff > 0 ? '#2b4c9b' : '#2a2f40'; c.fillRect(-10 * s, -8 * s, 20 * s, 14 * s);
+      c.strokeStyle = 'rgba(160,190,255,.55)'; c.lineWidth = 0.6 * s;
+      for (let i = -1; i <= 1; i++) { c.beginPath(); c.moveTo(i * 5 * s, -8 * s); c.lineTo(i * 5 * s, 6 * s); c.stroke(); }
+      c.beginPath(); c.moveTo(-10 * s, -1 * s); c.lineTo(10 * s, -1 * s); c.stroke();
+      c.strokeStyle = '#8fa4d8'; c.lineWidth = 0.9 * s; c.strokeRect(-10 * s, -8 * s, 20 * s, 14 * s);
+      // блик
+      const sh = ((o.t * 0.15 + o.ph) % 2) - 0.5;
+      if (o.eff > 0 && sh > 0 && sh < 1) { c.fillStyle = 'rgba(255,255,255,.18)'; c.fillRect(-10 * s + sh * 20 * s, -8 * s, 3 * s, 14 * s); }
+      c.restore();
+    },
+    oxygen(c, x, y, s, o) {
+      shadow(c, x, y, 11 * s);
+      for (const dx of [-5, 5]) {
+        const gx = x + dx * s;
+        const g = c.createLinearGradient(gx - 4 * s, 0, gx + 4 * s, 0);
+        g.addColorStop(0, '#2f6f73'); g.addColorStop(0.45, '#7ee8e0'); g.addColorStop(1, '#245357');
+        c.fillStyle = g; rr(c, gx - 4 * s, y - 20 * s, 8 * s, 20 * s, 4 * s); c.fill();
+        c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(gx - 4 * s, y - 13 * s, 8 * s, 1.5 * s); c.fillRect(gx - 4 * s, y - 7 * s, 8 * s, 1.5 * s);
+      }
+      if (o.eff > 0) glow(c, x, y - 22 * s, 4 * s, 'rgba(94,234,212,A)', 0.8 * (0.5 + 0.5 * Math.sin(o.t * 3 + o.ph)));
+    },
+    heater(c, x, y, s, o) {
+      shadow(c, x, y, 10 * s);
+      c.fillStyle = '#4a4252'; rr(c, x - 9 * s, y - 15 * s, 18 * s, 15 * s, 2 * s); c.fill();
+      for (let i = 0; i < 5; i++) {
+        c.fillStyle = o.eff > 0 ? `rgba(251,146,60,${0.55 + 0.35 * Math.sin(o.t * 2 + i + o.ph)})` : '#3a3442';
+        c.fillRect(x - 7 * s + i * 3 * s, y - 13 * s, 1.6 * s, 10 * s);
+      }
+      if (o.eff > 0) glow(c, x, y - 8 * s, 16 * s, 'rgba(251,146,60,A)', 0.18 * o.eff);
+    },
+    greenhouse(c, x, y, s, o) {
+      shadow(c, x, y, 15 * s);
+      c.fillStyle = o.eff > 0 ? 'rgba(74,222,128,.22)' : 'rgba(80,90,110,.25)';
+      c.beginPath(); c.moveTo(x - 14 * s, y); c.lineTo(x - 14 * s, y - 7 * s); c.ellipse(x, y - 7 * s, 14 * s, 8 * s, 0, Math.PI, TAU); c.lineTo(x + 14 * s, y); c.fill();
+      if (o.eff > 0) for (let i = 0; i < 6; i++) {
+        c.fillStyle = i % 2 ? '#4ade80' : '#86efac';
+        c.beginPath(); c.arc(x - 11 * s + i * 4.4 * s, y - 2.5 * s - (i % 3) * 1.2 * s, 2 * s, 0, TAU); c.fill();
+      }
+      c.strokeStyle = 'rgba(200,255,220,.45)'; c.lineWidth = 0.8 * s;
+      c.beginPath(); c.moveTo(x - 14 * s, y); c.lineTo(x - 14 * s, y - 7 * s); c.ellipse(x, y - 7 * s, 14 * s, 8 * s, 0, Math.PI, TAU); c.lineTo(x + 14 * s, y); c.stroke();
+      for (const dx of [-7, 0, 7]) { c.beginPath(); c.moveTo(x + dx * s, y); c.lineTo(x + dx * s, y - 7 * s - Math.sqrt(1 - (dx / 14) ** 2) * 8 * s); c.stroke(); }
+      if (o.eff > 0) glow(c, x, y - 6 * s, 18 * s, 'rgba(74,222,128,A)', 0.15);
+    },
+    turret(c, x, y, s, o) {
+      shadow(c, x, y, 8 * s);
+      c.fillStyle = '#3a4158';
+      c.beginPath(); c.moveTo(x - 7 * s, y); c.lineTo(x - 4 * s, y - 7 * s); c.lineTo(x + 4 * s, y - 7 * s); c.lineTo(x + 7 * s, y); c.fill();
+      const ang = (o.aim != null ? o.aim : -Math.PI / 2 + Math.sin(o.t * 0.6 + o.ph) * 0.9);
+      c.strokeStyle = '#a9b4d0'; c.lineWidth = 2 * s; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(x, y - 9 * s); c.lineTo(x + Math.cos(ang) * 10 * s, y - 9 * s + Math.sin(ang) * 10 * s); c.stroke();
+      c.fillStyle = '#5b6582'; c.beginPath(); c.arc(x, y - 9 * s, 3.5 * s, 0, TAU); c.fill();
+      c.fillStyle = o.eff > 0 ? '#7c9cff' : '#444b60'; c.beginPath(); c.arc(x, y - 9 * s, 1.4 * s, 0, TAU); c.fill();
+    },
+    shield(c, x, y, s, o) {
+      shadow(c, x, y, 5 * s);
+      c.fillStyle = '#3a4158'; c.beginPath(); c.moveTo(x - 4 * s, y); c.lineTo(x, y - 18 * s); c.lineTo(x + 4 * s, y); c.fill();
+      if (o.eff > 0) glow(c, x, y - 19 * s, 7 * s, 'rgba(124,180,255,A)', 0.9 * (0.7 + 0.3 * Math.sin(o.t * 4 + o.ph)));
+      c.fillStyle = o.eff > 0 ? '#cfe0ff' : '#545b70'; c.beginPath(); c.arc(x, y - 19 * s, 2.2 * s, 0, TAU); c.fill();
+    },
+    repair(c, x, y, s, o) {
+      shadow(c, x, y, 10 * s);
+      c.fillStyle = '#4a4d5c'; rr(c, x - 9 * s, y - 12 * s, 18 * s, 12 * s, 2 * s); c.fill();
+      c.fillStyle = '#f5c84c'; for (let i = 0; i < 4; i++) c.fillRect(x - 9 * s + i * 5 * s, y - 3 * s, 2.5 * s, 3 * s);
+      c.fillStyle = '#2b2f3c'; c.fillRect(x - 3 * s, y - 9 * s, 6 * s, 6 * s);
+      const on = o.active ? Math.sin(o.t * 8 + o.ph) > 0 : false;
+      c.fillStyle = on ? '#fbbf24' : '#6b5a2a'; c.fillRect(x - 1.5 * s, y - 15 * s, 3 * s, 3 * s);
+      if (on) glow(c, x, y - 13.5 * s, 10 * s, 'rgba(251,191,36,A)', 0.6);
+    },
+    drone(c, x, y, s, o) {
+      c.strokeStyle = '#8b93a8'; c.lineWidth = 0.9 * s;
+      c.beginPath(); c.moveTo(x - 7 * s, y - 1 * s); c.lineTo(x + 7 * s, y - 1 * s); c.stroke();
+      const sp = Math.abs(Math.sin(o.t * 40 + o.ph));
+      c.strokeStyle = 'rgba(220,230,255,.6)';
+      c.beginPath(); c.moveTo(x - 7 * s - 3 * s * sp, y - 2 * s); c.lineTo(x - 7 * s + 3 * s * sp, y - 2 * s);
+      c.moveTo(x + 7 * s - 3 * s * sp, y - 2 * s); c.lineTo(x + 7 * s + 3 * s * sp, y - 2 * s); c.stroke();
+      c.fillStyle = '#c7cde0'; rr(c, x - 3.5 * s, y - 2.5 * s, 7 * s, 4 * s, 2 * s); c.fill();
+      const blink = Math.sin(o.t * 6 + o.ph) > 0.6;
+      c.fillStyle = blink ? '#f87171' : '#4ade80'; c.beginPath(); c.arc(x, y + 1.8 * s, 0.9 * s, 0, TAU); c.fill();
+      if (blink) glow(c, x, y + 2 * s, 4 * s, 'rgba(248,113,113,A)', 0.6);
+    },
+    dome(c, x, y, s, o) {
+      const R = 16 * s;
+      shadow(c, x, y, R * 1.05);
+      c.fillStyle = '#2e3446'; c.fillRect(x - R, y - 2.5 * s, R * 2, 2.5 * s);
+      const occ = o.occ;
+      // тёплый свет изнутри — показывает заселённость
+      const warm = o.deficit ? `rgba(248,113,113,${0.25 + 0.2 * Math.sin(o.t * 5)})` : `rgba(255,214,140,${0.08 + 0.4 * occ})`;
+      c.fillStyle = warm; c.beginPath(); c.ellipse(x, y - 2.5 * s, R, R * 0.92, 0, Math.PI, TAU); c.fill();
+      const g = c.createRadialGradient(x - R * 0.35, y - R * 0.8, R * 0.1, x, y - R * 0.3, R * 1.1);
+      g.addColorStop(0, 'rgba(230,240,255,.55)'); g.addColorStop(0.5, 'rgba(142,197,255,.18)'); g.addColorStop(1, 'rgba(80,110,170,.35)');
+      c.fillStyle = g; c.beginPath(); c.ellipse(x, y - 2.5 * s, R, R * 0.92, 0, Math.PI, TAU); c.fill();
+      c.strokeStyle = 'rgba(190,215,255,.55)'; c.lineWidth = 0.9 * s;
+      c.beginPath(); c.ellipse(x, y - 2.5 * s, R, R * 0.92, 0, Math.PI, TAU); c.stroke();
+      c.strokeStyle = 'rgba(190,215,255,.18)';
+      c.beginPath(); c.ellipse(x, y - 2.5 * s, R * 0.5, R * 0.92, 0, Math.PI, TAU); c.stroke();
+      c.beginPath(); c.moveTo(x - R * 0.88, y - R * 0.45); c.lineTo(x + R * 0.88, y - R * 0.45); c.stroke();
+      // окна домиков внутри
+      const lights = Math.round(occ * 5);
+      for (let i = 0; i < 5; i++) {
+        c.fillStyle = i < lights ? '#ffd68a' : 'rgba(60,70,90,.8)';
+        c.fillRect(x - 8 * s + i * 3.6 * s, y - 6 * s - (i % 2) * 2 * s, 1.8 * s, 1.8 * s);
+      }
+    },
+  };
+
+  /* Иконка здания для карточки — те же функции рисования */
+  const ICON_SCALE = { worker: 1.75, drone: 2.1, autoclicker: 1.1, factory: 0.62, shipyard: 0.75, solar: 1.15, greenhouse: 1.15 };
+  function icon(canvas, type) {
+    const d = window.devicePixelRatio || 1, w = 44, h = 36;
+    canvas.width = w * d; canvas.height = h * d; canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+    const c = canvas.getContext('2d');
+    c.setTransform(d, 0, 0, d, 0, 0); c.clearRect(0, 0, w, h);
+    const s = ICON_SCALE[type] || 1;
+    const y = type === 'drone' ? 22 : 32;
+    DRAW[type](c, 22, y, s, { t: 1.3, eff: 1, ph: 0.7, occ: 0.8, prog: 0.6, fx: false, dt: 0 });
+  }
+
+  /* --- фон: небо, Земля, горы, грунт. Рисуется один раз на офскрин-холст --- */
+  function buildBg() {
+    bg = document.createElement('canvas');
+    bg.width = Math.round(W * dpr); bg.height = Math.round(H * dpr);
+    const c = bg.getContext('2d');
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const sky = c.createLinearGradient(0, 0, 0, gy);
+    sky.addColorStop(0, '#03050c'); sky.addColorStop(1, '#0c1226');
+    c.fillStyle = sky; c.fillRect(0, 0, W, gy + 2);
+    const r = mulberry(7);
+    for (let i = 0; i < W * gy / 900; i++) {
+      c.fillStyle = `rgba(255,255,255,${0.15 + r() * 0.6})`;
+      const sz = r() < 0.92 ? 1 : 1.6;
+      c.fillRect(r() * W, r() * gy * 0.95, sz, sz);
+    }
+    // Земля
+    const ex = W * 0.86, ey = H * 0.2, er = Math.max(16, H * 0.1);
+    glow(c, ex, ey, er * 2.2, 'rgba(96,165,250,A)', 0.18);
+    const eg = c.createRadialGradient(ex - er * 0.3, ey - er * 0.3, er * 0.1, ex, ey, er);
+    eg.addColorStop(0, '#6aa8ff'); eg.addColorStop(1, '#1d3f8f');
+    c.fillStyle = eg; c.beginPath(); c.arc(ex, ey, er, 0, TAU); c.fill();
+    c.save(); c.beginPath(); c.arc(ex, ey, er, 0, TAU); c.clip();
+    c.fillStyle = 'rgba(74,170,110,.8)';
+    for (let i = 0; i < 6; i++) { c.beginPath(); c.ellipse(ex + (r() - 0.5) * er * 1.6, ey + (r() - 0.5) * er * 1.4, er * (0.15 + r() * 0.3), er * (0.1 + r() * 0.2), r() * 3, 0, TAU); c.fill(); }
+    c.fillStyle = 'rgba(255,255,255,.35)';
+    for (let i = 0; i < 5; i++) { c.beginPath(); c.ellipse(ex + (r() - 0.5) * er * 1.8, ey + (r() - 0.5) * er * 1.6, er * (0.2 + r() * 0.3), er * 0.06, r() * 0.6, 0, TAU); c.fill(); }
+    c.fillStyle = 'rgba(2,4,12,.72)'; c.beginPath(); c.arc(ex + er * 0.55, ey + er * 0.2, er * 1.05, 0, TAU); c.fill();
+    c.restore();
+    // дальние горы
+    for (const [k, col, amp] of [[0, '#151a28', 0.16], [1, '#1c2232', 0.09]]) {
+      c.fillStyle = col; c.beginPath(); c.moveTo(0, gy);
+      const rr2 = mulberry(31 + k);
+      let yy = gy - H * amp * 0.5;
+      for (let x = 0; x <= W + 20; x += 18) { yy = clamp(yy + (rr2() - 0.5) * H * 0.05, gy - H * amp, gy - H * 0.01); c.lineTo(x, yy); }
+      c.lineTo(W, gy); c.closePath(); c.fill();
+    }
+    // грунт
+    const gr = c.createLinearGradient(0, gy, 0, H);
+    gr.addColorStop(0, '#2d3240'); gr.addColorStop(0.4, '#3a3f4e'); gr.addColorStop(1, '#262a36');
+    c.fillStyle = gr; c.fillRect(0, gy, W, H - gy);
+    c.fillStyle = 'rgba(200,210,235,.06)'; c.fillRect(0, gy, W, 1.5);
+    for (let i = 0; i < 18; i++) {
+      const d = r(), cx = r() * W, cy = gy + 4 + d * (H - gy - 6), rx = (6 + r() * 22) * (0.5 + d), ry = rx * (0.18 + d * 0.12);
+      c.fillStyle = 'rgba(15,17,24,.35)'; c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, TAU); c.fill();
+      c.strokeStyle = 'rgba(190,200,225,.10)'; c.lineWidth = 1; c.beginPath(); c.ellipse(cx, cy + ry * 0.15, rx, ry, 0, Math.PI * 0.05, Math.PI * 0.95); c.stroke();
+    }
+    for (let i = 0; i < W * 0.6; i++) { c.fillStyle = `rgba(${r() < 0.5 ? '0,0,0' : '220,225,240'},${r() * 0.12})`; c.fillRect(r() * W, gy + r() * (H - gy), 1.2, 1.2); }
+  }
+  function resize() {
+    const w = cv.clientWidth, h = cv.clientHeight, d = window.devicePixelRatio || 1;
+    if (!w || !h) return false;
+    if (w === W && h === H && d === dpr && bg) return true;
+    W = w; H = h; dpr = d; gy = H * 0.55;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    buildBg();
+    return true;
+  }
+
+  /* Позиция экземпляра здания для целей атаки */
+  function targetFor(id) {
+    if (LAYOUT[id]) {
+      const n = visibleCount(id);
+      if (n > 0) { const p = toScreen(slots(id)[Math.floor(Math.random() * n)]); return { x: p.x, y: p.y - 6 * p.s }; }
+    }
+    return { x: rand(0.1, 0.9) * W, y: gy + rand(0.3, 0.8) * (H - gy) };
+  }
+  function turretPositions() {
+    const n = Math.min(visibleCount('turret'), Math.max(0, nEff('turret')));
+    return slots('turret').slice(0, n).map(sl => { const p = toScreen(sl); return { x: p.x, y: p.y - 9 * p.s }; });
+  }
+
+  /* --- волна: короткий бой --- */
+  function wave({ type, win, deficit, broken, num }) {
+    if (!resize()) return;
+    const now = performance.now() / 1000;
+    const N = 6 + Math.min(12, num);
+    const targets = [];
+    for (const id in broken) for (let k = 0; k < broken[id]; k++) targets.push(targetFor(id));
+    const hits = win ? 0 : Math.max(targets.length ? Math.min(targets.length, N) : 1, Math.round(N * clamp(deficit, 0, 1) * 0.6));
+    for (let i = 0; i < N; i++) {
+      const fate = i < hits ? 'hit' : 'stop';
+      const tgt = targets[i] || targetFor(BUILD_ORDER[Math.floor(Math.random() * BUILD_ORDER.length)]);
+      const e = { type, fate, tx: tgt.x, ty: tgt.y, start: now + rand(0.1, 2.4), stopAt: rand(0.4, 0.75), fired: false };
+      if (type === 'meteor') { e.sx = tgt.x + rand(-0.15, 0.35) * W; e.sy = -12; e.dur = rand(1.1, 1.7); }
+      else {
+        const left = Math.random() < 0.5;
+        e.sx = left ? -20 : W + 20; e.sy = gy + rand(3, 14); e.dur = rand(2.2, 3.2);
+        if (fate === 'stop') { e.tx = left ? rand(0.05, 0.3) * W : rand(0.7, 0.95) * W; e.ty = gy + rand(5, 25); e.stopAt = rand(0.55, 0.9); }
+      }
+      enemies.push(e);
+    }
+    const T = BALANCE.waves.types[type];
+    banner = win
+      ? { text: `Волна №${num} отбита`, sub: T.name, color: '#4ade80', until: now + 5.5 }
+      : { text: `Прорыв обороны!`, sub: `${T.name} · волна №${num}`, color: '#f87171', until: now + 5.5 };
+  }
+
+  function puff(px, py) {
+    if (!resize()) return;
+    const x = px != null ? px : rand(0.15, 0.85) * W;
+    const y = py != null ? py : gy + rand(0.4, 0.9) * (H - gy);
+    emit(x, y, 'dust', 6);
+  }
+
+  /* --- главный кадр --- */
+  function draw(now) {
+    if (!resize()) return;
+    const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+    const t = now / 1000;
+    const c = ctx;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    let ox = 0, oy = 0;
+    if (shake > 0) { shake = Math.max(0, shake - dt * 2.5); ox = (Math.random() - 0.5) * 8 * shake; oy = (Math.random() - 0.5) * 6 * shake; }
+    c.translate(ox, oy);
+    c.drawImage(bg, 0, 0, W, H);
+
+    // приближение волны: красный горизонт и силуэты врагов
+    const tl = state.wave.timeLeft, warn = tl < 25 ? 1 - tl / 25 : 0;
+    if (warn > 0) {
+      const g = c.createLinearGradient(0, gy - H * 0.3, 0, gy);
+      g.addColorStop(0, 'rgba(248,113,113,0)'); g.addColorStop(1, `rgba(248,113,113,${0.22 * warn * (0.75 + 0.25 * Math.sin(t * 4))})`);
+      c.fillStyle = g; c.fillRect(0, gy - H * 0.3, W, H * 0.3);
+      const wt = state.wave.type;
+      if (wt === 'meteor' && chance(4 * warn, dt)) emit(rand(0, W), rand(0, gy * 0.4), 'streak');
+      if (wt !== 'meteor') {
+        const k = Math.min(4, 1 + Math.floor(warn * 4));
+        for (let i = 0; i < k; i++) {
+          const side = i % 2 ? 1 : -1, xx = side < 0 ? (0.01 + warn * 0.07 + i * 0.02) * W : (0.99 - warn * 0.07 - i * 0.02) * W, yy = gy - 1 + (i % 2);
+          if (wt === 'raiders') { c.fillStyle = '#fde68a'; c.fillRect(xx - 2, yy - 1, 1.5, 1.5); c.fillRect(xx + 1, yy - 1, 1.5, 1.5); glow(c, xx, yy, 7, 'rgba(253,230,138,A)', 0.35); }
+          else if (Math.sin(t * 3 + i * 2) > -0.3) { c.fillStyle = '#ef4444'; c.fillRect(xx - 0.8, yy - 3, 1.6, 1.6); glow(c, xx, yy - 2, 6, 'rgba(239,68,68,A)', 0.5); }
+        }
+      }
+    }
+    // случайная падающая звезда для живости
+    if (chance(0.06, dt)) emit(rand(0, W), rand(0, gy * 0.3), 'streak');
+
+    // --- сбор всех объектов, сортировка по глубине ---
+    const list = [];
+    const repairing = nEff('repair') > 0 && totalBroken() > 0;
+    const turretAim = {};
+    const flying = enemies.filter(e => t >= e.start);
+    for (const type in LAYOUT) {
+      const sl = slots(type), vis = visibleCount(type);
+      if (!vis) continue;
+      const b = type === 'domes' ? null : state.b[type];
+      const brokenVis = b && b.broken > 0 ? Math.max(1, Math.round(b.broken / b.n * vis)) : 0;
+      const eff = type === 'domes' ? 1 : (b.off ? 0 : (EFF[type] ?? 1));
+      for (let i = 0; i < vis; i++) {
+        const p = toScreen(sl[i]);
+        const isBroken = i >= vis - brokenVis;
+        const o = { t, dt, eff: isBroken ? 0 : eff, broken: isBroken, ph: sl[i].ph, fx: true, active: repairing };
+        if (type === 'domes') {
+          const cap = housing();
+          o.occ = cap > 0 ? clamp(state.residents / cap, 0, 1) : 0;
+          o.deficit = lastSatisfaction < 0.98 && state.residents > 0.5;
+        }
+        if (type === 'turret' && flying.length) {
+          let best = null, bd = Infinity;
+          for (const e of flying) { const pos = enemyPos(e, t); const d = Math.hypot(pos.x - p.x, pos.y - p.y); if (d < bd) { bd = d; best = pos; } }
+          if (best) o.aim = Math.atan2(best.y - (p.y - 9 * p.s), best.x - p.x);
+          turretAim[i] = o.aim;
+        }
+        list.push({ y: p.y, fn: () => {
+          DRAW[type === 'domes' ? 'dome' : type](c, p.x, p.y, p.s, o);
+          if (isBroken) brokenFx(c, p, t, dt);
+        } });
+      }
+    }
+    // рабочие бродят по переднему плану
+    const workers = Math.min(16, nEff('worker'));
+    const wr = slotsWorkers();
+    for (let i = 0; i < workers; i++) {
+      const w = wr[i];
+      const x = (w.x + Math.sin(t * w.sp + w.ph) * w.range) * W;
+      const y = gy + 6 + w.d * (H - gy - 12), s = (0.68 + 0.7 * w.d) * scaleK();
+      list.push({ y, fn: () => DRAW.worker(c, x, y, s, { t, dt, ph: w.ph, fx: true, eff: 1 }) });
+    }
+    list.sort((a, b) => a.y - b.y);
+    for (const d of list) d.fn();
+
+    // щит над жилым кварталом
+    const sh = nEff('shield') > 0 ? (EFF.shield ?? 1) : 0;
+    if (sh > 0 || shieldFlash > 0) {
+      const cx = W / 2, cy = gy + (H - gy) * 0.75, rx = W * 0.2, ry = H * 0.62;
+      const a = 0.07 + 0.1 * sh + 0.5 * shieldFlash;
+      const g = c.createRadialGradient(cx, cy - ry * 0.3, ry * 0.2, cx, cy, ry);
+      g.addColorStop(0, 'rgba(124,180,255,0)'); g.addColorStop(0.85, `rgba(124,180,255,${a * 0.25})`); g.addColorStop(1, `rgba(160,200,255,${a * 0.6})`);
+      c.fillStyle = g; c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, Math.PI, TAU); c.fill();
+      c.strokeStyle = `rgba(170,205,255,${a + 0.1 * Math.sin(t * 2)})`; c.lineWidth = 1.2;
+      c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, Math.PI, TAU); c.stroke();
+      shieldFlash = Math.max(0, shieldFlash - dt * 1.8);
+    }
+
+    // дроны летают над базой
+    const drones = Math.min(12, nEff('drone'));
+    for (let i = 0; i < drones; i++) {
+      const ph = i * 2.39;
+      const x = W * (0.5 + 0.42 * Math.sin(t * (0.12 + i * 0.013) + ph));
+      const y = gy - H * (0.08 + (i % 4) * 0.045) + Math.sin(t * 1.4 + ph) * 3;
+      DRAW.drone(c, x, y, 0.75 * scaleK(), { t, ph });
+    }
+
+    updateEnemies(c, t, dt);
+    updateTracers(c, dt);
+    updateParticles(c, dt);
+    updateBooms(c, dt);
+
+    // искры от ремонтников к сломанным зданиям
+    if (repairing && chance(3, dt)) { const p = targetFor(weightedPick(BUILD_ORDER, id => state.b[id].broken) || 'worker'); emit(p.x, p.y, 'weld', 3); }
+
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawOverlay(c, t, warn);
+  }
+
+  let workerSlots = null;
+  function slotsWorkers() {
+    if (workerSlots) return workerSlots;
+    const r = mulberry(99); workerSlots = [];
+    for (let i = 0; i < 16; i++) workerSlots.push({ x: 0.08 + r() * 0.84, d: 0.55 + r() * 0.3, ph: r() * 10, sp: 0.15 + r() * 0.2, range: 0.02 + r() * 0.05 });
+    return workerSlots;
+  }
+
+  function brokenFx(c, p, t, dt) {
+    c.fillStyle = 'rgba(8,10,16,.45)';
+    c.beginPath(); c.ellipse(p.x, p.y - 8 * p.s, 13 * p.s, 9 * p.s, 0, 0, TAU); c.fill();
+    if (Math.sin(t * 6 + p.x) > 0) { c.fillStyle = '#f87171'; c.beginPath(); c.arc(p.x, p.y - 16 * p.s, 1.6 * p.s, 0, TAU); c.fill(); glow(c, p.x, p.y - 16 * p.s, 7 * p.s, 'rgba(248,113,113,A)', 0.6); }
+    if (chance(2.5, dt)) emit(p.x + rand(-4, 4) * p.s, p.y - 10 * p.s, 'blacksmoke');
+    if (chance(0.8, dt)) emit(p.x, p.y - 8 * p.s, 'spark', 2);
+  }
+
+  function enemyPos(e, t) {
+    const p = clamp((t - e.start) / e.dur, 0, 1);
+    const k = e.type === 'meteor' ? p * p * 0.4 + p * 0.6 : p;   // метеор разгоняется
+    return { x: e.sx + (e.tx - e.sx) * k, y: e.sy + (e.ty - e.sy) * k, p };
+  }
+  function updateEnemies(c, t, dt) {
+    const turrets = turretPositions();
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      if (t < e.start) continue;
+      const pos = enemyPos(e, t);
+      // турели открывают огонь, когда цель близко к рубежу перехвата
+      if (e.fate === 'stop' && !e.fired && pos.p >= e.stopAt - 0.08) {
+        e.fired = true;
+        if (turrets.length) { const tp2 = turrets[Math.floor(Math.random() * turrets.length)]; tracers.push({ x1: tp2.x, y1: tp2.y, x2: pos.x, y2: pos.y, life: 0.18, color: '#bcd0ff' }); }
+        else shieldFlash = 1;
+      }
+      if (e.fate === 'stop' && pos.p >= e.stopAt) {
+        booms.push({ x: pos.x, y: pos.y, r: 10 * scaleK(), life: 0, max: 0.5, color: e.type === 'meteor' ? '255,170,80' : '255,210,120' });
+        emit(pos.x, pos.y, 'spark', 8);
+        if (nEff('shield') > 0) shieldFlash = Math.max(shieldFlash, 0.6);
+        enemies.splice(i, 1); continue;
+      }
+      if (pos.p >= 1) {
+        booms.push({ x: pos.x, y: pos.y, r: 22 * scaleK(), life: 0, max: 0.8, color: '255,120,70' });
+        emit(pos.x, pos.y, 'spark', 16); emit(pos.x, pos.y, 'blacksmoke', 6);
+        shake = Math.min(1, shake + 0.35);
+        enemies.splice(i, 1); continue;
+      }
+      // враги наземных волн отстреливаются
+      if (e.type !== 'meteor' && chance(1.2, dt)) tracers.push({ x1: pos.x, y1: pos.y - 3, x2: W / 2 + rand(-0.2, 0.2) * W, y2: gy + rand(0.2, 0.6) * (H - gy), life: 0.14, color: '#f87171' });
+      drawEnemy(c, e, pos, t);
+    }
+  }
+  function drawEnemy(c, e, pos, t) {
+    const s = scaleK();
+    if (e.type === 'meteor') {
+      const dx = e.tx - e.sx, dy = e.ty - e.sy, len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
+      const g = c.createLinearGradient(pos.x, pos.y, pos.x - ux * 40 * s, pos.y - uy * 40 * s);
+      g.addColorStop(0, 'rgba(255,190,110,.9)'); g.addColorStop(1, 'rgba(255,120,60,0)');
+      c.strokeStyle = g; c.lineWidth = 3 * s; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(pos.x, pos.y); c.lineTo(pos.x - ux * 40 * s, pos.y - uy * 40 * s); c.stroke();
+      glow(c, pos.x, pos.y, 9 * s, 'rgba(255,170,80,A)', 0.8);
+      c.fillStyle = '#ffe2b0'; c.beginPath(); c.arc(pos.x, pos.y, 2.4 * s, 0, TAU); c.fill();
+    } else if (e.type === 'raiders') {
+      const dir = e.tx > e.sx ? 1 : -1;
+      c.fillStyle = '#1b1f2b'; rr(c, pos.x - 7 * s, pos.y - 6 * s, 14 * s, 5 * s, 2 * s); c.fill();
+      c.fillStyle = '#7a3b3b'; c.fillRect(pos.x - 3 * s, pos.y - 9 * s, 5 * s, 3 * s);
+      c.fillStyle = '#0c0e14'; for (const wx of [-4.5, 4.5]) { c.beginPath(); c.arc(pos.x + wx * s, pos.y - 1 * s, 2 * s, 0, TAU); c.fill(); }
+      c.fillStyle = '#fde68a'; c.fillRect(pos.x + dir * 7 * s - 1, pos.y - 5 * s, 2, 2);
+      glow(c, pos.x + dir * 10 * s, pos.y - 4 * s, 10 * s, 'rgba(253,230,138,A)', 0.35);
+    } else {
+      const bob = Math.abs(Math.sin(t * 8 + e.start)) * 1.5 * s;
+      c.strokeStyle = '#3b4256'; c.lineWidth = 1.5 * s;
+      c.beginPath(); c.moveTo(pos.x - 3 * s, pos.y - 5 * s); c.lineTo(pos.x - 4 * s, pos.y); c.moveTo(pos.x + 3 * s, pos.y - 5 * s); c.lineTo(pos.x + 4 * s, pos.y); c.stroke();
+      c.fillStyle = '#596079'; rr(c, pos.x - 5 * s, pos.y - 13 * s - bob, 10 * s, 8 * s, 1.5 * s); c.fill();
+      c.fillStyle = '#ef4444'; c.fillRect(pos.x - 1.5 * s, pos.y - 11 * s - bob, 3 * s, 2 * s);
+      glow(c, pos.x, pos.y - 10 * s - bob, 7 * s, 'rgba(239,68,68,A)', 0.6);
+    }
+  }
+  function updateTracers(c, dt) {
+    for (let i = tracers.length - 1; i >= 0; i--) {
+      const tr = tracers[i]; tr.life -= dt;
+      if (tr.life <= 0) { tracers.splice(i, 1); continue; }
+      c.strokeStyle = tr.color; c.globalAlpha = clamp(tr.life * 6, 0, 1); c.lineWidth = 1.4;
+      c.beginPath(); c.moveTo(tr.x1, tr.y1); c.lineTo(tr.x2, tr.y2); c.stroke();
+      c.globalAlpha = 1;
+    }
+  }
+  function updateParticles(c, dt) {
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i]; p.life += dt;
+      if (p.life >= p.max) { parts.splice(i, 1); continue; }
+      const k = p.life / p.max;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.kind === 'spark' || p.kind === 'dust' || p.kind === 'weld') p.vy += 60 * dt;   // лунная гравитация слабая
+      if (p.kind === 'smoke' || p.kind === 'blacksmoke') {
+        const r = p.size * (1 + k * 2.5);
+        c.fillStyle = p.kind === 'smoke' ? `rgba(170,178,195,${0.28 * (1 - k)})` : `rgba(25,25,32,${0.55 * (1 - k)})`;
+        c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();
+      } else if (p.kind === 'dust') {
+        c.fillStyle = `rgba(184,178,167,${0.6 * (1 - k)})`; c.beginPath(); c.arc(p.x, p.y, p.size * (1 + k), 0, TAU); c.fill();
+      } else if (p.kind === 'spark' || p.kind === 'weld') {
+        c.fillStyle = p.kind === 'weld' ? `rgba(180,220,255,${1 - k})` : `rgba(255,200,120,${1 - k})`;
+        c.fillRect(p.x, p.y, p.size, p.size);
+      } else if (p.kind === 'streak') {
+        c.strokeStyle = `rgba(255,255,255,${0.7 * (1 - k)})`; c.lineWidth = 1;
+        c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx * 0.08, p.y - p.vy * 0.08); c.stroke();
+      }
+    }
+  }
+  function updateBooms(c, dt) {
+    for (let i = booms.length - 1; i >= 0; i--) {
+      const b = booms[i]; b.life += dt;
+      if (b.life >= b.max) { booms.splice(i, 1); continue; }
+      const k = b.life / b.max;
+      glow(c, b.x, b.y, b.r * (0.6 + k * 1.4), `rgba(${b.color},A)`, 0.9 * (1 - k));
+      c.strokeStyle = `rgba(${b.color},${0.6 * (1 - k)})`; c.lineWidth = 1.5;
+      c.beginPath(); c.arc(b.x, b.y, b.r * (0.4 + k * 1.6), 0, TAU); c.stroke();
+    }
+  }
+  function drawOverlay(c, t, warn) {
+    c.textBaseline = 'top';
+    const now = t;
+    if (banner && now < banner.until) {
+      const a = clamp(Math.min((banner.until - now) / 0.6, (now - (banner.until - 5.5)) / 0.3), 0, 1);
+      c.globalAlpha = a;
+      c.font = `700 ${Math.round(15 * Math.max(0.85, scaleK()))}px system-ui, sans-serif`;
+      const w = Math.max(c.measureText(banner.text).width, 140) + 24;
+      c.fillStyle = 'rgba(6,9,18,.7)'; rr(c, 12, 12, w, 44, 10); c.fill();
+      c.strokeStyle = banner.color; c.lineWidth = 1; rr(c, 12, 12, w, 44, 10); c.stroke();
+      c.fillStyle = banner.color; c.fillText(banner.text, 24, 19);
+      c.font = '12px system-ui, sans-serif'; c.fillStyle = '#c5cbe0'; c.fillText(banner.sub, 24, 38);
+      c.globalAlpha = 1;
+    } else if (warn > 0) {
+      const T = BALANCE.waves.types[state.wave.type];
+      c.font = '600 12px system-ui, sans-serif';
+      const txt = `⚠ ${T.name} через ${fmtTime(state.wave.timeLeft)}`;
+      const w = c.measureText(txt).width + 20;
+      c.fillStyle = `rgba(60,10,16,${0.55 + 0.2 * Math.sin(t * 5)})`; rr(c, 12, 12, w, 26, 8); c.fill();
+      c.fillStyle = '#fecaca'; c.fillText(txt, 22, 19);
+    } else if (state.stats.clicks < 15) {
+      c.font = '12px system-ui, sans-serif'; c.fillStyle = 'rgba(200,210,235,.75)';
+      c.fillText('Нажмите на поверхность, чтобы чистить пыль', 14, 14);
+    }
+  }
+
+  return { draw, wave, puff, icon, get gy() { return gy; }, get H() { return H; } };
+})();
+
+/* Схема цепочки переработки с бегущими потоками */
+function drawChainFlow(now) {
+  const c = document.getElementById('chainFlow');
+  if (!c || !c.clientWidth) return;
+  const d = window.devicePixelRatio || 1, w = c.clientWidth, h = 92;
+  if (c.width !== Math.round(w * d)) { c.width = Math.round(w * d); c.height = Math.round(h * d); c.style.height = h + 'px'; }
+  const x = c.getContext('2d');
+  x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, w, h);
+  const nodes = [
+    { k: 'dust', label: 'Пыль', val: state.res.dust, color: RES.dust.color },
+    { k: 'regolith', label: 'Реголит', val: state.res.regolith, color: RES.regolith.color },
+    { k: 'bricks', label: 'Кирпичи', val: state.res.bricks, color: RES.bricks.color },
+    { k: 'domes', label: 'Купола', val: state.res.domes, color: RES.domes.color },
+    { k: 'residents', label: 'Жильцы', val: state.residents, color: '#f0abfc' },
+  ];
+  const links = [RATE.prod.regolith, RATE.prod.bricks, RATE.prod.domes, state.residents > 0.5 ? Math.max(0.05, residentRate) + 0.3 : 0];
+  const pad = 34, step = (w - pad * 2) / (nodes.length - 1), cy = 30, t = now / 1000;
+  links.forEach((rate, i) => {
+    const x1 = pad + i * step + 16, x2 = pad + (i + 1) * step - 16;
+    x.strokeStyle = rate > 0 ? 'rgba(148,163,200,.25)' : 'rgba(148,163,200,.1)'; x.lineWidth = 2;
+    x.setLineDash(rate > 0 ? [] : [3, 4]); x.beginPath(); x.moveTo(x1, cy); x.lineTo(x2, cy); x.stroke(); x.setLineDash([]);
+    if (rate > 0) {
+      const dots = clamp(Math.ceil(Math.log10(1 + rate * 10) * 2.5), 1, 9);
+      const speed = 0.35 + Math.min(1.2, Math.log10(1 + rate) * 0.5);
+      for (let j = 0; j < dots; j++) {
+        const k = ((t * speed + j / dots) % 1);
+        const px = x1 + (x2 - x1) * k;
+        const col = nodes[i + 1].color;
+        x.fillStyle = col; x.globalAlpha = Math.sin(k * Math.PI);
+        x.beginPath(); x.arc(px, cy, 2.6, 0, Math.PI * 2); x.fill();
+      }
+      x.globalAlpha = 1;
+      x.fillStyle = '#8b94ab'; x.font = '10.5px system-ui, sans-serif'; x.textAlign = 'center';
+      x.fillText(i === 3 ? (residentRate > 0.01 ? fmtRate(residentRate) : '') : fmtRate(rate), (x1 + x2) / 2, cy - 14);
+    }
+  });
+  nodes.forEach((n, i) => {
+    const nx = pad + i * step;
+    const g = x.createRadialGradient(nx, cy, 2, nx, cy, 22);
+    g.addColorStop(0, n.color + '55'); g.addColorStop(1, n.color + '00');
+    x.fillStyle = g; x.beginPath(); x.arc(nx, cy, 22, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#121828'; x.beginPath(); x.arc(nx, cy, 13, 0, Math.PI * 2); x.fill();
+    x.strokeStyle = n.color; x.lineWidth = 2; x.beginPath(); x.arc(nx, cy, 13, 0, Math.PI * 2); x.stroke();
+    x.fillStyle = n.color; x.beginPath(); x.arc(nx, cy, 4.5, 0, Math.PI * 2); x.fill();
+    x.textAlign = 'center';
+    x.fillStyle = '#e7eaf3'; x.font = '600 12px system-ui, sans-serif'; x.fillText(n.label, nx, cy + 30);
+    x.fillStyle = '#8b94ab'; x.font = '11px system-ui, sans-serif';
+    x.fillText(n.k === 'residents' ? `${Math.floor(n.val)} / ${housing()}` : fmt(n.val), nx, cy + 46);
+  });
+  x.textAlign = 'left';
+}
+
+/* =====================================================================
+   15. МОДАЛЬНЫЕ ОКНА
+   ===================================================================== */
+let modalOpen = null;
+function showModal({ kicker = '', title, html, buttons = [], kind = 'generic' }) {
+  const m = $('#modal');
+  m.innerHTML = `${kicker ? `<div class="kicker">${kicker}</div>` : ''}<h2>${title}</h2>${html}<div class="actions"></div>`;
+  const actions = $('.actions', m);
+  for (const b of buttons) {
+    const el = document.createElement('button');
+    el.className = 'btn ' + (b.cls || '');
+    el.textContent = b.label;
+    el.addEventListener('click', b.onClick);
+    actions.appendChild(el);
+  }
+  if (!buttons.length) actions.remove();
+  $('#modalBg').classList.add('open');
+  modalOpen = kind;
+}
+function closeModal() { $('#modalBg').classList.remove('open'); modalOpen = null; }
+
+function showEventModal() {
+  const a = state.event.active, ev = EVENT_BY_ID[a.id];
+  const choices = ev.choices(a.params);
+  showModal({
+    kicker: 'Событие · требуется решение', title: ev.title, kind: 'event',
+    html: `<p>${ev.text}</p><div class="choices">${choices.map((c, i) => `
+      <button class="choice" data-i="${i}">
+        <span class="cl">${c.label}</span>
+        <span class="cd">${c.desc}</span>
+        ${c.cost ? `<span class="cc">Цена: ${fmtCost(c.cost)}</span>` : ''}
+      </button>`).join('')}</div>`,
+  });
+  $('#modal').querySelectorAll('.choice').forEach(b => b.addEventListener('click', () => resolveEventChoice(Number(b.dataset.i))));
+  updateEventModal();
+}
+function updateEventModal() {
+  const a = state.event.active;
+  if (!a) { closeModal(); return; }
+  const choices = EVENT_BY_ID[a.id].choices(a.params);
+  $('#modal').querySelectorAll('.choice').forEach(b => {
+    const c = choices[Number(b.dataset.i)];
+    b.disabled = !!(c.cost && !canAfford(c.cost));
+  });
+}
+
+/* =====================================================================
+   16. ГЛАВНЫЙ ЦИКЛ
+   Симуляция идёт фиксированными шагами по 0.1 с независимо от FPS.
+   rAF рисует интерфейс, setInterval подталкивает симуляцию в фоне.
+   ===================================================================== */
+let lastNow = performance.now(), acc = 0, lastRender = 0, lastChart = 0, lastAutosave = performance.now();
+function advance() {
+  const now = performance.now();
+  let dt = (now - lastNow) / 1000;
+  lastNow = now;
+  if (dt > BALANCE.offline.minSeconds) { applyOffline(dt); dt = 0; acc = 0; }   // вкладка долго спала
+  acc += dt;
+  const STEP = BALANCE.tickSeconds;
+  let steps = 0;
+  while (acc >= STEP && steps < 6000) { tick(STEP); acc -= STEP; steps++; }
+  if (now - lastAutosave > BALANCE.autosaveSeconds * 1000) { lastAutosave = now; save(true); }
+}
+function frame(now) {
+  advance();
+  if (now - lastRender > 100) { render(); lastRender = now; }
+  if (now - lastChart > 1000) { drawCharts(); lastChart = now; }
+  if (!document.hidden) {
+    Scene.draw(now);
+    if (activeTab === 'prod') drawChainFlow(now);
+  }
+  requestAnimationFrame(frame);
+}
+
+function init() {
+  buildUI();
+  let loaded = false;
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) { loadFrom(JSON.parse(raw)); loaded = true; }
+  } catch (e) { console.warn('Сохранение повреждено', e); }
+  if (!loaded) {
+    state = newState();
+    log('База основана. Возьмите метлу и начните чистить пыль.', 'info');
+  } else {
+    const away = (Date.now() - state.lastSave) / 1000;
+    if (away > BALANCE.offline.minSeconds) applyOffline(away);
+  }
+  BUILD_ORDER.forEach(isUnlocked);
+  render(true);
+  drawCharts();
+  lastNow = performance.now();
+  requestAnimationFrame(frame);
+  setInterval(advance, 1000);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+  window.addEventListener('beforeunload', () => save());
+}
+
+/* =====================================================================
+   17. СИМУЛЯТОР БАЛАНСА
+   Бот с «типичной» стратегией играет с нуля на копии состояния и выдаёт
+   таблицу прогресса. Ваше сохранение не трогается.
+   Запуск из консоли браузера:
+     LR.balance(180)                         — 3 часа игры, строка каждые 10 мин
+     LR.balance(300, { every: 15 })          — 5 часов, строка каждые 15 мин
+     LR.balance(120, { prestige: false })    — без эвакуаций
+     LR.balance(180, { casual: true })       — «обычный игрок»: заходит раз в 30 с, оборона впритык
+   Меняйте числа в BALANCE прямо в консоли (LR.BALANCE.waves.growth = 1.2)
+   и перезапускайте — так удобно подбирать баланс.
+   ===================================================================== */
+const BalanceSim = (() => {
+  const BD = () => BALANCE.buildings;
+  const sumObj = o => Object.values(o).reduce((a, b) => a + b, 0);
+
+  function buy(id) {
+    if (!isUnlocked(id)) return false;
+    const c = costFor(id, 1);
+    if (!canAfford(c)) return false;
+    pay(c); state.b[id].n++; state.stats.buildingsBought++;
+    return true;
+  }
+  // Номинальное производство и потребление (без учёта нехватки входов)
+  function prodOf(r) {
+    let t = 0;
+    for (const id of BUILD_ORDER) { const d = BD()[id]; if (d.prod && d.prod[r]) t += d.prod[r] * nEff(id) * outMult(id, r); }
+    if (r === 'dust') t += nEff('autoclicker') * BD().autoclicker.clicks * clickGain();
+    return t;
+  }
+  function needOf(r) {
+    let t = 0;
+    for (const id of BUILD_ORDER) { const d = BD()[id]; if (d.cons && d.cons[r] && !state.b[id].off) t += d.cons[r] * nEff(id); }
+    return t;
+  }
+  const dustPerCost = id => (BD()[id].prod.dust * outMult(id, 'dust')) / costFor(id, 1).dust;
+
+  let BOT = { margin: 1.25, think: 5, research: 0.6 };   // параметры стиля игры бота
+
+  /** Главная цель бота: что важнее всего купить прямо сейчас */
+  function pickGoal() {
+    const s = state, R = BALANCE.residents;
+    const T = BALANCE.waves.types[s.wave.type];
+    // 1. энергия, если оборона или цепочка обесточены
+    const powerShort = needOf('energy') > 0 && prodOf('energy') < needOf('energy') * 1.1 + 0.3;
+    if (isUnlocked('solar') && powerShort) return 'solar';
+    // 2. оборона с запасом над верхом прогноза
+    if (defensePower(s.wave.type) < (s.wave.lo + s.wave.hi) / 2 * s.waveMod * BOT.margin) {
+      const shieldOk = isUnlocked('shield') && (RATE.prod.credits > 0.5 || s.res.credits >= costFor('shield', 1).credits);
+      return shieldOk && (T.shield > T.turret || s.b.shield.n * 2 < s.b.turret.n) ? 'shield' : 'turret';
+    }
+    // 3. жизнеобеспечение под всю вместимость куполов
+    if (isUnlocked('oxygen') && housing() > 0) {
+      const people = housing() * 1.05 + 2, nm = needMult();
+      for (const [k, id] of [['oxygen', 'oxygen'], ['heat', 'heater'], ['food', 'greenhouse']])
+        if (prodOf(k) < people * R.needs[k] * nm) return id;
+    }
+    // 4. цепочка: расширяем узкое место; пока следующее звено закрыто — копим на него
+    if (!isUnlocked('sinter') && s.b.worker.n >= 5) return 'sinter';
+    if (isUnlocked('shipyard') && (s.b.shipyard.n === 0 || prodOf('bricks') > needOf('bricks') + BD().shipyard.cons.bricks * 0.7)) return 'shipyard';
+    if (isUnlocked('press') && (s.b.press.n === 0 || prodOf('regolith') > needOf('regolith') + BD().press.cons.regolith * 0.7)) return 'press';
+    if (isUnlocked('sinter') && (s.b.sinter.n === 0 || prodOf('dust') > needOf('dust') + BD().sinter.cons.dust * 0.7)) return 'sinter';
+    return isUnlocked('drone') && dustPerCost('drone') > dustPerCost('worker') ? 'drone' : 'worker';
+  }
+
+  /** Если для цели нужен ресурс, который никто не производит, — сначала строим его производителя */
+  const PRODUCER = { regolith: 'sinter', bricks: 'press', domes: 'shipyard', energy: 'solar' };
+  function resolveGoal(goal) {
+    for (let depth = 0; depth < 4; depth++) {
+      const c = costFor(goal, 1);
+      const missing = Object.keys(c).find(r => state.res[r] < c[r] && prodOf(r) <= 0 && PRODUCER[r] && PRODUCER[r] !== goal);
+      if (!missing) break;
+      goal = PRODUCER[missing];
+    }
+    return goal;
+  }
+
+  /** Одно решение бота (раз в 5 игровых секунд) */
+  function botStep() {
+    const s = state;
+    // события — случайный доступный вариант, как у среднего игрока
+    if (s.event.active) {
+      const ch = EVENT_BY_ID[s.event.active.id].choices(s.event.active.params);
+      const ok = ch.map((c, i) => i).filter(i => !ch[i].cost || canAfford(ch[i].cost));
+      applyEventChoice(ok[Math.floor(Math.random() * ok.length)]);
+    }
+    // ремонт
+    for (const id of BUILD_ORDER) while (s.b[id].broken > 0 && canAfford(repairCost(id))) { pay(repairCost(id)); s.b[id].broken--; }
+
+    // главная цель: покупаем, пока получается; иначе копим на неё
+    let goal = resolveGoal(pickGoal()), guard = 0;
+    while (guard++ < 20 && buy(goal)) goal = resolveGoal(pickGoal());
+    const need = costFor(goal, 1);
+    const saving = new Set(Object.keys(need).filter(r => s.res[r] < need[r]));
+    // конвертеры, которые съедают нужное для цели, — на паузу
+    for (const id of CONVERTERS) {
+      const def = BD()[id];
+      s.b[id].off = Object.keys(def.cons).some(r => saving.has(r)) && id !== goal;
+    }
+    // мелочи по пути: только то, что не мешает копить (дешевле 15% запаса и без «копимых» ресурсов)
+    const extras = ['worker', 'autoclicker', 'drone', 'solar', 'factory', 'repair', 'turret'];
+    for (const id of extras) {
+      if (!isUnlocked(id) || id === goal) continue;
+      if (id === 'repair' && s.b.repair.n >= 1 + Math.floor(s.wave.num / 8)) continue;
+      const c = costFor(id, 1);
+      const share = id === 'autoclicker' || id === 'worker' ? 0.05 : 0.15;
+      if (Object.keys(c).some(r => saving.has(r) || c[r] > s.res[r] * share)) continue;
+      buy(id);
+    }
+    // исследования за кредиты
+    for (let k = 0; k < 5; k++) {
+      const ids = Object.keys(BALANCE.research).filter(researchAvailable);
+      if (!ids.length) break;
+      ids.sort((a, b) => researchCost(a) - researchCost(b));
+      if (researchCost(ids[0]) > s.res.credits * BOT.research) break;
+      buyResearch(ids[0]);
+    }
+  }
+
+  /** Эвакуироваться, если база упёрлась в стену и кристаллов набралось достаточно */
+  function maybePrestige(meta) {
+    const s = state, g = prestigeGain();
+    const recent = s.waveHistory.slice(-3);
+    const stuck = recent.length === 3 && recent.filter(w => !w.win).length >= 2;
+    if (g >= Math.max(5, Math.ceil(s.prestige.total * 0.5)) && stuck) {
+      meta.prestiges.push({ at: meta.t, wave: s.wave.num, gain: g });
+      doPrestige();
+      // тратим кристаллы на самые дешёвые доступные улучшения
+      for (;;) {
+        const ids = Object.keys(BALANCE.tree).filter(id => treeAvailable(id) && lvl(id) < BALANCE.tree[id].max && treeCost(id) <= s.prestige.crystals);
+        if (!ids.length) break;
+        ids.sort((a, b) => treeCost(a) - treeCost(b));
+        buyTree(ids[0]);
+      }
+    }
+  }
+
+  function row(meta) {
+    const s = state, str = s.wave.strength * s.waveMod;
+    return {
+      'время': fmtTime(meta.t), 'забег': s.prestige.count + 1, 'волна': s.wave.num,
+      'отбито/прорывов': `${s.stats.wavesWon}/${s.stats.wavesLost}`,
+      'оборона/угроза': `${fmt(defensePower(s.wave.type))} / ${fmt(str)}`,
+      'жильцы': Math.floor(s.residents), 'кредиты/с': fmt(RATE.prod.credits), 'кредиты': fmt(s.res.credits),
+      'исслед.': s.research ? sumObj(s.research) : '—', 'зданий': totalBuildings(s),
+      'кристаллы': s.prestige.total, 'дерево': sumObj(s.tree),
+    };
+  }
+
+  function run(minutes = 180, opt = {}) {
+    const { every = 10, dt = 0.25, prestige = true, casual = false } = opt;
+    // casual — «обычный игрок»: заходит раз в 30 с, оборону строит впритык к прогнозу, кликает реже
+    BOT = casual ? { margin: 1.0, think: 30, research: 0.4 } : { margin: 1.25, think: 5, research: 0.6 };
+    const clicksPerSec = opt.clicksPerSec ?? (casual ? 1.5 : 3), clickMinutes = opt.clickMinutes ?? (casual ? 5 : 10);
+    const saved = state;
+    const t0 = performance.now();
+    const meta = { t: 0, prestiges: [], firstLoss: null };
+    const rows = [];
+    QUIET = true;
+    try {
+      state = newState(); resetTransient();
+      let botT = 0, rowT = 0;
+      while (meta.t < minutes * 60) {
+        tick(dt); meta.t += dt; botT += dt; rowT += dt;
+        if (state.time < clickMinutes * 60) { gain('dust', clickGain() * clicksPerSec * dt); state.stats.clicks += clicksPerSec * dt; }
+        if (meta.firstLoss === null && state.stats.wavesLost > 0) meta.firstLoss = { at: meta.t, wave: state.wave.num - 1 };
+        if (botT >= BOT.think) { botT = 0; botStep(); if (prestige) maybePrestige(meta); }
+        if (rowT >= every * 60) { rowT = 0; rows.push(row(meta)); }
+      }
+      meta.final = {
+        'здания': BUILD_ORDER.filter(id => state.b[id].n).map(id => `${id}:${state.b[id].n}${state.b[id].broken ? '!' + state.b[id].broken : ''}${state.b[id].off ? '(пауза)' : ''}`).join(' '),
+        'ресурсы': RES_KEYS.map(r => `${r}:${fmt(state.res[r])}`).join(' '),
+      };
+    } finally {
+      state = saved; resetTransient(); QUIET = false; render(true);
+    }
+    const summary = {
+      'первый прорыв': meta.firstLoss ? `${fmtTime(meta.firstLoss.at)} (волна ${meta.firstLoss.wave})` : 'не было',
+      'эвакуации': meta.prestiges.map(p => `${fmtTime(p.at)}: волна ${p.wave}, +${p.gain}`).join('; ') || 'нет',
+      'симуляция заняла': `${Math.round(performance.now() - t0)} мс`,
+      'итог: здания': meta.final ? meta.final['здания'] : '',
+      'итог: ресурсы': meta.final ? meta.final['ресурсы'] : '',
+    };
+    console.table(rows);
+    console.log(summary);
+    return { rows, summary };
+  }
+  return { run };
+})();
+
+/* Отладка из консоли: LR.skip(600) — промотать 10 минут, LR.give('credits', 1e4) */
+window.LR = {
+  get state() { return state; },
+  skip(sec) { const n = Math.round(sec / BALANCE.tickSeconds); for (let i = 0; i < n; i++) tick(BALANCE.tickSeconds); render(true); drawCharts(); },
+  give(res, x) { addResource(res, x); state.peak[res] = Math.max(state.peak[res], state.res[res]); render(true); },
+  crystals(x) { state.prestige.crystals += x; render(true); },
+  balance: (minutes, opt) => BalanceSim.run(minutes, opt),
+  BALANCE,
+};
+
+init();
+</script>
+</body>
+</html>
