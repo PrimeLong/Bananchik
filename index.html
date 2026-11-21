@@ -168,14 +168,31 @@ body.urgent #sTimer{animation:blink .5s steps(2) infinite}
   .brand{display:none}
 }
 @media (max-width:640px){
-  #log{top:auto;bottom:182px;height:90px;width:auto;right:10px}
-  #right{top:70px;width:150px}
-  #nations{display:none}
-  #mini{height:75px}
-  #selPanel{display:none}
-  #top{gap:8px;padding:0 6px}
-  .ctrl .btn{padding:4px 5px}
-  .meter{width:60px}
+  #log{top:auto;bottom:182px;height:96px;width:auto;right:10px;font-size:11px}
+  #right{top:70px;width:140px}
+  #natPanel{display:none}
+  #mini{height:70px}
+  #zoomBtns{flex-wrap:wrap}
+  #selPanel{position:fixed;right:6px;bottom:182px;width:230px;max-height:240px;font-size:11px;padding:8px;z-index:25;
+    background:var(--panel);border:1px solid var(--line2)}
+  #selPanel.empty{display:none}
+  #tabs{overflow-x:auto}
+  #top{gap:8px;padding:0 6px;overflow-x:auto}
+  .stat label,#sPopMax,#sIncome,#sNukes,.stat .meter{display:none}
+  .stat b{font-size:13px}
+  .clock{min-width:auto}
+  #sPhase{font-size:8px;letter-spacing:1px}
+  #sTimer{font-size:22px;letter-spacing:2px}
+  .ctrl{gap:3px}
+  .ctrl .btn{padding:4px 5px;font-size:10px}
+  #tabs button{padding:6px 8px;font-size:10px;letter-spacing:1px}
+  .card{width:118px}
+  #armBox{width:104px;padding:4px}
+  #armageddon{width:94px;height:72px;font-size:9px;letter-spacing:1px}
+  #armInfo{display:none}
+  #menu{padding:0;justify-content:center;align-items:flex-start}
+  #menu .box{margin-top:8px}
+  #menu h1{font-size:28px;letter-spacing:6px}
 }
 </style>
 </head>
@@ -216,7 +233,7 @@ body.urgent #sTimer{animation:blink .5s steps(2) infinite}
         <button class="btn sm" id="zCov" title="Показать зоны ПВО/ПРО">ЗОНЫ</button>
       </div>
     </div>
-    <div class="panel"><div class="ttl"><span>Державы</span><span id="intelLbl"></span></div><div id="nations"></div></div>
+    <div class="panel" id="natPanel"><div class="ttl"><span>Державы</span><span id="intelLbl"></span></div><div id="nations"></div></div>
   </aside>
 
   <footer id="bottom">
@@ -508,7 +525,7 @@ const BUILD = {
   radar:     { name: 'Радар СПРН',       cat: 'def', cost: 180, time: 10, hp: 70,  req: 0, desc: 'Раннее обнаружение пусков · R 3000 км' },
   shelter:   { name: 'Укрытия, бункеры', cat: 'def', cost: 160, time: 10, hp: 200, req: 0, desc: 'Спасают 30% жителей городов · R 300 км' },
   decoy:     { name: 'Муляж шахты',      cat: 'dec', cost: 45,  time: 4,  hp: 40,  req: 0, desc: 'Разведка врага видит его как шахту' },
-  capital:   { name: 'Столица',          cat: '',    cost: 0,   time: 0,  hp: 320, req: 0 },
+  capital:   { name: 'Столица',          cat: '',    cost: 0,   time: 0,  hp: 420, req: 0 },
 };
 const TABS = {
   econ: ['city', 'factory'],
@@ -761,11 +778,17 @@ function loadOpts() { try { const o = JSON.parse(localStorage.getItem(OPT_KEY));
 /* =====================================================================
    6. СИМУЛЯЦИЯ
    ===================================================================== */
-function logEvent(text, cls = 'info') {
+function logEvent(text, cls = 'info', key) {
   if (!G) return;
   const t = G.phase === 'prep' ? 'П-' + fmtTime(G.prepLeft) : 'T+' + fmtTime(G.warT);
-  G.events.push({ t, text, cls }); if (G.events.length > 120) G.events.shift();
-  UI.pushLog({ t, text, cls });
+  // однотипные события за короткое время сливаются в одну строку «×N»
+  const last = G.events[G.events.length - 1];
+  if (key && last && last.key === key && G.time - last.at < 4) {
+    last.n++; last.at = G.time; last.text = last.base + ' ×' + last.n; UI.updateLog(last); return;
+  }
+  const e = { t, text, cls, key, base: text, n: 1, at: G.time };
+  G.events.push(e); if (G.events.length > 120) G.events.shift();
+  UI.pushLog(e);
 }
 const isPlayer = id => G && id === G.player;
 const nname = id => G.nations[id] ? G.nations[id].name : NATIONS[id].name;
@@ -842,13 +865,13 @@ function planesOut(baseId) { let k = 0; for (const a of G.aircraft) if (a.base =
 /** Разведывательный проход: каждая держава может засечь чужие объекты. */
 function intelSweep(final) {
   for (const ob of G.order) {
-    const n = G.nations[ob]; if (n.collapsed) continue; let found = 0;
+    const n = G.nations[ob]; if (n.collapsed) continue; let found = 0, silos = 0;
     for (const s of G.structs) {
       if (s.owner === ob || s.dead || s.known[ob]) continue;
       let p = (VIS[visType(s)] || 0.1) * (1 + 0.45 * n.intel) * (s.camo ? 0.12 : 1) * (final ? 2.2 : 1);
-      if (Math.random() < p) { s.known[ob] = true; found++; }
+      if (Math.random() < p) { s.known[ob] = true; found++; if (isSilo(s.type) || s.type === 'decoy') silos++; }
     }
-    if (ob === G.player && found) logEvent('Разведка: обнаружено новых объектов противника — ' + found, 'muted');
+    if (ob === G.player && (silos || (found && final))) logEvent('Разведка: новых объектов — ' + found + (silos ? ', из них шахт: ' + silos : ''), 'muted');
   }
 }
 
@@ -979,7 +1002,7 @@ function damage(s, dd, attacker, nuke) {
     if (s.type === 'decoy') logEvent('Цель в стране ' + own + ' оказалась МУЛЯЖОМ.', 'warn');
     else logEvent('Уничтожено: ' + nm + ' (' + own + ')', 'good');
   } else if (s.type === 'capital' || isSilo(s.type)) {
-    logEvent(nname(attacker) + ' уничтожил' + ' объект «' + nm + '» (' + own + ')', 'muted');
+    logEvent('Удар ' + nname(attacker) + ': уничтожен объект «' + (s.type === 'capital' || s.revealed ? nm : 'Шахта') + '» (' + own + ')', 'muted');
   }
   if (s.type === 'capital') onCapitalLost(s.owner, attacker);
 }
@@ -1121,12 +1144,12 @@ function onLaunchDetect(m) {
     if (m.det[o] || o === m.owner) continue;
     if (hasRadarCover(o, m.lon0, m.lat0)) m.det[o] = true;
   }
-  if (isPlayer(m.owner)) logEvent('Пуск: ' + MISSILES[m.type].name + ' → ' + nname(m.tgtOwner), 'launch');
+  if (isPlayer(m.owner)) logEvent('Пуск: ' + MISSILES[m.type].name + ' → ' + nname(m.tgtOwner), 'launch', 'pl' + m.type + m.tgtOwner);
   else if (m.det[G.player] && m.tgtOwner === G.player) warnIncoming(m);
 }
 function warnIncoming(m) {
   if (m.announced) return; m.announced = true;
-  logEvent('⚠ Обнаружена ракета ' + nname(m.owner) + ': ' + MISSILES[m.type].name + ' летит на вашу территорию', MISSILES[m.type].nuke ? 'nuke' : 'warn');
+  logEvent('⚠ Обнаружены ракеты ' + nname(m.owner) + ' (' + MISSILES[m.type].name.toLowerCase() + ') — цель: наша территория', MISSILES[m.type].nuke ? 'nuke' : 'warn', 'inc' + m.owner + m.type);
   AU.play('alarm');
 }
 function impact(m) {
@@ -1146,7 +1169,7 @@ function stepAircraft(dt) {
     const p = planePos(a);
     if (!a.det[G.player] && detects(G.player, p[0], p[1], false)) {
       a.det[G.player] = true;
-      if (a.tgtOwner === G.player && a.phase === 'out') logEvent('⚠ Вражеская авиация ' + nname(a.owner) + ' в нашем небе', 'warn');
+      if (a.tgtOwner === G.player && a.phase === 'out') logEvent('⚠ Вражеская авиация ' + nname(a.owner) + ' в нашем небе', 'warn', 'air' + a.owner);
     }
     for (const o of G.order) if (!a.det[o] && o !== G.player && detects(o, p[0], p[1], false)) a.det[o] = true;
     if (a.t < a.dur) continue;
@@ -1206,8 +1229,8 @@ function stepIcp(dt) {
       tgt.dead = true; addFx(p[0], p[1], p[2], 'air', 30);
       if (mine || theirs) AU.play('intercept');
       const what = ic.kind === 'm' ? MISSILES[tgt.type].name.toLowerCase() + ' ракета' : 'бомбардировщик';
-      if (mine) { G.stats.intercepted++; logEvent('Перехват! Сбита ' + what + ' ' + nname(tgt.owner), 'intercept'); }
-      else if (theirs) { if (ic.kind === 'm') G.stats.lostMissiles++; logEvent('Противник сбил нашу цель: ' + what, 'hit'); }
+      if (mine) { G.stats.intercepted++; logEvent('Перехват! Сбита ' + what + ' ' + nname(tgt.owner), 'intercept', 'ic' + tgt.owner + what); }
+      else if (theirs) { if (ic.kind === 'm') G.stats.lostMissiles++; logEvent('Противник сбил: ' + what, 'hit', 'lost' + what); }
     } else {
       addFx(p[0], p[1], p[2], 'miss', 10);
       if (mine && ic.kind === 'm' && MISSILES[tgt.type].nuke) logEvent('Промах ПРО по ядерной боеголовке!', 'warn');
@@ -1329,7 +1352,7 @@ function aiInvest(n) {
 function aiPickEnemy(n) {
   const cands = G.order.filter(id => id !== n.id && !G.nations[id].eliminated);
   if (!cands.length) return null;
-  const ws = cands.map(id => 1 + (n.grudge[id] || 0) / 120 + (id === G.player ? 0.7 : 0));
+  const ws = cands.map(id => 1 + (n.grudge[id] || 0) / 120 + (id === G.player ? 0.35 : 0));
   let r = rand(ws.reduce((a, b) => a + b, 0));
   for (let i = 0; i < cands.length; i++) { r -= ws[i]; if (r <= 0) return cands[i]; }
   return cands[0];
@@ -1638,16 +1661,16 @@ function drawNight(now) {
     const v = vec(cam.lon + lonr, lat), d = v[0] * sv[0] + v[1] * sv[1] + v[2] * sv[2];
     NG.d[k] = clamp((0.1 - d) / 0.32, 0, 1);
   }
-  const paths = []; for (let l = 0; l <= 6; l++) paths.push(new Path2D());
+  const NL = 12, paths = []; for (let l = 0; l <= NL; l++) paths.push(new Path2D());
   for (let j = 0; j < NG.m - 1; j++) for (let i = 0; i < NG.n - 1; i++) {
     const a = j * NG.n + i, b = a + 1, c = a + NG.n + 1, d = a + NG.n;
     if (!(NG.v[a] | NG.v[b] | NG.v[c] | NG.v[d])) continue;
-    const lv = Math.round((NG.d[a] + NG.d[b] + NG.d[c] + NG.d[d]) / 4 * 6); if (!lv) continue;
+    const lv = Math.round((NG.d[a] + NG.d[b] + NG.d[c] + NG.d[d]) / 4 * NL); if (!lv) continue;
     const xs = [NG.x[a], NG.x[b], NG.x[c], NG.x[d]];
     if (Math.max(...xs) < 0 || Math.min(...xs) > V.W) continue;
     const P = paths[lv]; P.moveTo(NG.x[a], NG.y[a]); P.lineTo(NG.x[b], NG.y[b]); P.lineTo(NG.x[c], NG.y[c]); P.lineTo(NG.x[d], NG.y[d]); P.closePath();
   }
-  for (let l = 1; l <= 6; l++) { ctx.fillStyle = `rgba(0,3,10,${l / 6 * 0.62})`; ctx.fill(paths[l]); }
+  for (let l = 1; l <= NL; l++) { ctx.fillStyle = `rgba(0,3,10,${l / NL * 0.6})`; ctx.fill(paths[l]); }
   // огни городов на ночной стороне
   const tw = now / 300;
   for (const L of LIGHTS) {
@@ -1907,6 +1930,7 @@ const $ = id => document.getElementById(id);
 const GLYPH = { city: '▦', factory: '⚙', silo_tac: '◉', silo_cru: '◉', silo_bal: '◉', silo_icbm: '☢', airfield: '✈', airbase: '✈', shorad: '△', lrad: '▲', abm: '◆', radar: '◠', shelter: '⌂', decoy: '◌', '#plane': '✈', '#camo': '▒', '#intel': '◎' };
 const UI = {
   sel: null, placing: null, mouse: null, showCov: false, tab: 'econ', lastSel: '', t: 0,
+  updateLog(e) { const li = $('logList').firstChild; if (li) li.innerHTML = '<i>' + esc(e.t) + '</i>' + esc(e.text); },
   pushLog(e) {
     const li = document.createElement('li'); li.className = e.cls; li.innerHTML = '<i>' + esc(e.t) + '</i>' + esc(e.text);
     const ul = $('logList'); ul.prepend(li); while (ul.children.length > 80) ul.lastChild.remove();
@@ -1953,6 +1977,7 @@ const UI = {
   renderSel() {
     const box = $('selPanel'); if (!G) return;
     const s = this.sel ? byId(this.sel) : null;
+    box.classList.toggle('empty', !s || !seen(s));
     if (!s || !seen(s)) {
       const n = G.nations[G.player], c = census(G.player);
       const key = 'none' + Math.floor(n.money) + c.ready + G.phase;
@@ -2234,7 +2259,14 @@ $('bMenu').onclick = () => UI.showModal('<h2>МЕНЮ</h2><p>Игра сохра
   [{ label: 'Отмена' }, { label: 'Сохранить и выйти', cls: 'on', fn: () => { if (G.phase !== 'over') saveGame(true); toMenu(); } }]);
 $('armageddon').onclick = armageddon;
 $('zIn').onclick = () => zoomAt(1.6); $('zOut').onclick = () => zoomAt(1 / 1.6);
-$('zHome').onclick = () => { if (!G) return; const c = NATIONS[G.player].lbl; cam.tlon = c[0]; cam.tlat = c[1]; cam.tR = Math.max(cam.tR, V.m * 2.2); };
+/** Камера на свою страну: масштаб подбирается так, чтобы страна целиком помещалась в кадр. */
+function focusHome() {
+  const d = NATIONS[G.player], p = d.polys.reduce((a, b) => b.area > a.area ? b : a);
+  const cf = Math.max(0.4, Math.cos(d.lbl[1] * DEG)), w = Math.max(160, V.W - (V.W > 900 ? 640 : 180)), h = V.H - V.top - V.bot - 40;
+  const R = Math.min(w / ((p.maxLon - p.minLon) * DEG * cf), h / ((p.maxLat - p.minLat) * DEG));
+  cam.tlon = d.lbl[0]; cam.tlat = d.lbl[1]; cam.tR = clamp(R, V.m * 1.3, V.m * 9); cam.idle = 0;
+}
+$('zHome').onclick = () => { if (G) focusHome(); };
 $('zCov').onclick = () => { UI.showCov = !UI.showCov; $('zCov').classList.toggle('on', UI.showCov); };
 $('tabs').onclick = e => { const b = e.target.closest('button'); if (!b) return; UI.tab = b.dataset.tab; for (const x of $('tabs').children) x.classList.toggle('on', x === b); AU.play('click'); UI.renderBuild(); };
 $('buildList').onclick = e => { const c = e.target.closest('.card'); if (c) cardAction(c.dataset.k); };
@@ -2305,7 +2337,7 @@ function enterGame() {
   UI.sel = null; UI.placing = null; UI.lastSel = ''; UI.tab = 'econ';
   for (const x of $('tabs').children) x.classList.toggle('on', x.dataset.tab === 'econ');
   layoutView(); buildMiniBase(); UI.renderBuild(); UI.renderSel(); UI.renderNations();
-  const c = NATIONS[G.player].lbl; cam.tlon = c[0]; cam.tlat = c[1]; cam.tR = V.m * 2.4;
+  focusHome();
   AU.setMode(G.phase === 'prep' ? 'prep' : G.phase === 'war' ? 'war' : 'over');
   if (G.phase === 'over') UI.showEnd();
 }
