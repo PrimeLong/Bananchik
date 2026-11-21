@@ -1,0 +1,2528 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#04050d">
+<title>Гравитационный сад</title>
+<style>
+/* ===================== Базовые переменные и сброс ===================== */
+:root{
+  --bg:#04050d; --panel:rgba(14,18,42,.74); --panel2:rgba(24,30,66,.92);
+  --line:rgba(140,160,255,.2); --text:#e8ebff; --dim:#9aa3d0;
+  --gold:#ffd27a; --accent:#8fb4ff; --pink:#ff9ad5; --bad:#ff5c7a; --good:#7dffb0;
+  --topH:64px; --bottomH:84px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none;font-size:14px}
+canvas#cv{position:fixed;inset:0;display:block;touch-action:none;cursor:crosshair}
+button{font:inherit;color:inherit}
+.hidden{display:none!important}
+
+/* ===================== Панели ===================== */
+.bar{position:fixed;left:0;right:0;display:flex;align-items:center;gap:8px;padding:8px 10px;z-index:5;pointer-events:none}
+.bar>*{pointer-events:auto}
+#top{top:0;padding-top:max(8px,env(safe-area-inset-top));flex-wrap:wrap;
+  background:linear-gradient(180deg,rgba(4,5,13,.92),rgba(4,5,13,.55) 70%,rgba(4,5,13,0))}
+#bottom{bottom:0;padding-bottom:max(8px,env(safe-area-inset-bottom));
+  background:linear-gradient(0deg,rgba(4,5,13,.95),rgba(4,5,13,.6) 75%,rgba(4,5,13,0))}
+.ib{height:38px;min-width:38px;padding:0 10px;border-radius:12px;border:1px solid var(--line);
+  background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;
+  transition:background .2s,border-color .2s,transform .1s;position:relative;overflow:hidden}
+.ib:hover{background:var(--panel2);border-color:rgba(160,180,255,.4)}
+.ib:active{transform:scale(.95)}
+.ib:disabled{opacity:.42;cursor:default}
+.ib.on{border-color:var(--gold);box-shadow:0 0 12px rgba(255,210,122,.35)}
+.ib.ready{border-color:var(--good);box-shadow:0 0 14px rgba(125,255,176,.45);animation:pulse 1.6s infinite}
+@keyframes pulse{50%{box-shadow:0 0 22px rgba(125,255,176,.75)}}
+.ib i.prog{position:absolute;left:0;bottom:0;height:3px;background:var(--good);width:0;transition:width .3s}
+
+.title{display:flex;flex-direction:column;line-height:1.15;min-width:0;max-width:220px}
+.title #modeLbl{font-size:11px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase}
+.title #gName{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stab{flex:1 1 160px;min-width:140px;display:flex;flex-direction:column;gap:4px}
+.stabLbl{font-size:11px;color:var(--dim);display:flex;justify-content:space-between}
+.stabLbl b{color:var(--text)}
+.stabBar{height:8px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden;border:1px solid var(--line)}
+#stabFill{height:100%;width:100%;border-radius:6px;transition:width .3s,background .3s}
+.time{font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px;min-width:54px;text-align:center}
+.btns{display:flex;gap:6px;margin-left:auto}
+
+.dust{display:flex;flex-direction:column;align-items:flex-start;padding:4px 12px;border-radius:14px;
+  background:var(--panel);border:1px solid rgba(255,210,122,.3);min-width:86px}
+.dust b{font-size:18px;color:var(--gold);font-variant-numeric:tabular-nums;transition:text-shadow .3s}
+.dust b.bump{text-shadow:0 0 12px var(--gold)}
+.dust small{color:var(--dim);font-size:11px;white-space:nowrap}
+.seeds{flex:1;display:flex;gap:6px;overflow-x:auto;padding:2px;scrollbar-width:thin;scrollbar-color:rgba(140,160,255,.3) transparent}
+.seed{flex:0 0 auto;width:68px;height:66px;border-radius:14px;border:1px solid var(--line);background:var(--panel);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2px;padding:4px 2px;position:relative;transition:border-color .2s,background .2s}
+.seed:hover{background:var(--panel2)}
+.seed.on{border-color:var(--gold);box-shadow:0 0 14px rgba(255,210,122,.35),inset 0 0 12px rgba(255,210,122,.12)}
+.seed.poor .cost{color:var(--bad)}
+.seed.locked{opacity:.62}
+.seed.locked .orb{filter:grayscale(1) brightness(.6)}
+.seed .nm{font-size:11px;line-height:1}
+.seed .cost{font-size:10px;color:var(--gold);line-height:1}
+.orb{width:24px;height:24px;border-radius:50%;display:block;flex:0 0 auto;font-style:normal;font-size:18px;line-height:24px;text-align:center}
+.o-rock{background:radial-gradient(circle at 35% 35%,#e6d6c6,#8a7563 55%,#2b221b)}
+.o-moon{width:16px;height:16px;margin:4px;background:radial-gradient(circle at 35% 35%,#f2f2f6,#9a9aa6 60%,#33333b)}
+.o-ocean{background:radial-gradient(circle at 35% 35%,#bfe8ff,#2f86d6 55%,#0b2350)}
+.o-comet{width:12px;height:12px;margin:6px;background:radial-gradient(circle,#fff,#9fe4ff 60%,#3a7fa8);box-shadow:-10px 6px 10px 2px rgba(150,220,255,.45)}
+.o-gas{width:30px;height:30px;margin:-3px;background:repeating-linear-gradient(170deg,#f1c98e 0 4px,#c8894f 4px 7px,#e8b47a 7px 10px);
+  box-shadow:inset -6px -6px 10px rgba(0,0,0,.55)}
+.o-dwarf{background:radial-gradient(circle,#fff6d8,#ffb057 50%,#d0461e);box-shadow:0 0 14px 3px rgba(255,150,70,.7)}
+.o-neutron{width:12px;height:12px;margin:6px;background:radial-gradient(circle,#fff,#bfe0ff);box-shadow:0 0 14px 5px rgba(140,190,255,.85)}
+.o-tool{background:none;color:var(--accent)}
+
+#chip{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--bottomH) + 6px);z-index:5;
+  display:flex;align-items:center;gap:8px;padding:5px 6px 5px 12px;border-radius:20px;background:var(--panel);
+  border:1px solid var(--line);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-size:12px;white-space:nowrap}
+#chip .pn{font-weight:600}
+#chip button{height:26px;border-radius:13px;border:1px solid var(--line);background:rgba(255,255,255,.06);cursor:pointer;padding:0 10px;font-size:12px}
+#hint{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--bottomH) + 48px);z-index:4;
+  max-width:min(520px,92vw);text-align:center;color:var(--dim);font-size:13px;line-height:1.4;pointer-events:none;
+  text-shadow:0 1px 6px #000;transition:opacity .6s}
+
+#objective{position:fixed;left:10px;top:calc(var(--topH) + 6px);z-index:5;width:min(300px,calc(100vw - 20px));padding:10px 12px}
+#objective h4{margin:0 0 4px;color:var(--gold);font-size:13px}
+#objective p{margin:0 0 6px;font-size:12px;color:var(--dim);line-height:1.35}
+.pbar{height:6px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden}
+.pbar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--good));width:0;transition:width .3s}
+.objRow{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:4px}
+
+#alert{position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--topH) + 6px);z-index:6;
+  max-width:min(460px,94vw);padding:8px 14px;border-radius:14px;background:rgba(40,8,30,.85);border:1px solid rgba(255,92,122,.5);
+  box-shadow:0 0 24px rgba(160,40,120,.45);font-size:12px;line-height:1.35;text-align:center}
+#alert b{color:var(--bad);font-size:14px}
+#alert.heal{background:rgba(8,40,30,.85);border-color:rgba(125,255,176,.5);box-shadow:0 0 24px rgba(60,200,140,.4)}
+#alert.heal b{color:var(--good)}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+#tip{position:fixed;z-index:8;pointer-events:none;max-width:260px;padding:10px 12px;font-size:12px;line-height:1.4;
+  background:rgba(10,13,32,.92);border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+#tip .tn{font-size:15px;font-weight:700}
+#tip .tp{font-weight:600}
+#tip .ts{color:var(--dim)}
+#tip .td{margin:4px 0;color:#cfd5ff}
+#tip .cb{height:4px;border-radius:3px;background:rgba(255,255,255,.1);margin-top:5px;overflow:hidden}
+#tip .cb i{display:block;height:100%}
+
+#toasts{position:fixed;right:10px;top:calc(var(--topH) + 8px);z-index:9;
+  display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:none;width:min(340px,94vw)}
+.toast{padding:7px 12px;border-radius:12px;font-size:12px!important;background:rgba(14,18,42,.92);border:1px solid var(--line);font-size:13px;
+  text-align:center;animation:tin .35s ease-out;transition:opacity .5s,transform .5s;box-shadow:0 4px 18px rgba(0,0,0,.4)}
+.toast.gold{border-color:rgba(255,210,122,.55)}
+.toast.bad{border-color:rgba(255,92,122,.6)}
+.toast.good{border-color:rgba(125,255,176,.55)}
+.toast.poem{border-color:rgba(200,160,255,.6);font-style:italic}
+.toast.out{opacity:0;transform:translateY(8px)}
+@keyframes tin{from{opacity:0;transform:translateX(16px)}}
+
+/* ===================== Модальные окна ===================== */
+.modalWrap{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:16px;
+  background:radial-gradient(ellipse at center,rgba(10,12,35,.55),rgba(2,3,10,.88));animation:fade .3s}
+@keyframes fade{from{opacity:0}}
+.modal{width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:22px 22px 18px;border-radius:22px;
+  background:linear-gradient(160deg,rgba(26,30,70,.96),rgba(10,12,32,.97));border:1px solid rgba(150,170,255,.28);
+  box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 60px rgba(110,90,255,.15)}
+.modal h1{margin:0;font-size:30px;font-weight:300;letter-spacing:.04em;text-align:center;
+  background:linear-gradient(90deg,#ffd27a,#ff9ad5,#8fb4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.modal h2{margin:0 0 10px;font-size:20px;font-weight:500;color:var(--gold)}
+.modal h3{margin:14px 0 6px;font-size:14px;color:var(--accent)}
+.modal p,.modal li{line-height:1.5;color:#d3d8ff}
+.modal .sub{text-align:center;color:var(--dim);margin:6px 0 18px}
+.mbtns{display:flex;flex-direction:column;gap:8px}
+.mb{padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.04);cursor:pointer;
+  text-align:left;display:flex;align-items:center;gap:12px;transition:background .2s,border-color .2s}
+.mb:hover{background:rgba(255,255,255,.09);border-color:rgba(170,190,255,.45)}
+.mb .ic{font-size:22px;width:30px;text-align:center;color:var(--gold)}
+.mb small{display:block;color:var(--dim);font-size:12px}
+.mb.danger{border-color:rgba(255,92,122,.4)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.row .mb{flex:1 1 140px;justify-content:center;text-align:center;padding:10px}
+.tg{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;justify-content:center}
+.tg button{padding:6px 12px;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.04);cursor:pointer;font-size:12px}
+.tg button.on{border-color:var(--good);color:var(--good)}
+.upg,.chl{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.03);margin-bottom:8px}
+.upg .info,.chl .info{flex:1}
+.upg .info b,.chl .info b{display:block}
+.upg .info small,.chl .info small{color:var(--dim);font-size:12px;line-height:1.35;display:block}
+.lv{display:flex;gap:3px;margin-top:4px}
+.lv i{width:14px;height:4px;border-radius:2px;background:rgba(255,255,255,.12)}
+.lv i.f{background:var(--gold)}
+.chl.done{border-color:rgba(125,255,176,.4)}
+.chl .ok{color:var(--good);font-size:18px}
+ul.story{list-style:none;padding:0;margin:10px 0}
+ul.story li{padding:4px 0 4px 10px;border-left:2px solid rgba(150,170,255,.25);margin-bottom:4px;font-size:13px}
+ul.story .t{color:var(--gold);font-variant-numeric:tabular-nums;font-size:11px;margin-right:6px}
+.end{font-style:italic;color:#f0c8e0!important}
+.stats{color:var(--dim)!important;font-size:12px}
+kbd{background:rgba(255,255,255,.1);border-radius:4px;padding:0 5px;font-size:12px}
+
+/* ===================== Галактика ===================== */
+#galTop{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:10px;padding-top:max(10px,env(safe-area-inset-top));background:linear-gradient(180deg,rgba(4,5,13,.9),rgba(4,5,13,0))}
+.galTitle{font-size:18px;font-weight:300;letter-spacing:.05em}
+.galTitle small{display:block;font-size:12px;color:var(--gold);letter-spacing:0}
+#galTop .btns{margin-left:auto}
+#galCard{position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:max(12px,env(safe-area-inset-bottom));
+  width:min(400px,calc(100vw - 20px));padding:14px 16px}
+#galCard h3{margin:0 0 2px;font-size:17px}
+#galCard .st{font-size:12px;color:var(--dim);margin-bottom:6px}
+#galCard .pc{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;margin:6px 0}
+#galCard ul{margin:4px 0 8px;padding-left:18px;font-size:12px;color:#cfd5ff}
+#galCard .row{margin-top:8px}
+#galLegend{position:fixed;left:10px;bottom:max(10px,env(safe-area-inset-bottom));z-index:4;font-size:11px;color:var(--dim);max-width:260px;line-height:1.4}
+body.gal #top,body.gal #bottom,body.gal #chip,body.gal #objective,body.gal #alert,body.gal #hint{display:none!important}
+body:not(.gal) #galTop,body:not(.gal) #galCard,body:not(.gal) #galLegend{display:none!important}
+
+/* ===================== Адаптив под телефон ===================== */
+@media (max-width:760px){
+  .ib .lbl{display:none}
+  .title{max-width:140px}
+  .title #gName{font-size:13px}
+  .stab{order:10;flex:1 1 100%}
+  .btns{gap:4px}
+  .ib{height:34px;min-width:34px;padding:0 8px;border-radius:10px}
+  .seed{width:58px;height:58px}
+  .dust{min-width:70px;padding:3px 8px}
+  .dust b{font-size:15px}
+  #bUpg .lbl{display:none}
+  #galLegend{display:none!important}
+  #toasts{right:auto;left:50%;transform:translateX(-50%);align-items:center;top:auto;bottom:calc(var(--bottomH) + 46px);flex-direction:column-reverse}
+  #objective{top:auto;bottom:calc(var(--bottomH) + 44px);left:8px;width:min(250px,60vw);padding:8px 10px}
+}
+@media (max-width:520px){ #bShot{display:none} }
+@media (max-width:420px){ .time{min-width:40px;font-size:12px} .title{max-width:110px} }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<!-- Верхняя панель: режим, стабильность, время, кнопки -->
+<div id="top" class="bar">
+  <button id="bMenu" class="ib" title="Меню (Esc)">☰</button>
+  <div class="title"><span id="modeLbl">Сад</span><span id="gName">…</span></div>
+  <div class="stab">
+    <div class="stabLbl"><span>Стабильность</span><b id="stabPct">100%</b></div>
+    <div class="stabBar"><div id="stabFill"></div></div>
+  </div>
+  <div class="time" title="Возраст системы">⏱ <span id="tLbl">0:00</span></div>
+  <div class="btns">
+    <button id="bPause" class="ib" title="Пауза (пробел)">⏸</button>
+    <button id="bSpeed" class="ib" title="Скорость времени">1×</button>
+    <button id="bReset" class="ib" title="Сброс">⟲</button>
+    <button id="bConserve" class="ib" title="Законсервировать сад">❄<span class="lbl">&nbsp;Консервация</span><i class="prog" id="consProg"></i></button>
+    <button id="bShot" class="ib" title="Снимок сада">📷</button>
+    <button id="bGalaxy" class="ib" title="Карта галактики (G)">✷<span class="lbl">&nbsp;Галактика</span></button>
+  </div>
+</div>
+
+<div id="objective" class="panel hidden"></div>
+<div id="alert" class="hidden"></div>
+<div id="hint" class="hidden"></div>
+<div id="chip" class="hidden"></div>
+
+<!-- Нижняя панель: пыль, инструменты, семена, улучшения -->
+<div id="bottom" class="bar">
+  <div class="dust" title="Звёздная пыль"><b id="dustLbl">0</b><small id="dustRate">✦ +0/с</small></div>
+  <div id="seeds" class="seeds"></div>
+  <button id="bUpg" class="ib" title="Улучшения">⬆<span class="lbl">&nbsp;Улучшения</span></button>
+</div>
+
+<!-- Галактика садов -->
+<div id="galTop">
+  <div class="galTitle">✷ Галактика садов<small id="galRate"></small></div>
+  <div class="btns">
+    <button id="bNewGarden" class="ib">🌱<span class="lbl">&nbsp;Новый сад</span></button>
+    <button id="bGalBack" class="ib">↩<span class="lbl">&nbsp;Назад</span></button>
+  </div>
+</div>
+<div id="galCard" class="panel hidden"></div>
+<div id="galLegend">Каждая звезда — законсервированный сад. Сильные сады притягивают слабых и подпитывают их, редкие сочетания характеров дают бонусы к пыли.</div>
+
+<div id="tip" class="hidden"></div>
+<div id="toasts"></div>
+<div id="modal" class="modalWrap hidden"><div class="modal" id="modalBox"></div></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   ГРАВИТАЦИОННЫЙ САД
+   Один файл, без библиотек. Структура скрипта:
+   1. Утилиты и справочники (типы тел, характеры, улучшения, испытания)
+   2. Сохранение (localStorage)
+   3. Звук и музыка (Web Audio API)
+   4. Физика: N тел, слияния, осколки, анализ орбит и стабильности
+   5. Характеры, болезнь, пыль, консервация
+   6. Режимы, испытания, галактика
+   7. Отрисовка
+   8. Интерфейс и ввод, главный цикл
+   ===================================================================== */
+
+// ======================= 1. УТИЛИТЫ =======================
+const TAU = Math.PI * 2;
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const rand = (a = 1, b) => b === undefined ? Math.random() * a : a + Math.random() * (b - a);
+const randi = (a, b) => Math.floor(rand(a, b + 1));
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const mod = (v, m) => ((v % m) + m) % m;
+const uid = () => Math.random().toString(36).slice(2, 10);
+const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+const fmtTime = s => { s = Math.max(0, Math.floor(s)); const m = Math.floor(s / 60); return m + ':' + String(s % 60).padStart(2, '0'); };
+const fmt = n => n >= 10000 ? (n / 1000).toFixed(1) + 'k' : n >= 100 ? String(Math.floor(n)) : n >= 10 ? n.toFixed(0) : n.toFixed(1);
+
+// Генератор имён миров из мягких слогов
+const SYL_A = ['Ли', 'Ве', 'Та', 'Мо', 'Эй', 'Ор', 'Са', 'Ни', 'Ка', 'Зе', 'Ми', 'Ал', 'Ру', 'Ио', 'Фе', 'Ла', 'Не', 'Ю', 'Ва', 'Си', 'Ар', 'Эл', 'Ти', 'Да', 'Ин', 'Ус', 'Ам'];
+const SYL_B = ['ра', 'ле', 'ни', 'ми', 'ва', 'та', 'ри', 'на', 'со', 'ли', 'ме', 'ла', 'ве', 'ро', 'ну', 'ди', 'ке', 'са'];
+const SYL_C = ['я', 'на', 'ра', 'ис', 'ия', 'эль', 'он', 'а', 'ар', 'ея', 'ина', 'ос', 'ан', '', ''];
+function genName(plain) {
+  let n = pick(SYL_A) + pick(SYL_B);
+  if (Math.random() < 0.65) n += pick(SYL_C);
+  if (!plain && Math.random() < 0.1) n += ' ' + pick(['II', 'III', 'Малая', 'Старшая', 'Прима']);
+  return n;
+}
+
+// Типы тел. g — грамматический род (для историй), dust — базовая выработка пыли
+const TYPES = {
+  rock:    { name: 'Каменная планета', short: 'Камень', low: 'каменная планета', g: 'f', m: 3, r: 6, cost: 10, unlock: 0, dust: 0.5, col: [168, 146, 128], planet: true, pers: true, desc: 'Скромная и надёжная. Лучшее начало сада.' },
+  moon:    { name: 'Спутник', short: 'Спутник', low: 'спутник', g: 'm', m: 0.6, r: 3.5, cost: 6, unlock: 0, dust: 0.3, col: [196, 196, 208], pers: true, desc: 'Маленький мир. Ищет планету, вокруг которой можно кружить.' },
+  ocean:   { name: 'Океаническая планета', short: 'Океан', low: 'океаническая планета', g: 'f', m: 4, r: 7, cost: 18, unlock: 60, dust: 0.85, col: [60, 140, 225], planet: true, pers: true, desc: 'Голубой мир, щедрый на пыль.' },
+  comet:   { name: 'Комета', short: 'Комета', low: 'комета', g: 'f', m: 0.3, r: 3, cost: 12, unlock: 40, dust: 0.45, col: [170, 230, 255], desc: 'Странница на вытянутой орбите. Ей хаос не страшен.' },
+  gas:     { name: 'Газовый гигант', short: 'Гигант', low: 'газовый гигант', g: 'm', m: 25, r: 13, cost: 45, unlock: 150, dust: 1.3, col: [226, 176, 116], planet: true, pers: true, desc: 'Тяжёлый и полосатый. Держит спутников, тревожит соседей.' },
+  dwarf:   { name: 'Звезда-карлик', short: 'Карлик', low: 'звезда-карлик', g: 'f', m: 250, r: 16, cost: 120, unlock: 350, dust: 1.6, col: [255, 160, 85], star: true, desc: 'Тёплая малая звезда. Лечит болезнь сада.' },
+  neutron: { name: 'Нейтронная звезда', short: 'Нейтрон.', low: 'нейтронная звезда', g: 'f', m: 900, r: 6, cost: 300, unlock: 900, dust: 2.6, col: [170, 210, 255], star: true, desc: 'Крошечная и чудовищно тяжёлая. Пульсирует лучами.' },
+  rogue:   { name: 'Блуждающая звезда', short: 'Странник', low: 'блуждающая звезда', g: 'f', m: 300, r: 15, dust: 0, col: [255, 110, 90], star: true, hidden: true },
+  sun:     { name: 'Сердце сада', short: 'Сердце', low: 'Сердце сада', g: 'n', m: 1000, r: 24, dust: 0, col: [255, 214, 130], star: true, hidden: true },
+  shard:   { name: 'Осколок', short: 'Осколок', low: 'осколок', g: 'm', m: 0.5, r: 3, dust: 0.1, col: [150, 128, 116], hidden: true },
+};
+const SEED_ORDER = ['rock', 'moon', 'ocean', 'comet', 'gas', 'dwarf', 'neutron'];
+const isPlanet = b => !!(b && TYPES[b.type].planet);
+const isStar = b => !!(b && TYPES[b.type].star);
+
+// Характеры планет
+const PERS = {
+  gentle:     { f: 'Ласковая', m: 'Ласковый', icon: '♥', col: '#ff9ad5', rgb: [255, 154, 213], dust: 1.6, desc: 'Стабилизирует соседние орбиты и даёт больше пыли.' },
+  capricious: { f: 'Капризная', m: 'Капризный', icon: '↯', col: '#ffb347', rgb: [255, 179, 71], dust: 1.0, desc: 'Время от времени сама чуть меняет орбиту.' },
+  greedy:     { f: 'Жадная', m: 'Жадный', icon: '◉', col: '#a77bff', rgb: [167, 123, 255], dust: 1.1, desc: 'Притягивает мелкие тела сильнее обычного.' },
+  shy:        { f: 'Застенчивая', m: 'Застенчивый', icon: '❀', col: '#8fe9ff', rgb: [143, 233, 255], dust: 1.0, desc: 'Убегает от слишком близких тел.' },
+  poetic:     { f: 'Поэтичная', m: 'Поэтичный', icon: '♪', col: '#c9ffa8', rgb: [201, 255, 168], dust: 0.4, desc: 'Даёт мало пыли, но открывает редкие события и красивые эффекты.' },
+};
+const PERS_KEYS = Object.keys(PERS);
+const rollPers = () => pick(PERS_KEYS);
+const fem = b => TYPES[b.type].g === 'f';
+const vf = (b, f, m, n) => TYPES[b.type].g === 'f' ? f : TYPES[b.type].g === 'n' ? (n || m) : m;
+const persAdj = b => b.pers ? (fem(b) ? PERS[b.pers].f : PERS[b.pers].m) : '';
+const descOf = b => (b.pers ? persAdj(b).toLowerCase() + ' ' : '') + TYPES[b.type].low;
+
+// Улучшения за пыль
+const UPGRADES = {
+  lens:   { name: 'Пылевая линза', desc: '+25% звёздной пыли за уровень', max: 5, base: 50 },
+  anchor: { name: 'Гравитационный якорь', desc: 'Хаос орбит на 10% слабее влияет на стабильность', max: 4, base: 80 },
+  sight:  { name: 'Дальнее предсказание', desc: 'Пунктир траектории длиннее на 50%', max: 3, base: 40 },
+  soft:   { name: 'Мягкие столкновения', desc: 'Тела чаще сливаются, а не раскалываются', max: 3, base: 60 },
+  immune: { name: 'Иммунитет сада', desc: 'Болезнь приходит позже, на лечение +20 с', max: 3, base: 100 },
+};
+const upgCost = k => Math.round(UPGRADES[k].base * Math.pow(2, S.upg[k] || 0));
+
+// Испытания. goal.kind: stable | moon | res | cure | binary | belt
+const CHALLENGES = [
+  { id: 'c1', name: 'Первая орбита', desc: 'Удержи стабильность ≥ 70% 30 секунд, когда в системе не меньше 2 планет.', setup: 'sun', types: ['rock', 'moon'], budget: 4, goal: { kind: 'stable', secs: 30, planets: 2 }, reward: 50 },
+  { id: 'c2', name: 'Тройной танец', desc: 'Три планеты, ни одной хаотичной орбиты: стабильность ≥ 70% 45 секунд.', setup: 'sun', types: ['rock', 'ocean', 'moon'], budget: 5, goal: { kind: 'stable', secs: 45, planets: 3 }, reward: 80 },
+  { id: 'c3', name: 'Луна для гиганта', desc: 'Посади газовый гигант и выведи спутник на орбиту вокруг него. Удержи 25 секунд.', setup: 'sun', types: ['gas', 'moon', 'rock'], budget: 4, goal: { kind: 'moon', secs: 25 }, reward: 90 },
+  { id: 'c4', name: 'Резонанс 2:1', desc: 'Две планеты, периоды которых относятся как 2:1 (±6%). Удержи резонанс 15 секунд.', setup: 'sun', types: ['rock', 'ocean', 'gas'], budget: 5, goal: { kind: 'res', ratio: 2, secs: 15 }, reward: 120 },
+  { id: 'c5', name: 'Лекарь', desc: 'Сад уже болен! Вылечи его, использовав не больше 2 новых тел и 3 толчков.', setup: 'sick', types: ['rock', 'ocean', 'dwarf'], budget: 2, pushes: 3, goal: { kind: 'cure' }, reward: 150 },
+  { id: 'c6', name: 'Двойное солнце', desc: 'Пустота. Зажги две звезды-карлика, дай им кружить друг вокруг друга и добавь планету. Стабильность ≥ 65% 40 секунд.', setup: 'empty', types: ['dwarf', 'rock', 'ocean'], budget: 4, goal: { kind: 'binary', secs: 40 }, reward: 150 },
+  { id: 'c7', name: 'Резонанс 3:2', desc: 'Две планеты с отношением периодов 3:2 (±6%). Удержи 20 секунд.', setup: 'sun', types: ['rock', 'ocean', 'gas'], budget: 5, goal: { kind: 'res', ratio: 1.5, secs: 20 }, reward: 160 },
+  { id: 'c8', name: 'Пояс осколков', desc: 'Разбей миры столкновениями и удержи на орбитах не меньше 40 астероидов 20 секунд (стабильность ≥ 50%).', setup: 'sun', types: ['rock', 'ocean', 'gas', 'comet'], budget: 8, goal: { kind: 'belt', n: 40, secs: 20 }, reward: 180 },
+  { id: 'c9', name: 'Возвращение кометы', desc: 'Выведи комету на вытянутую (e ≥ 0.7), но замкнутую орбиту и удержи её 30 секунд.', setup: 'sun', types: ['comet', 'rock'], budget: 3, goal: { kind: 'comet', secs: 30 }, reward: 120 },
+  { id: 'c10', name: 'Колыбель гиганта', desc: 'Мягкими слияниями вырасти мир массой не меньше 90. Удары на большой скорости раскалывают миры!', setup: 'sun', types: ['gas', 'rock', 'ocean'], budget: 7, pushes: 4, goal: { kind: 'mass', n: 90 }, reward: 200 },
+  { id: 'c11', name: 'Пульсарный сад', desc: 'В центре — нейтронная звезда. Три планеты, стабильность ≥ 70%, 40 секунд.', setup: 'neutron', types: ['rock', 'ocean', 'moon'], budget: 5, goal: { kind: 'stable', secs: 40, planets: 3 }, reward: 180 },
+  { id: 'c12', name: 'Буря', desc: 'Через несколько секунд сквозь сад пройдёт блуждающая звезда. Сохрани не меньше 3 планет и стабильность ≥ 60% в течение 15 секунд после её ухода.', setup: 'storm', types: ['rock', 'dwarf'], budget: 3, pushes: 4, goal: { kind: 'storm', secs: 15 }, reward: 220 },
+];
+
+// Достижения (r — награда пылью)
+const ACH = [
+  { id: 'first', name: 'Первое семя', desc: 'Посади первый мир', r: 10 },
+  { id: 'gardener', name: 'Садовник', desc: 'Посади 25 миров', r: 40 },
+  { id: 'merge', name: 'Единение', desc: 'Слей два мира в один', r: 15 },
+  { id: 'shatter', name: 'Звёздная крошка', desc: 'Разбей мир на осколки', r: 15 },
+  { id: 'giant', name: 'Гигант', desc: 'Вырасти газовый гигант слияниями', r: 30 },
+  { id: 'star', name: 'Рождение солнца', desc: 'Зажги звезду слияниями', r: 100 },
+  { id: 'rings', name: 'Кольценосец', desc: 'Планета собрала астероиды в кольца', r: 40 },
+  { id: 'moon', name: 'Лунная колыбель', desc: 'Спутник обращается вокруг планеты', r: 30 },
+  { id: 'choir', name: 'Полный хор', desc: 'Пять разных характеров в одном саду', r: 80 },
+  { id: 'muse', name: 'Муза', desc: 'Увидь 5 событий поэтичных планет', r: 40 },
+  { id: 'cure', name: 'Лекарь', desc: 'Исцели сад от болезни', r: 50 },
+  { id: 'storm', name: 'Переживший бурю', desc: 'Пройди космическое событие, не потеряв ни одной планеты', r: 60 },
+  { id: 'keeper', name: 'Хранитель', desc: 'Законсервируй сад', r: 50 },
+  { id: 'constellation', name: 'Созвездие', desc: 'Законсервируй 3 сада', r: 150 },
+  { id: 'rich', name: 'Звёздный богач', desc: 'Накопи 1000 ✦', r: 0 },
+  { id: 'master', name: 'Мастер испытаний', desc: 'Пройди все испытания', r: 300 },
+  { id: 'memory', name: 'Память', desc: 'Прочти историю погибшего сада', r: 5 },
+];
+const VERSION = '2.0';
+
+// ======================= 2. СОХРАНЕНИЕ =======================
+const SAVE_KEY = 'gravGarden.v1';
+function defaultSave() {
+  return {
+    v: 1, dust: 40, unlocked: { rock: true, moon: true }, upg: {}, gardens: [], activeId: null, sandbox: null,
+    chDone: {}, nextPers: rollPers(), lastSeen: Date.now(), hintDone: false, seenIntro: false,
+    ach: {}, stats: { planted: 0, poems: 0 }, seenVersion: null,
+    settings: { music: true, sfx: true, trails: true, names: true, sandboxDisease: true, orbits: true, cosmic: true },
+  };
+}
+function loadSave() {
+  const d = defaultSave();
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) {
+      const o = JSON.parse(raw);
+      return Object.assign(d, o, { settings: Object.assign(d.settings, o.settings || {}), stats: Object.assign(d.stats, o.stats || {}), ach: o.ach || {} });
+    }
+  } catch (e) { console.warn('Не удалось загрузить сохранение', e); }
+  return d;
+}
+let S = loadSave();
+
+const R3 = v => Math.round(v * 1000) / 1000;
+// Выдать достижение (в песочнице не выдаются)
+function unlockAch(id) {
+  if (S.ach[id] || Game.mode === 'sandbox') return;
+  const a = ACH.find(x => x.id === id); if (!a) return;
+  S.ach[id] = Date.now(); S.dust += a.r;
+  toast(`🏆 Достижение: <b>${a.name}</b>${a.r ? ' · +' + a.r + ' ✦' : ''}`, 'gold');
+  Audio.unlock();
+}
+// Превращает живой мир в компактный объект для localStorage
+function serializeWorld(w) {
+  return {
+    id: w.id, name: w.name, age: R3(w.age), stableTime: R3(w.stableTime), chaosTime: R3(w.chaosTime),
+    events: w.events, conserved: w.conserved, dead: w.dead, shock: R3(w.shock), stab: R3(w.stab),
+    rateAvg: R3(w.rateAvg), nextId: w.nextId, maxBodies: w.maxBodies, dustEarned: R3(w.dustEarned), created: w.created,
+    bodies: w.bodies.map(b => ({ id: b.id, type: b.type, name: b.name, pers: b.pers, x: R3(b.x), y: R3(b.y), vx: R3(b.vx), vy: R3(b.vy), m: R3(b.m), born: R3(b.born), seed: R3(b.seed), tilt: R3(b.tilt), rings: b.rings || 0, ab: b.absorbed || 0 })),
+    particles: w.particles.slice(0, 300).map(p => [R3(p.x), R3(p.y), R3(p.vx), R3(p.vy), R3(p.m)]),
+    disease: w.disease ? Object.assign({}, w.disease) : null,
+  };
+}
+function save() {
+  try {
+    if (W) {
+      if (Game.mode === 'garden' && Game.gardenRef) { Game.gardenRef.state = serializeWorld(W); summarize(Game.gardenRef, W); }
+      if (Game.mode === 'sandbox') S.sandbox = serializeWorld(W);
+    }
+    S.lastSeen = Date.now();
+    localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+  } catch (e) { console.warn('Не удалось сохранить', e); }
+}
+
+// ======================= 3. ЗВУК И МУЗЫКА =======================
+const D3 = 146.83;
+const semi = s => D3 * Math.pow(2, s / 12);
+const PENTA = [0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27, 29, 31];      // ре-минорная пентатоника
+const CHORDS = [[0, 7, 14, 17], [-4, 3, 10, 14], [-7, 0, 7, 12], [-2, 5, 12, 15]];
+const CHORDS_DARK = [[0, 1, 7, 13], [-5, 1, 6, 12], [-3, 3, 4, 10]];
+
+const Audio = {
+  ctx: null, master: null, music: null, sfx: null, nextChord: 0, nextBell: 0, ci: 0, droneG: null, lastNote: 0, lastDust: 0, lastMerge: 0, dark: false,
+  // Аудиоконтекст создаётся по первому жесту пользователя
+  init() {
+    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const c = this.ctx = new AC();
+    this.master = c.createGain(); this.master.gain.value = 0.85;
+    const comp = c.createDynamicsCompressor();
+    this.master.connect(comp); comp.connect(c.destination);
+    // Реверберация из синтезированного шума — «космическое» пространство
+    const rev = c.createConvolver(); rev.buffer = this.impulse(3.8);
+    const revG = c.createGain(); revG.gain.value = 0.6;
+    rev.connect(revG); revG.connect(this.master);
+    this.music = c.createGain(); this.sfx = c.createGain();
+    this.music.connect(this.master); this.music.connect(rev);
+    this.sfx.connect(this.master); this.sfx.connect(rev);
+    this.music.gain.value = 0; this.sfx.gain.value = 0;
+    // Низкий гул болезни
+    this.droneG = c.createGain(); this.droneG.gain.value = 0;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 180;
+    for (const f of [55, 58.3, 82.4]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(lp); o.start(); }
+    lp.connect(this.droneG); this.droneG.connect(this.master);
+    this.nextChord = c.currentTime + 0.3; this.nextBell = c.currentTime + 2;
+    this.apply();
+  },
+  impulse(sec) {
+    const c = this.ctx, len = Math.floor(c.sampleRate * sec), b = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+    return b;
+  },
+  apply() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.music.gain.setTargetAtTime(S.settings.music ? 0.32 : 0, t, 0.4);
+    this.sfx.gain.setTargetAtTime(S.settings.sfx ? 0.55 : 0, t, 0.1);
+  },
+  // Простой тон с огибающей
+  tone(f, dur, o = {}) {
+    const c = this.ctx; if (!c) return;
+    const t = c.currentTime + (o.delay || 0);
+    const osc = c.createOscillator(); osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(f, t);
+    if (o.slide) osc.frequency.exponentialRampToValueAtTime(o.slide, t + dur);
+    if (o.detune) osc.detune.value = o.detune;
+    const g = c.createGain(); const v = o.vol ?? 0.2, a = o.attack ?? 0.01;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, v), t + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g); g.connect(o.dest || this.sfx);
+    osc.start(t); osc.stop(t + dur + 0.05);
+  },
+  bell(f, vol = 0.1, delay = 0, dest) {
+    this.tone(f, 2.4, { vol, attack: 0.006, delay, dest });
+    this.tone(f * 2.01, 1.3, { vol: vol * 0.3, delay, dest });
+    this.tone(f * 3.003, 0.7, { vol: vol * 0.12, delay, dest });
+  },
+  noise(dur, o = {}) {
+    const c = this.ctx; if (!c) return;
+    const t = c.currentTime + (o.delay || 0);
+    const len = Math.floor(c.sampleRate * dur), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = c.createBufferSource(); src.buffer = buf;
+    const f = c.createBiquadFilter(); f.type = o.ftype || 'bandpass'; f.Q.value = o.q || 1;
+    f.frequency.setValueAtTime(o.f0 || 800, t); f.frequency.exponentialRampToValueAtTime(o.f1 || 800, t + dur);
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(o.vol || 0.2, t + (o.attack || 0.02));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(this.sfx); src.start(t); src.stop(t + dur + 0.05);
+  },
+  // Музыка: медленные аккорды-пэды и редкие колокольчики
+  updateMusic() {
+    const c = this.ctx; if (!c || !S.settings.music) return;
+    const t = c.currentTime;
+    if (t >= this.nextChord - 0.2) {
+      const set = this.dark ? CHORDS_DARK : CHORDS;
+      const ch = set[this.ci++ % set.length];
+      const t0 = Math.max(t, this.nextChord);
+      for (const s of ch) for (const det of [-7, 7]) {
+        const o = c.createOscillator(); o.type = 'triangle'; o.frequency.value = semi(s); o.detune.value = det;
+        const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = this.dark ? 500 : 850;
+        const g = c.createGain();
+        g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.045, t0 + 3);
+        g.gain.setValueAtTime(0.045, t0 + 7); g.gain.linearRampToValueAtTime(0.0001, t0 + 11);
+        o.connect(lp); lp.connect(g); g.connect(this.music); o.start(t0); o.stop(t0 + 11.2);
+      }
+      this.nextChord = t0 + 8;
+    }
+    if (t >= this.nextBell) {
+      this.bell(semi(pick(PENTA) + 12), 0.03, 0, this.music);
+      this.nextBell = t + rand(2, 5.5);
+    }
+  },
+  setDrone(on) { if (this.ctx) this.droneG.gain.setTargetAtTime(on && S.settings.sfx ? 0.05 : 0, this.ctx.currentTime, 0.8); this.dark = on; },
+  // Звуковые эффекты
+  click() { this.tone(880, 0.08, { vol: 0.05 }); },
+  place() { this.bell(semi(17), 0.1); this.tone(semi(24), 0.3, { vol: 0.05, delay: 0.06 }); },
+  launch() { this.noise(0.5, { f0: 300, f1: 1800, vol: 0.08, q: 2 }); },
+  merge() { const t = performance.now(); if (t - this.lastMerge < 120) return; this.lastMerge = t; this.tone(220, 1.6, { vol: 0.18, slide: 165 }); this.bell(semi(12), 0.06, 0.05); },
+  shatter() { this.noise(0.9, { ftype: 'lowpass', f0: 1800, f1: 120, vol: 0.32 }); this.tone(110, 0.9, { type: 'triangle', vol: 0.15, slide: 50 }); },
+  dust() { const t = performance.now(); if (t - this.lastDust < 140) return; this.lastDust = t; this.tone(semi(pick([36, 39, 41, 43])), 0.18, { vol: 0.018 }); },
+  note(idx) { const t = performance.now(); if (t - this.lastNote < 180) return; this.lastNote = t; this.bell(semi(PENTA[clamp(idx, 0, PENTA.length - 1)] + 12), 0.035, 0, this.music); },
+  quirk() { this.tone(660, 0.25, { type: 'triangle', vol: 0.05, slide: 990 }); },
+  arpeggio(up = true, vol = 0.08) { const n = [0, 3, 7, 10, 12, 15, 19]; n.forEach((s, i) => this.bell(semi((up ? s : 19 - s) + 12), vol, i * 0.12)); },
+  sick() { this.tone(110, 3, { type: 'sawtooth', vol: 0.08, slide: 52, attack: 0.5 }); this.noise(2.5, { ftype: 'lowpass', f0: 400, f1: 60, vol: 0.1, attack: 0.6 }); },
+  cure() { this.arpeggio(true, 0.1); this.noise(1.5, { f0: 2000, f1: 6000, vol: 0.04 }); },
+  death() { [19, 15, 12, 7, 3, 0].forEach((s, i) => this.tone(semi(s), 2.2, { type: 'triangle', vol: 0.09, delay: i * 0.35 })); this.noise(3, { ftype: 'lowpass', f0: 600, f1: 40, vol: 0.15, attack: 1 }); },
+  conserve() { [0, 7, 12, 16, 19, 24].forEach((s, i) => this.bell(semi(s + 12), 0.08, i * 0.09)); this.noise(2.4, { f0: 3000, f1: 9000, vol: 0.05, attack: 0.8 }); },
+  unlock() { [12, 19, 24].forEach((s, i) => this.bell(semi(s), 0.09, i * 0.1)); },
+  bad() { this.tone(180, 0.25, { type: 'triangle', vol: 0.07, slide: 140 }); },
+};
+
+// ======================= 4. ФИЗИКА =======================
+const G = 800;             // гравитационная постоянная в игровых единицах
+const EPS2 = 9;            // смягчение (ε²), чтобы силы не уходили в бесконечность
+const DT = 1 / 120;        // фиксированный шаг симуляции
+const MAX_STEPS = 48;      // предел шагов за кадр (защита от «спирали смерти»)
+const LAUNCH_K = 0.6;      // перевод длины перетаскивания в скорость
+const WORLD_LIMIT = 5000;  // дальше — тело потеряно в пустоте
+const MAX_PARTICLES = 450; // предел астероидов
+const GENTLE_R = 220, GENTLE_K = 0.12;   // радиус и сила ласковой стабилизации
+const SHY_R = 40, SHY_K = 35;            // радиус и сила застенчивого бегства
+const CURE_R = 200, STARVE_R = 230;      // зоны лечения и «голода» болезни
+const CONSERVE_TIME = 60;                // секунд стабильности для консервации
+
+let W = null; // текущий мир
+const Game = { mode: 'garden', view: 'garden', paused: false, speed: 1, modal: false, gardenRef: null, transition: null, realT: 0, saveT: 0, prevMode: 'garden' };
+const lvl = k => Game.mode === 'sandbox' ? UPGRADES[k].max : (S.upg[k] || 0);
+
+function newWorld(o = {}) {
+  return {
+    id: o.id || uid(), name: o.name || ('Сад ' + genName(true)), bodies: [], particles: [], disease: null, pending: [],
+    age: 0, stableTime: 0, chaosTime: 0, events: [], conserved: false, dead: false, cured: false,
+    shock: 0, stab: 1, stabShow: 1, rate: 0, rateAvg: 0, structAcc: 0, nextId: 1, glintAcc: 0, auroraT: 0,
+    nebulae: [], maxBodies: 0, dustEarned: 0, stepCount: 0, chal: null, created: o.created || Date.now(), map: new Map(), planets: 0,
+  };
+}
+const radiusFor = b => TYPES[b.type].r * Math.cbrt(b.m / TYPES[b.type].m);
+function bodyColor(b) {
+  const c = TYPES[b.type].col;
+  if (!b.pers) return c.slice();
+  const p = PERS[b.pers].rgb;
+  return [Math.round(lerp(c[0], p[0], 0.32)), Math.round(lerp(c[1], p[1], 0.32)), Math.round(lerp(c[2], p[2], 0.32))];
+}
+function makeBody(w, type, x, y, vx, vy, o = {}) {
+  const T = TYPES[type];
+  const b = {
+    id: w.nextId++, type, x, y, vx, vy, ax: 0, ay: 0, m: o.m ?? T.m, r: 0,
+    name: o.name ?? (type === 'sun' ? 'Сердце сада' : genName()),
+    pers: o.pers ?? null, born: w.age, seed: o.seed ?? rand(1000), tilt: o.tilt ?? rand(TAU),
+    capT: rand(6, 14), poeT: rand(18, 40), chaos: 0, switchShock: 0, primary: null, P: null, hill: Infinity,
+    e: 0, a: 0, T: Infinity, bound: true, trail: [], lx: -0.7, ly: -0.7, starD: 1e9, flash: 0, dead: false, calm: false,
+  };
+  b.r = radiusFor(b); b.col = bodyColor(b);
+  return b;
+}
+function refreshBody(b) { b.r = radiusFor(b); b.col = bodyColor(b); }
+
+// Ускорения всех тел и астероидов (частиц). Частицы чувствуют тела, но не притягивают их.
+function computeAcc() {
+  const B = W.bodies, n = B.length, D = W.disease;
+  for (let i = 0; i < n; i++) { B[i].ax = 0; B[i].ay = 0; B[i].shyNear = false; }
+  for (let i = 0; i < n; i++) {
+    const a = B[i];
+    for (let j = i + 1; j < n; j++) {
+      const b = B[j];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d2 = dx * dx + dy * dy + EPS2;
+      const inv = G / (d2 * Math.sqrt(d2));
+      let fa = b.m * inv, fb = a.m * inv;
+      // Жадная планета тянет мелочь сильнее
+      if (b.pers === 'greedy' && a.m < 6) fa *= 2.5;
+      if (a.pers === 'greedy' && b.m < 6) fb *= 2.5;
+      a.ax += dx * fa; a.ay += dy * fa; b.ax -= dx * fb; b.ay -= dy * fb;
+    }
+  }
+  // Застенчивые планеты отталкиваются от близких небольших тел
+  for (const s of B) {
+    if (s.pers !== 'shy') continue;
+    for (const o of B) {
+      if (o === s || o.m >= 60 || o.primary === s.id || s.primary === o.id) continue; // своих спутников и свою планету не боится
+      const dx = s.x - o.x, dy = s.y - o.y, d = Math.hypot(dx, dy) || 1, R = SHY_R + s.r + o.r;
+      if (d < R) { const k = SHY_K * (1 - d / R); s.ax += dx / d * k; s.ay += dy / d * k; s.shyNear = true; }
+    }
+  }
+  // Болезнь — неподвижная тёмная масса
+  if (D) for (const b of B) {
+    const dx = D.x - b.x, dy = D.y - b.y, d2 = dx * dx + dy * dy + 64, inv = G * D.m / (d2 * Math.sqrt(d2));
+    b.ax += dx * inv; b.ay += dy * inv;
+  }
+  // Астероиды
+  for (const p of W.particles) {
+    let ax = 0, ay = 0;
+    for (const b of B) {
+      const dx = b.x - p.x, dy = b.y - p.y, d2r = dx * dx + dy * dy;
+      if (d2r < b.r * b.r) { p.eat = b; break; }
+      const d2 = d2r + EPS2, inv = G * b.m / (d2 * Math.sqrt(d2)) * (b.pers === 'greedy' ? 2.5 : 1);
+      ax += dx * inv; ay += dy * inv;
+    }
+    if (D) {
+      const dx = D.x - p.x, dy = D.y - p.y, d2 = dx * dx + dy * dy + 64;
+      if (d2 < D.rh * D.rh) p.eatenByHole = true;
+      const inv = G * D.m / (d2 * Math.sqrt(d2)); ax += dx * inv; ay += dy * inv;
+    }
+    p.ax = ax; p.ay = ay;
+  }
+}
+
+// Один шаг «скачущей лягушки» (leapfrog): kick-drift-kick, энергия хорошо сохраняется
+function stepWorld(dt) {
+  const B = W.bodies, P = W.particles, h = dt * 0.5;
+  for (const b of B) { b.vx += b.ax * h; b.vy += b.ay * h; b.x += b.vx * dt; b.y += b.vy * dt; }
+  for (const p of P) { p.vx += p.ax * h; p.vy += p.ay * h; p.x += p.vx * dt; p.y += p.vy * dt; }
+  computeAcc();
+  for (const b of B) { b.vx += b.ax * h; b.vy += b.ay * h; }
+  for (const p of P) { p.vx += p.ax * h; p.vy += p.ay * h; }
+  collisions();
+  W.stepCount++;
+  if (W.stepCount % 4 === 0) {
+    for (const b of W.bodies) {
+      b.trail.push(b.x, b.y);
+      const max = b.type === 'comet' ? 180 : isStar(b) ? 60 : 120;
+      if (b.trail.length > max) b.trail.splice(0, 2);
+    }
+  }
+}
+
+function collisions() {
+  const B = W.bodies;
+  let changed = false;
+  for (let i = 0; i < B.length; i++) {
+    const a = B[i]; if (a.dead) continue;
+    for (let j = i + 1; j < B.length; j++) {
+      const b = B[j]; if (b.dead) continue;
+      const dx = b.x - a.x, dy = b.y - a.y, rr = a.r + b.r;
+      if (dx * dx + dy * dy < rr * rr) { collide(a, b); changed = true; if (a.dead) break; }
+    }
+  }
+  // Болезнь поглощает тела
+  const D = W.disease;
+  if (D) for (const b of B) {
+    if (b.dead) continue;
+    if (Math.hypot(b.x - D.x, b.y - D.y) < D.rh + b.r * 0.4) {
+      b.dead = true; changed = true;
+      D.m += b.m * (isStar(b) ? 0.15 : 0.5); D.rh = holeR(D.m); D.eaten.push(b.name);
+      fxRing(b.x, b.y, b.r, b.r * 6, [190, 80, 255], 1.2, 3); fxSparks(b.x, b.y, 18, [200, 90, 255], 50, 1.2);
+      Audio.shatter();
+      if (b.type === 'sun') { logEv(`Тьма коснулась Сердца сада.`, 'death'); gardenDeath('heart'); }
+      else { logEv(`Болезнь поглотила ${b.name} — ${descOf(b)}.`, 'eaten'); toast(`☠ Болезнь поглотила ${b.name}`, 'bad'); }
+    }
+  }
+  // Улетевшие в пустоту
+  for (const b of B) {
+    if (!b.dead && (b.x * b.x + b.y * b.y) > WORLD_LIMIT * WORLD_LIMIT) {
+      b.dead = true; changed = true;
+      if (b.type !== 'shard') { logEv(`${b.name} ${vf(b, 'ушла', 'ушёл', 'ушло')} в межзвёздную тьму и ${vf(b, 'не вернулась', 'не вернулся', 'не вернулось')}.`, 'lost'); toast(`${b.name} ${vf(b, 'улетела', 'улетел', 'улетело')} в пустоту`); }
+    }
+  }
+  if (changed) W.bodies = B.filter(b => !b.dead);
+  if (W.pending.length) { W.bodies.push(...W.pending); W.pending.length = 0; changed = true; }
+  // Астероиды: поглощение телами и болезнью, вылет за пределы
+  let pchg = false;
+  for (const p of W.particles) {
+    if (p.eat && !p.eat.dead) {
+      const e = p.eat; e.m += p.m; e.r = radiusFor(e); p.dead = true; pchg = true;
+      e.absorbed = (e.absorbed || 0) + 1;
+      // Планета, собравшая много астероидов, обретает кольца
+      if (isPlanet(e) && !e.rings && e.absorbed >= 12) {
+        e.rings = 1; unlockAch('rings');
+        logEv(`Вокруг ${e.name} из пойманных астероидов сложились кольца.`, 'grow');
+        toast(`💫 ${e.name} ${vf(e, 'обрела', 'обрёл')} кольца`, 'gold');
+        fxRing(e.x, e.y, e.r, e.r * 4, [230, 210, 170], 1.4, 2);
+      }
+    }
+    else if (p.eatenByHole && W.disease) { W.disease.m += p.m * 0.5; p.dead = true; pchg = true; }
+    else if (p.x * p.x + p.y * p.y > 3500 * 3500) { p.dead = true; pchg = true; }
+    p.eat = null; p.eatenByHole = false;
+  }
+  if (pchg) W.particles = W.particles.filter(p => !p.dead);
+  if (changed) { computeAcc(); W.maxBodies = Math.max(W.maxBodies, W.bodies.length); }
+}
+
+// Столкновение: мягкое — слияние, сильное — осколки и астероидный пояс
+function collide(a, b) {
+  const big = a.m >= b.m ? a : b, small = big === a ? b : a;
+  const vrel = Math.hypot(a.vx - b.vx, a.vy - b.vy);
+  const vesc = Math.sqrt(2 * G * (a.m + b.m) / (a.r + b.r));
+  const soft = 1 + 0.35 * lvl('soft');
+  if (isStar(big) || small.m < 0.4 || vrel < vesc * 1.15 * soft) merge(big, small);
+  else shatter(big, small, vrel);
+}
+
+function merge(big, small) {
+  const M = big.m + small.m;
+  big.vx = (big.vx * big.m + small.vx * small.m) / M; big.vy = (big.vy * big.m + small.vy * small.m) / M;
+  big.x = (big.x * big.m + small.x * small.m) / M; big.y = (big.y * big.m + small.y * small.m) / M;
+  big.m = M; small.dead = true; big.flash = 1;
+  const oldType = big.type;
+  // Рост: камень → гигант → звезда
+  if ((big.type === 'moon' || big.type === 'shard') && M >= 2) big.type = 'rock';
+  if ((big.type === 'rock' || big.type === 'ocean') && M >= 20) big.type = 'gas';
+  if (big.type === 'gas' && M >= 220) big.type = 'dwarf';
+  if (big.type === 'rock' && !big.pers) { big.pers = rollPers(); }
+  if (isStar(big) && !TYPES[oldType].star) big.pers = null;
+  refreshBody(big);
+  W.shock += small.m > 0.5 ? 0.05 : 0.01;
+  fxRing(big.x, big.y, big.r, big.r * 3.5, big.col, 0.9, 2);
+  if (small.m >= 0.5 || W.bodies.length < 30) Audio.merge();
+  if (small.m >= 0.5 && small.type !== 'shard') unlockAch('merge');
+  if (big.type === 'gas' && oldType !== 'gas') unlockAch('giant');
+  if (isStar(big) && !TYPES[oldType].star) { unlockAch('star'); W.starBorn = true;
+    logEv(`Набрав массу, ${big.name} ${vf(big, 'вспыхнула', 'вспыхнул')} и стала звездой-карликом! В саду родилось новое солнце.`, 'star');
+    toast(`✺ Рождение звезды: ${big.name}!`, 'gold'); fxRing(big.x, big.y, big.r, big.r * 12, [255, 200, 120], 2.5, 4); Audio.conserve();
+  } else if (big.type !== oldType && big.type === 'gas') {
+    logEv(`${big.name} ${vf(big, 'разрослась', 'разросся')} до газового гиганта.`, 'grow'); toast(`${big.name} теперь газовый гигант`, 'gold');
+  } else if (small.type === 'comet' && big.type === 'ocean') {
+    logEv(`Комета ${small.name} упала в океаны ${big.name} и принесла им свежую воду.`, 'merge');
+  } else if (isStar(big) && small.m >= 0.5) {
+    const where = big.type === 'sun' ? 'Сердце сада' : 'звезду ' + big.name;
+    logEv(`${small.name} ${vf(small, 'упала', 'упал')} в ${where} и ${vf(small, 'сгорела', 'сгорел')}.`, 'merge'); if (small.type !== 'shard') toast(`${small.name} ${vf(small, 'сгорела', 'сгорел')}: ${where}`, 'bad');
+  } else if (small.m >= 0.5) {
+    logEv(`${small.name} и ${big.name} мягко слились в один мир — ${big.name}.`, 'merge'); if (small.type !== 'shard') toast(`Слияние: ${small.name} + ${big.name}`);
+  }
+}
+
+function shatter(big, small, vrel) {
+  const cx = (big.x * big.m + small.x * small.m) / (big.m + small.m), cy = (big.y * big.m + small.y * small.m) / (big.m + small.m);
+  const cvx = (big.vx * big.m + small.vx * small.m) / (big.m + small.m), cvy = (big.vy * big.m + small.vy * small.m) / (big.m + small.m);
+  let debris;
+  if (small.m > big.m * 0.4) {
+    // Сопоставимые массы: оба мира раскалываются, остаётся ядро
+    const M = big.m + small.m;
+    big.m = M * 0.55; big.x = cx; big.y = cy; big.vx = cvx; big.vy = cvy; debris = M * 0.45;
+  } else {
+    const nm = big.m + small.m * 0.4;
+    big.vx = (big.vx * big.m + small.vx * small.m * 0.4) / nm; big.vy = (big.vy * big.m + small.vy * small.m * 0.4) / nm;
+    big.m = nm; debris = small.m * 0.6;
+  }
+  if (big.type === 'gas' && big.m < 20) big.type = 'rock';
+  small.dead = true; refreshBody(big); big.flash = 1;
+  W.shock += 0.25;
+  // Крупные осколки
+  const nFrag = Math.min(4, Math.floor(debris / 0.7));
+  const fragM = nFrag ? debris * 0.6 / nFrag : 0;
+  const a0 = rand(TAU);
+  for (let k = 0; k < nFrag; k++) {
+    const ang = a0 + k * TAU / nFrag + rand(-0.3, 0.3);
+    const tmp = { type: 'shard', m: fragM }; const fr = radiusFor(tmp);
+    const dd = big.r + fr + 3 + rand(3), sp = vrel * rand(0.2, 0.45);
+    const f = makeBody(W, 'shard', big.x + Math.cos(ang) * dd, big.y + Math.sin(ang) * dd, cvx + Math.cos(ang) * sp, cvy + Math.sin(ang) * sp, { m: fragM, name: `${small.name}-${k + 1}` });
+    W.pending.push(f);
+  }
+  // Пыль и астероиды
+  const rest = nFrag ? debris * 0.4 : debris;
+  const cnt = Math.min(MAX_PARTICLES - W.particles.length, clamp(Math.round(debris * 12), 12, 50));
+  for (let k = 0; k < cnt; k++) {
+    const ang = rand(TAU), dd = big.r + 2 + rand(6), sp = vrel * rand(0.08, 0.55);
+    W.particles.push({ x: big.x + Math.cos(ang) * dd, y: big.y + Math.sin(ang) * dd, vx: cvx + Math.cos(ang) * sp, vy: cvy + Math.sin(ang) * sp, ax: 0, ay: 0, m: rest / Math.max(1, cnt), tw: rand(TAU) });
+  }
+  fxRing(big.x, big.y, big.r, big.r * 7, [255, 190, 140], 1.1, 3);
+  fxSparks(big.x, big.y, 30, [255, 200, 150], vrel * 0.6, 1.2);
+  Audio.shatter();
+  unlockAch('shatter');
+  logEv(`Удар! ${small.name} ${vf(small, 'врезалась', 'врезался')} в ${big.name} и ${vf(small, 'раскололась', 'раскололся')} на осколки. Вокруг закружился астероидный пояс.`, 'shatter');
+  if (small.type !== 'shard') toast(`💥 ${small.name} ${vf(small, 'разбилась', 'разбился')} о ${big.name}`, 'bad');
+}
+
+// Барицентр «главного» тела вместе с тяжёлыми спутниками внутри орбиты (для двойных звёзд и т. п.)
+function orbitCenter(P, exclude, refDist) {
+  let M = P.m, cx = P.x * P.m, cy = P.y * P.m, vx = P.vx * P.m, vy = P.vy * P.m;
+  for (const q of W.bodies) {
+    if (q === P || q === exclude || q.P !== P || q.m < 0.05 * P.m) continue;
+    if (Math.hypot(q.x - P.x, q.y - P.y) < 0.6 * refDist) { M += q.m; cx += q.x * q.m; cy += q.y * q.m; vx += q.vx * q.m; vy += q.vy * q.m; }
+  }
+  return { M, x: cx / M, y: cy / M, vx: vx / M, vy: vy / M };
+}
+// Самое «локальное» притягивающее тело для точки (по сферам Хилла)
+function localAttractor(x, y, m) {
+  let best = null, bestH = Infinity, heavy = null;
+  for (const b of W.bodies) {
+    if (!heavy || b.m > heavy.m) heavy = b;
+    if (b.m < m * 3) continue;
+    const d = Math.hypot(x - b.x, y - b.y), H = b.hill ?? Infinity;
+    if (d < H * 0.85 && H < bestH) { best = b; bestH = H; }
+  }
+  return best || heavy;
+}
+// Скорость круговой орбиты вокруг притягивающего тела (против часовой стрелки в координатах мира)
+function circularVelocity(x, y, m, att, factor = 1) {
+  if (!att) return [0, 0];
+  const d0 = Math.hypot(x - att.x, y - att.y) || 1;
+  const c = orbitCenter(att, null, d0);
+  const dx = x - c.x, dy = y - c.y, d = Math.hypot(dx, dy) || 1;
+  const greed = att.pers === 'greedy' && m < 6 ? 2.5 : 1;   // жадная планета тянет мелочь сильнее
+  const v = Math.sqrt(G * (c.M * greed + m) / d) * factor;
+  return [c.vx + (-dy / d) * v, c.vy + (dx / d) * v, c];
+}
+
+// Анализ структуры системы: кто вокруг кого вращается, эксцентриситеты, хаос, стабильность
+function analyze(dt) {
+  const B = W.bodies;
+  W.map = new Map(); for (const b of B) { W.map.set(b.id, b); b.calm = false; }
+  W.planets = B.filter(isPlanet).length;
+  if (!B.length) { W.stab = clamp(1 - W.shock, 0, 1); return; }
+  const sorted = B.slice().sort((a, b) => b.m - a.m);
+  const top = sorted[0]; top.hill = Infinity; top.P = null; top.primary = null; top.chaos *= 0.9; top.bound = true; top.e = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    const b = sorted[i]; let best = top, bestH = Infinity;
+    for (let k = 1; k < i; k++) {
+      const c = sorted[k]; if (c.m < b.m) continue;
+      const d = Math.hypot(b.x - c.x, b.y - c.y);
+      if (d < c.hill * 0.95 && c.hill < bestH) { best = c; bestH = c.hill; }
+    }
+    b.P = best;
+    b.hill = Math.hypot(b.x - best.x, b.y - best.y) * Math.cbrt(b.m / (3 * best.m));
+  }
+  // Орбитальные элементы
+  for (const b of B) {
+    if (b === top) continue;
+    const P = b.P;
+    if (b.primary !== null && b.primary !== P.id && W.age - b.born > 1.5) b.switchShock = 1;
+    b.primary = P.id;
+    const dP = Math.hypot(b.x - P.x, b.y - P.y);
+    const c = orbitCenter(P, b, dP);
+    const mu = G * (c.M * (P.pers === 'greedy' && b.m < 6 ? 2.5 : 1) + b.m);
+    const rx = b.x - c.x, ry = b.y - c.y, vx = b.vx - c.vx, vy = b.vy - c.vy;
+    const r = Math.hypot(rx, ry) || 1, v2 = vx * vx + vy * vy;
+    const en = v2 / 2 - mu / r, h = rx * vy - ry * vx;
+    b.e = Math.sqrt(Math.max(0, 1 + 2 * en * h * h / (mu * mu)));
+    b.bound = en < 0; b.a = b.bound ? -mu / (2 * en) : Infinity;
+    b.T = b.bound ? TAU * Math.sqrt(b.a * b.a * b.a / mu) : Infinity;
+    const rv = rx * vx + ry * vy, k1 = v2 - mu / r;
+    b.evx = (k1 * rx - rv * vx) / mu; b.evy = (k1 * ry - rv * vy) / mu; b.ocdx = c.x - P.x; b.ocdy = c.y - P.y;
+    b.mu = mu; b.ocx = c.x; b.ocy = c.y; b.ocvx = c.vx; b.ocvy = c.vy; b.hdir = h >= 0 ? 1 : -1; b.orbR = r;
+    // «Музыка сфер»: нота при прохождении планетой условной линии
+    const ang = Math.atan2(ry, rx);
+    if (b.lastAng !== undefined && Math.sign(b.lastAng) !== Math.sign(ang) && rx > 0 && b.bound && b.type !== 'shard' && Game.view === 'garden')
+      Audio.note(Math.round(13 - Math.log2(Math.max(20, r)) * 1.6));
+    b.lastAng = ang;
+  }
+  // Направление света от ближайшей яркой звезды
+  const stars = B.filter(isStar);
+  for (const b of B) {
+    if (isStar(b)) continue;
+    let best = null, bs = 0;
+    for (const s of stars) { const d2 = (s.x - b.x) ** 2 + (s.y - b.y) ** 2 + 1; if (s.m / d2 > bs) { bs = s.m / d2; best = s; } }
+    if (best) { const d = Math.hypot(best.x - b.x, best.y - b.y) || 1; b.lx = (best.x - b.x) / d; b.ly = (best.y - b.y) / d; b.starD = d; }
+  }
+  // Ласковые планеты: мягко скругляют орбиты соседей
+  for (const g of B) {
+    if (g.pers !== 'gentle') continue;
+    for (const b of B) {
+      if (b === top || isStar(b) || !b.mu) continue;
+      const d = Math.hypot(b.x - g.x, b.y - g.y); if (d > GENTLE_R) continue;
+      if (b !== g) { b.calm = true; b.calmBy = g.id; }
+      const f = (b === g ? 0.5 : 1) * (1 - d / GENTLE_R) * GENTLE_K * dt;
+      const rx = b.x - b.ocx, ry = b.y - b.ocy, r = Math.hypot(rx, ry) || 1, vc = Math.sqrt(b.mu / r);
+      const tx = -ry / r * b.hdir, ty = rx / r * b.hdir;
+      b.vx += (b.ocvx + tx * vc - b.vx) * f; b.vy += (b.ocvy + ty * vc - b.vy) * f;
+    }
+  }
+  // Хаос каждого тела и общая стабильность
+  const anchor = 1 - 0.1 * lvl('anchor');
+  let sum = 0, wsum = 0;
+  for (const b of B) {
+    if (b === top) continue;
+    const tol = b.type === 'comet' ? 0.6 : 0.25;
+    const ce = !b.bound ? 1 : clamp((b.e - tol) / 0.45, 0, 1);
+    let inst = Math.max(ce, b.switchShock);
+    b.switchShock *= Math.exp(-dt / 2.5);
+    if (b.calm) inst *= 0.55;
+    if (b.pers === 'gentle') inst *= 0.8;
+    inst *= anchor;
+    b.chaos += (inst - b.chaos) * (1 - Math.exp(-dt / 1.5));
+    const w = b.type === 'rogue' ? 0 : b.type === 'shard' ? 0.4 : b.type === 'comet' ? 0.6 : 1;
+    sum += b.chaos * w; wsum += w;
+  }
+  W.stab = clamp(1 - (wsum ? sum / wsum : 0) - W.shock, 0, 1);
+}
+
+// Предсказание траектории (упрощённая копия системы)
+const predTime = () => 3.2 * (1 + 0.5 * lvl('sight'));
+function predictPath(px, py, pvx, pvy, pm, pr, skipId) {
+  const src = W.bodies.filter(b => b.id !== skipId && b.m >= 0.5);
+  const n = src.length, N = n + 1, dt = 1 / 60;
+  const X = new Float64Array(N), Y = new Float64Array(N), VX = new Float64Array(N), VY = new Float64Array(N);
+  const AX = new Float64Array(N), AY = new Float64Array(N), M = new Float64Array(N), R = new Float64Array(N);
+  for (let i = 0; i < n; i++) { const b = src[i]; X[i] = b.x; Y[i] = b.y; VX[i] = b.vx; VY[i] = b.vy; M[i] = b.m; R[i] = b.r; }
+  const GR = src.map(b => b.pers === 'greedy' && pm < 6 ? 2.5 : 1); GR.push(1);
+  X[n] = px; Y[n] = py; VX[n] = pvx; VY[n] = pvy; M[n] = pm; R[n] = pr;
+  const D = W.disease;
+  const acc = () => {
+    AX.fill(0); AY.fill(0);
+    for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+      const dx = X[j] - X[i], dy = Y[j] - Y[i], d2 = dx * dx + dy * dy + EPS2, inv = G / (d2 * Math.sqrt(d2));
+      AX[i] += dx * inv * M[j] * (i === n ? GR[j] : 1); AY[i] += dy * inv * M[j] * (i === n ? GR[j] : 1);
+      AX[j] -= dx * inv * M[i] * (j === n ? GR[i] : 1); AY[j] -= dy * inv * M[i] * (j === n ? GR[i] : 1);
+    }
+    if (D) for (let i = 0; i < N; i++) { const dx = D.x - X[i], dy = D.y - Y[i], d2 = dx * dx + dy * dy + 64, inv = G * D.m / (d2 * Math.sqrt(d2)); AX[i] += dx * inv; AY[i] += dy * inv; }
+  };
+  acc();
+  const steps = Math.round(predTime() / dt), pts = [px, py]; let hit = null;
+  for (let s = 0; s < steps; s++) {
+    for (let i = 0; i < N; i++) { VX[i] += AX[i] * dt / 2; VY[i] += AY[i] * dt / 2; X[i] += VX[i] * dt; Y[i] += VY[i] * dt; }
+    acc();
+    for (let i = 0; i < N; i++) { VX[i] += AX[i] * dt / 2; VY[i] += AY[i] * dt / 2; }
+    if (s % 2 === 1) pts.push(X[n], Y[n]);
+    for (let i = 0; i < n; i++) { const dx = X[n] - X[i], dy = Y[n] - Y[i], rr = R[n] + R[i]; if (dx * dx + dy * dy < rr * rr) { hit = { x: X[n], y: Y[n] }; break; } }
+    if (!hit && D && Math.hypot(X[n] - D.x, Y[n] - D.y) < D.rh) hit = { x: X[n], y: Y[n] };
+    if (hit) { pts.push(hit.x, hit.y); break; }
+  }
+  return { pts, hit };
+}
+
+// ======================= 5. ХАРАКТЕРЫ, ПЫЛЬ, БОЛЕЗНЬ =======================
+function logEv(text, k = 'info') {
+  if (!W) return;
+  W.events.push({ t: Math.round(W.age), k, text });
+  if (W.events.length > 90) W.events.splice(6, 1);
+}
+function addDust(n) { if (Game.mode === 'sandbox' && Game.view === 'garden') return; S.dust += n; }
+
+// Выработка пыли: только если система стабильна (≥ 50%)
+function dustRate() {
+  if (!W || W.stab < 0.5) return 0;
+  const f = (W.stab - 0.5) / 0.5;
+  let sum = 0, n = 0;
+  for (const b of W.bodies) {
+    const base = TYPES[b.type].dust; if (!base) continue;
+    sum += base * (b.pers ? PERS[b.pers].dust : 1) * (1 - b.chaos * 0.7); n++;
+  }
+  return sum * f * (1 + 0.25 * lvl('lens')) * (W.auroraT > 0 ? 2 : 1) * (1 + 0.04 * Math.min(n, 15));
+}
+
+// Продвижение «медленной» логики мира (раз в кадр, на накопленное время симуляции)
+function tickWorld(dt) {
+  if (dt <= 0 || !W || W.dead) return;
+  W.age += dt;
+  W.structAcc += dt;
+  if (W.structAcc >= 0.2) { analyze(W.structAcc); W.structAcc = 0; }
+  for (const b of W.bodies) {
+    if (b.flash > 0) b.flash = Math.max(0, b.flash - dt * 1.5);
+    if (b.pers === 'capricious') { b.capT -= dt; if (b.capT <= 0) { capriciousKick(b); b.capT = rand(7, 15); } }
+    if (b.pers === 'poetic') { b.poeT -= dt; if (b.poeT <= 0) { poeticEvent(b); b.poeT = rand(28, 55); } }
+    if (b.aurora > 0) b.aurora -= dt;
+  }
+  W.shock = Math.max(0, W.shock - dt * 0.12);
+  W.achT = (W.achT || 0) - dt;
+  if (W.achT <= 0 && Game.mode !== 'sandbox') {
+    W.achT = 1;
+    const ps = new Set(W.bodies.map(b => b.pers).filter(Boolean)); if (ps.size >= 5) unlockAch('choir');
+    if (W.bodies.some(b => b.P && isPlanet(b.P) && b.bound && !isStar(b) && b.e < 0.5)) unlockAch('moon');
+    if (S.dust >= 1000) unlockAch('rich');
+  }
+  cosmicTick(dt);
+  W.auroraT = Math.max(0, W.auroraT - dt);
+  for (const n of W.nebulae) n.t -= dt;
+  W.nebulae = W.nebulae.filter(n => n.t > 0);
+  W.stabShow = lerp(W.stabShow, W.stab, 1 - Math.exp(-dt * 3));
+  // Пыль
+  W.rate = dustRate();
+  W.rateAvg += (W.rate - W.rateAvg) * (1 - Math.exp(-dt / 12));
+  if (Game.mode === 'garden') {
+    addDust(W.rate * dt); W.dustEarned += W.rate * dt;
+    W.glintAcc += W.rate * dt;
+    if (W.glintAcc >= 1) {
+      W.glintAcc -= 1;
+      const src = W.bodies.filter(b => TYPES[b.type].dust > 0);
+      if (src.length) { const b = pick(src); FX.push({ k: 'glint', x: b.x, y: b.y, vx: rand(-8, 8), vy: rand(-20, -8), life: 1.6, max: 1.6 }); Audio.dust(); }
+    }
+  }
+  // Время непрерывной стабильности (для консервации)
+  if (W.stab >= 0.7 && W.planets >= 3) W.stableTime += dt; else W.stableTime = Math.max(0, W.stableTime - dt * 3);
+  diseaseTick(dt);
+  if (Game.mode === 'challenge') challengeTick(dt);
+}
+
+// Капризная планета сама чуть меняет орбиту
+function capriciousKick(b) {
+  const sp = Math.hypot(b.vx - (b.ocvx || 0), b.vy - (b.ocvy || 0));
+  const dv = sp * rand(0.03, 0.07), a = rand(TAU);
+  b.vx += Math.cos(a) * dv; b.vy += Math.sin(a) * dv; b.flash = 0.6;
+  fxSparks(b.x, b.y, 10, PERS.capricious.rgb, 30, 0.8);
+  Audio.quirk();
+  if (!b.kicked || Math.random() < 0.12) { b.kicked = true; logEv(`${b.name} ${vf(b, 'капризно сменила', 'капризно сменил')} орбиту — просто потому что захотелось.`, 'quirk'); }
+}
+
+// Поэтичная планета открывает редкие события
+function poeticEvent(b) {
+  const garden = Game.mode === 'garden';
+  const roll = Math.random();
+  if (roll < 0.28) {
+    for (let i = 0; i < 28; i++) FX.push({ k: 'meteor', sx: rand(VW * 0.2, VW * 1.2), sy: rand(-80, VH * 0.4), vx: rand(-420, -260), vy: rand(200, 320), life: rand(0.6, 1.4), max: 1.4, delay: rand(0, 2.5) });
+    Audio.arpeggio(false, 0.05);
+    if (garden) addDust(10);
+    logEv(`Над ${b.name} пролился звездопад. Кто-то загадал желание.`, 'poem');
+    toast(`✧ Звездопад над ${b.name}${garden ? ' · +10 ✦' : ''}`, 'poem');
+  } else if (roll < 0.52) {
+    W.auroraT = 12; b.aurora = 12;
+    logEv(`${b.name} ${vf(b, 'окуталась', 'окутался')} северным сиянием, и весь сад засветился мягким светом.`, 'poem');
+    toast(`🌌 Сияние над ${b.name}: пыль ×2 на 12 с`, 'poem'); Audio.arpeggio(true, 0.05);
+  } else if (roll < 0.72) {
+    const ps = W.bodies.filter(x => x.type !== 'shard' && x.type !== 'sun');
+    ps.forEach((p, i) => { setTimeout(() => { p.flash = 1; Audio.bell(semi(PENTA[i % PENTA.length] + 12), 0.06); }, i * 160); });
+    const bonus = 15 + 5 * ps.length;
+    if (garden) addDust(bonus);
+    logEv(`${b.name} ${vf(b, 'запела', 'запел')}, и миры сада ответили ей — «песня сфер».`, 'poem');
+    toast(`♪ Песня сфер${garden ? ' · +' + bonus + ' ✦' : ''}`, 'poem');
+  } else if (roll < 0.86) {
+    const heavy = W.bodies.reduce((a, c) => (!a || c.m > a.m) ? c : a, null);
+    if (heavy) {
+      const ang = rand(TAU), R = 850, x = heavy.x + Math.cos(ang) * R, y = heavy.y + Math.sin(ang) * R;
+      const [vx, vy] = circularVelocity(x, y, 0.3, heavy, 0.5);
+      const c = makeBody(W, 'comet', x, y, vx, vy, { name: 'Странница ' + genName() });
+      W.bodies.push(c); computeAcc();
+      logEv(`Из глубин пришла комета ${c.name}, привлечённая стихами ${b.name}.`, 'poem');
+      toast(`☄ Редкая гостья: ${c.name}`, 'poem'); Audio.arpeggio(true, 0.04);
+    }
+  } else {
+    W.nebulae.push({ x: b.x, y: b.y, hue: rand(180, 330), t: 22, max: 22 });
+    logEv(`Вокруг ${b.name} расцвела цветная туманность.`, 'poem');
+    toast(`❁ Туманность расцвела у ${b.name}`, 'poem'); Audio.arpeggio(true, 0.04);
+  }
+  fxRing(b.x, b.y, b.r, b.r * 8, [220, 200, 255], 1.6, 2);
+  if (Game.mode !== 'sandbox') { S.stats.poems++; if (S.stats.poems >= 5) unlockAch('muse'); }
+}
+
+// ---------- Космические события ----------
+const COSMIC = {
+  rogue:   { name: 'Блуждающая звезда', icon: '☄', warn: 'К саду приближается блуждающая звезда — она раскачает орбиты.' },
+  meteors: { name: 'Метеоритный дождь', icon: '☄', warn: 'Из глубин летит метеоритный дождь.' },
+  flare:   { name: 'Солнечная вспышка', icon: '✺', warn: 'Сердце сада готовится вспыхнуть: будет пыль, но ближние миры качнёт.' },
+};
+const heaviest = () => W.bodies.reduce((a, c) => (!a || c.m > a.m) ? c : a, null);
+const cosmicOn = () => (Game.mode === 'garden' && S.settings.cosmic) || (Game.mode === 'challenge' && W.chal.def.goal.kind === 'storm');
+function cosmicTick(dt) {
+  // Блуждающая звезда уходит своей дорогой
+  let gone = false;
+  for (const b of W.bodies) if (b.type === 'rogue' && Math.hypot(b.x, b.y) > 2200 && b.x * b.vx + b.y * b.vy > 0) {
+    b.dead = true; gone = true; W.rogueGone = true;
+    logEv(`Блуждающая звезда ${b.name} ушла дальше своей дорогой.`, 'cosmic');
+  }
+  if (gone) { W.bodies = W.bodies.filter(b => !b.dead); computeAcc(); }
+  if (!cosmicOn()) return;
+  const C = W.cosmic;
+  if (C) {
+    C.t -= dt;
+    if (C.phase === 'warn' && C.t <= 0) { triggerCosmic(C.kind); C.phase = 'active'; C.t = 35; }
+    else if (C.phase === 'active' && C.t <= 0) {
+      if (W.planets >= C.planets0 && !W.dead) {
+        unlockAch('storm');
+        logEv(`Сад выдержал испытание «${COSMIC[C.kind].name}» без единой потери.`, 'cosmic');
+        toast(`✓ Сад пережил «${COSMIC[C.kind].name}» без потерь`, 'good');
+      }
+      W.cosmic = null; W.cosmicT = rand(150, 260);
+    }
+    return;
+  }
+  if (Game.mode !== 'garden' || W.disease || W.planets < 3) return;
+  if (W.cosmicT == null) W.cosmicT = rand(90, 160);
+  W.cosmicT -= dt;
+  if (W.cosmicT <= 0) startCosmic(pick(Object.keys(COSMIC)));
+}
+function startCosmic(kind, warn = 8) {
+  const h = heaviest();
+  if (kind === 'flare' && !(h && isStar(h))) kind = 'rogue';
+  W.cosmic = { kind, phase: 'warn', t: warn, planets0: W.planets };
+  toast(`⚠ ${COSMIC[kind].warn}`, 'bad'); Audio.bad();
+}
+function triggerCosmic(kind) {
+  const h = heaviest(), cx = h ? h.x : 0, cy = h ? h.y : 0;
+  W.cosmic.planets0 = W.planets;
+  if (kind === 'rogue') {
+    const a = rand(TAU), R = 1500, x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R;
+    const off = rand(320, 480) * (Math.random() < 0.5 ? 1 : -1);
+    const tx = cx - Math.sin(a) * off, ty = cy + Math.cos(a) * off, d = Math.hypot(tx - x, ty - y), sp = rand(130, 170);
+    const r = makeBody(W, 'rogue', x, y, (tx - x) / d * sp, (ty - y) / d * sp, { name: 'Странница ' + genName(true) });
+    W.bodies.push(r); computeAcc();
+    logEv(`Сквозь сад прошла блуждающая звезда ${r.name}, раскачивая орбиты.`, 'cosmic');
+    toast(`☄ ${r.name} входит в сад`, 'bad');
+  } else if (kind === 'meteors') {
+    const a = rand(TAU), dx = Math.cos(a), dy = Math.sin(a), R = 1100;
+    for (let i = 0; i < 45 && W.particles.length < MAX_PARTICLES; i++) {
+      const side = rand(-260, 260), along = rand(0, 260), sp = rand(160, 230);
+      W.particles.push({ x: cx + dx * (R + along) - dy * side, y: cy + dy * (R + along) + dx * side, vx: -dx * sp + rand(-15, 15), vy: -dy * sp + rand(-15, 15), ax: 0, ay: 0, m: 0.08, tw: rand(TAU) });
+    }
+    logEv('На сад обрушился метеоритный дождь.', 'cosmic');
+    toast('☄ Метеоритный дождь!', 'bad');
+  } else if (kind === 'flare') {
+    for (const b of W.bodies) {
+      if (b === h) continue;
+      const ddx = b.x - cx, ddy = b.y - cy, d = Math.hypot(ddx, ddy) || 1;
+      if (d < 450) { const k = 9 * (1 - d / 450); b.vx += ddx / d * k; b.vy += ddy / d * k; b.flash = 0.8; }
+    }
+    W.shock += 0.12;
+    fxRing(cx, cy, 30, 650, [255, 200, 120], 2.2, 5); fxRing(cx, cy, 20, 400, [255, 240, 200], 1.5, 3);
+    const bonus = 25 + 5 * W.planets;
+    if (Game.mode === 'garden') addDust(bonus);
+    logEv('Сердце сада вспыхнуло: волна света качнула ближние орбиты и осыпала сад пылью.', 'cosmic');
+    toast(`✺ Солнечная вспышка${Game.mode === 'garden' ? ' · +' + bonus + ' ✦' : ''}`, 'gold');
+  }
+  Audio.sick();
+}
+
+// ---------- Болезнь системы ----------
+const holeR = m => 5 + Math.sqrt(m) * 0.9;
+const diseaseOn = () => Game.mode !== 'sandbox' || S.settings.sandboxDisease;
+function diseaseTick(dt) {
+  const D = W.disease;
+  if (!D) {
+    if (!diseaseOn()) { W.chaosTime = 0; return; }
+    const countable = W.bodies.filter(b => b.P).length;
+    if (W.stab < 0.45 && countable >= 2) W.chaosTime += dt; else W.chaosTime = Math.max(0, W.chaosTime - dt * 0.5);
+    if (W.chaosTime > 25 + 10 * lvl('immune')) spawnDisease();
+    return;
+  }
+  D.age += dt;
+  const healers = W.bodies.filter(b => (b.pers === 'gentle' || b.type === 'dwarf') && Math.hypot(b.x - D.x, b.y - D.y) < CURE_R);
+  const near = W.bodies.some(b => b.type !== 'sun' && Math.hypot(b.x - D.x, b.y - D.y) < STARVE_R);
+  D.healers = healers.length; D.starving = !healers.length && !near && W.stab >= 0.55;
+  if (healers.length) D.cure += dt * 0.11 * Math.min(3, healers.length);
+  else if (D.starving) D.cure += dt * 0.06;
+  else { D.cure = Math.max(0, D.cure - dt * 0.03); D.timer -= dt; }
+  D.m += dt * (healers.length ? -8 : D.starving ? -3 : (3 + 9 * (1 - W.stab)));
+  D.m = Math.max(12, D.m); D.rh = holeR(D.m);
+  if (D.cure >= 1) cureDisease();
+  else if (D.timer <= 0) { logEv('Никто не успел исцелить рану.', 'death'); gardenDeath('timer'); }
+}
+function spawnDisease(pos) {
+  let x = 0, y = 0, w = 0;
+  if (pos) { x = pos.x; y = pos.y; }
+  else {
+    for (const b of W.bodies) if (b.chaos > 0.4) { x += b.x * b.chaos; y += b.y * b.chaos; w += b.chaos; }
+    if (w) { x /= w; y /= w; } else { const a = rand(TAU); x = Math.cos(a) * 300; y = Math.sin(a) * 300; }
+    x += rand(-40, 40); y += rand(-40, 40);
+    const heavy = W.bodies.reduce((a, c) => (!a || c.m > a.m) ? c : a, null);
+    if (heavy) { const dx = x - heavy.x, dy = y - heavy.y, d = Math.hypot(dx, dy) || 1; if (d < 260) { x = heavy.x + dx / d * 260; y = heavy.y + dy / d * 260; } }
+  }
+  W.disease = { x, y, m: 30, rh: holeR(30), cure: 0, timer: 90 + 20 * lvl('immune'), age: 0, eaten: [], healers: 0, starving: false };
+  W.chaosTime = 0;
+  logEv('Хаос длился слишком долго. Между орбитами открылась тёмная точка — болезнь сада.', 'sick');
+  toast('☠ В саду зародилась болезнь! Внеси ласковую планету или звезду-карлик рядом с очагом.', 'bad');
+  fxRing(x, y, 5, 160, [160, 60, 255], 2, 3);
+  Audio.sick();
+}
+function cureDisease() {
+  const D = W.disease; if (!D) return;
+  fxRing(D.x, D.y, D.rh, 320, [140, 255, 190], 2.2, 4); fxSparks(D.x, D.y, 60, [200, 255, 220], 90, 1.8);
+  W.disease = null; W.cured = true; W.chaosTime = 0; W.shock = 0;
+  logEv(D.healers ? 'Тёплый свет стабилизатора растопил тьму. Сад исцелён.' : 'Лишённая пищи, тьма истаяла. Сад исцелён.', 'cure');
+  toast(`✚ Сад исцелён!${Game.mode === 'garden' ? ' +40 ✦' : ''}`, 'good');
+  if (Game.mode === 'garden') addDust(40);
+  Audio.cure(); computeAcc(); unlockAch('cure');
+  if (Game.mode === 'challenge' && W.chal.def.goal.kind === 'cure') challengeComplete();
+}
+
+// Гибель сада и история
+function gardenDeath(reason) {
+  if (W.dead) return;
+  W.dead = true; W.deathReason = reason;
+  Audio.death(); Audio.setDrone(false);
+  if (W.disease) fxRing(W.disease.x, W.disease.y, 10, 900, [120, 40, 200], 3, 6);
+  const story = buildStory(W, reason);
+  if (Game.mode === 'garden' && Game.gardenRef) { Game.gardenRef.dead = true; Game.gardenRef.conserved = false; Game.gardenRef.story = story; }
+  save();
+  setTimeout(() => showStory(story), 1600);
+}
+function buildStory(w, reason) {
+  const ev = w.events;
+  const list = ev.length > 18 ? [...ev.slice(0, 5), { t: null, text: '…' }, ...ev.slice(-12)] : ev;
+  const items = list.map(e => `<li><span class="t">${e.t == null ? '' : fmtTime(e.t)}</span>${e.text}</li>`).join('');
+  const endings = {
+    timer: 'Тьма разрослась, и одна за другой орбиты сомкнулись в её пасти. Последний свет сада погас тихо, как выдох. Где-то в галактике осталась лишь бледная туманность — память о том, что здесь когда-то кружились миры.',
+    heart: 'Когда тьма коснулась Сердца сада, оно вспыхнуло в последний раз — и погасло. Осиротевшие миры разлетелись в холодную пустоту, унося с собой свои имена.',
+  };
+  const eaten = w.disease && w.disease.eaten.length ? `<p>Болезнь забрала: ${w.disease.eaten.join(', ')}.</p>` : '';
+  return `<p>Сад «${w.name}» прожил ${fmtTime(w.age)}. Вот его история.</p><ul class="story">${items}</ul>${eaten}
+    <p class="end">${endings[reason] || endings.timer}</p>
+    <p class="stats">Миров в расцвете: ${w.maxBodies} · Собрано пыли: ${Math.floor(w.dustEarned)} ✦</p>`;
+}
+
+// ======================= 6. РЕЖИМЫ, САДЫ, ИСПЫТАНИЯ =======================
+function loadWorld(d) {
+  const w = newWorld(d);
+  for (const k of ['age', 'stableTime', 'chaosTime', 'conserved', 'dead', 'shock', 'stab', 'rateAvg', 'maxBodies', 'dustEarned']) if (d[k] !== undefined) w[k] = d[k];
+  w.events = d.events || []; w.stabShow = w.stab;
+  W = w;
+  let maxId = 0;
+  for (const bd of d.bodies || []) {
+    const b = makeBody(w, bd.type, bd.x, bd.y, bd.vx, bd.vy, { m: bd.m, name: bd.name, pers: bd.pers, seed: bd.seed, tilt: bd.tilt });
+    b.id = bd.id; b.born = bd.born || 0; b.rings = bd.rings || 0; b.absorbed = bd.ab || 0; maxId = Math.max(maxId, bd.id); w.bodies.push(b);
+  }
+  w.nextId = Math.max(d.nextId || 1, maxId + 1);
+  w.particles = (d.particles || []).map(p => ({ x: p[0], y: p[1], vx: p[2], vy: p[3], m: p[4], ax: 0, ay: 0, tw: rand(TAU) }));
+  if (d.disease) { w.disease = Object.assign({ eaten: [], healers: 0 }, d.disease); w.disease.rh = holeR(w.disease.m); }
+  computeAcc(); analyze(0.2);
+  return w;
+}
+function addSun(w) { w.bodies.push(makeBody(w, 'sun', 0, 0, 0, 0)); }
+
+// Новая точка на рукаве спирали галактики
+function galaxySpot() {
+  let best = null;
+  for (let tries = 0; tries < 40; tries++) {
+    const arm = randi(0, 1), r = rand(110, 430), th = arm * Math.PI + Math.log(r / 30) * 2.1 + rand(-0.25, 0.25);
+    const x = 500 + Math.cos(th) * r, y = 500 + Math.sin(th) * r;
+    const md = S.gardens.reduce((m, g) => Math.min(m, Math.hypot(g.gx - x, g.gy - y)), 1e9);
+    if (!best || md > best.md) best = { x, y, md };
+    if (md > 70) break;
+  }
+  return best;
+}
+function createGarden() {
+  const w = newWorld(); addSun(w); W = w;
+  const spot = galaxySpot();
+  const g = { id: w.id, name: w.name, gx: spot.x, gy: spot.y, conserved: false, dead: false, strength: 0, persCounts: {}, color: '#ffd27a', state: null, story: null, bodies: 1, age: 0 };
+  S.gardens.push(g); S.activeId = g.id;
+  logEv(`Сад «${w.name}» посажен. В его центре загорелось Сердце.`, 'birth');
+  g.state = serializeWorld(w);
+  return g;
+}
+function summarize(g, w) {
+  const pc = {};
+  for (const b of w.bodies) if (b.pers) pc[b.pers] = (pc[b.pers] || 0) + 1;
+  g.persCounts = pc; g.name = w.name; g.conserved = w.conserved; g.dead = w.dead;
+  g.bodies = w.bodies.length; g.age = w.age;
+  const dom = Object.keys(pc).sort((a, b) => pc[b] - pc[a])[0];
+  g.dominant = dom || null; g.color = dom ? PERS[dom].col : '#ffd27a';
+  if (!w.dead && (!w.conserved || w.stab >= 0.6)) g.strength = Math.max(w.conserved ? g.strength * 0.5 : 0, w.rateAvg);
+}
+function enterGarden(id) {
+  let g = S.gardens.find(x => x.id === id && !x.dead);
+  if (!g) g = S.gardens.find(x => x.id === S.activeId && !x.dead);
+  if (!g) g = createGarden();
+  Game.mode = 'garden'; Game.gardenRef = g; S.activeId = g.id;
+  if (g.state) loadWorld(g.state); else { const w = newWorld({ id: g.id, name: g.name }); addSun(w); W = w; }
+  afterWorldChange();
+}
+function switchMode(mode) {
+  save();
+  Game.view = 'garden'; Game.paused = false; document.body.classList.remove('gal');
+  if (mode === 'garden') enterGarden(S.activeId);
+  else if (mode === 'sandbox') {
+    Game.mode = 'sandbox'; Game.gardenRef = null;
+    if (S.sandbox && S.sandbox.bodies) loadWorld(S.sandbox); else { W = newWorld({ name: 'Песочница' }); addSun(W); }
+    W.name = 'Песочница'; afterWorldChange();
+  }
+}
+function afterWorldChange() {
+  FX.length = 0; Game.transition = null;
+  if (!TYPES[UI.tool] && UI.tool !== 'inspect' && UI.tool !== 'push') UI.tool = 'rock';
+  if (Game.mode === 'challenge' && TYPES[UI.tool] && !W.chal.def.types.includes(UI.tool)) UI.tool = W.chal.def.types[0];
+  if (Game.mode === 'garden' && TYPES[UI.tool] && !S.unlocked[UI.tool]) UI.tool = 'rock';
+  resetCamera(); buildSeeds(); uiUpdate(1, true);
+}
+function resetWorld() {
+  if (Game.mode === 'challenge') { startChallenge(W.chal.def.id); return; }
+  const name = W.name, id = W.id;
+  W = newWorld({ id, name }); addSun(W);
+  logEv(Game.mode === 'garden' ? `Сад «${name}» начат заново. Сердце зажглось снова.` : 'Песочница очищена.', 'birth');
+  if (Game.gardenRef) { Game.gardenRef.conserved = false; Game.gardenRef.strength = 0; }
+  afterWorldChange(); save();
+}
+const canConserve = () => Game.mode === 'garden' && W && !W.conserved && !W.dead && W.stableTime >= CONSERVE_TIME && W.planets >= 3;
+function conserve() {
+  if (!canConserve()) {
+    if (W.conserved) toast('Этот сад уже сияет в галактике');
+    else toast(`Нужно ${CONSERVE_TIME} с стабильности ≥ 70% и не меньше 3 планет (сейчас ${Math.floor(W.stableTime)} с, планет ${W.planets})`);
+    Audio.bad(); return;
+  }
+  W.conserved = true;
+  logEv(`Сад законсервирован и засиял на карте галактики яркой звездой.`, 'conserve');
+  Audio.conserve();
+  Game.transition = { t: 0, dur: 2.6, onEnd: () => { const g = Game.gardenRef; summarize(g, W); unlockAch('keeper'); if (S.gardens.filter(x => x.conserved && !x.dead).length >= 3) unlockAch('constellation'); g.strength = Math.max(0.5, W.rateAvg); save(); openGalaxy(g.id); toast(`❄ «${g.name}» теперь звезда галактики: +${fmt(g.strength * 0.3)} ✦/с`, 'gold'); } };
+}
+
+// ---------- Испытания ----------
+function startChallenge(id) {
+  const def = CHALLENGES.find(c => c.id === id); if (!def) return;
+  if (Game.mode !== 'challenge') save();
+  Game.mode = 'challenge'; Game.gardenRef = null; Game.view = 'garden'; Game.paused = false; document.body.classList.remove('gal');
+  W = newWorld({ name: def.name });
+  W.chal = { def, progress: 0, used: 0, pushes: 0, done: false };
+  if (def.setup === 'sun' || def.setup === 'sick') addSun(W);
+  if (def.setup === 'sick') {
+    // Больной сад: несколько планет на вытянутых, пересекающихся орбитах
+    const sun = W.bodies[0];
+    for (let i = 0; i < 4; i++) {
+      const a = i * TAU / 4 + rand(-0.3, 0.3), r = rand(150, 320), x = Math.cos(a) * r, y = Math.sin(a) * r;
+      const [vx, vy] = circularVelocity(x, y, 3, sun, rand(0.6, 0.75));
+      W.bodies.push(makeBody(W, i % 2 ? 'ocean' : 'rock', x, y, vx, vy, { pers: pick(['capricious', 'greedy', 'shy']) }));
+    }
+    computeAcc(); analyze(0.2);
+    spawnDisease({ x: 300, y: -90 }); W.disease.timer = 80;
+  }
+  if (def.setup === 'neutron') W.bodies.push(makeBody(W, 'neutron', 0, 0, 0, 0, { name: 'Пульсар' }));
+  if (def.setup === 'storm') {
+    addSun(W);
+    const sun = W.bodies[0];
+    [150, 230, 310, 400].forEach((r, i) => {
+      const a = i * 1.7, x = Math.cos(a) * r, y = Math.sin(a) * r, [vx, vy] = circularVelocity(x, y, 3, sun);
+      W.bodies.push(makeBody(W, i % 2 ? 'ocean' : 'rock', x, y, vx, vy, { pers: pick(['gentle', 'shy', 'greedy', 'poetic']) }));
+    });
+    computeAcc(); analyze(0.2);
+    startCosmic('rogue', 10);
+  }
+  logEv(`Испытание «${def.name}» началось.`, 'birth');
+  afterWorldChange();
+}
+function findResonance(target, tol) {
+  const ps = W.bodies.filter(b => isPlanet(b) && b.bound && b.P && isStar(b.P) && isFinite(b.T) && b.e < 0.4);
+  for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
+    const r = Math.max(ps[i].T, ps[j].T) / Math.min(ps[i].T, ps[j].T);
+    if (Math.abs(r - target) / target < tol) return [ps[i], ps[j]];
+  }
+  return null;
+}
+function challengeTick(dt) {
+  const C = W.chal; if (C.done) return;
+  const g = C.def.goal; let ok = false;
+  switch (g.kind) {
+    case 'stable': ok = W.stab >= 0.7 && W.planets >= g.planets; break;
+    case 'res': C.pair = findResonance(g.ratio, 0.06); ok = W.stab >= 0.55 && !!C.pair; break;
+    case 'moon': ok = W.bodies.some(b => b.P && isPlanet(b.P) && b.bound && b.e < 0.5 && !isStar(b)); break;
+    case 'binary': ok = W.bodies.filter(isStar).length >= 2 && W.planets >= 1 && W.stab >= 0.65; break;
+    case 'belt': ok = W.particles.length >= g.n && W.stab >= 0.5; break;
+    case 'comet': ok = W.bodies.some(b => b.type === 'comet' && b.bound && b.e >= 0.7 && b.P && isStar(b.P)); break;
+    case 'storm': ok = !!W.rogueGone && W.planets >= 3 && W.stab >= 0.6; break;
+    case 'mass': C.best = W.bodies.reduce((m, b) => isStar(b) ? m : Math.max(m, b.m), 0); if (C.best >= g.n) challengeComplete(); return;
+    case 'cure': return;
+  }
+  C.ok = ok;
+  if (ok) C.progress += dt; else C.progress = Math.max(0, C.progress - dt * 1.5);
+  if (C.progress >= g.secs) challengeComplete();
+}
+function challengeComplete() {
+  const C = W.chal; if (C.done) return;
+  C.done = true; Game.paused = true;
+  const first = !S.chDone[C.def.id];
+  S.chDone[C.def.id] = true;
+  if (CHALLENGES.every(c => S.chDone[c.id])) unlockAch('master');
+  if (first) S.dust += C.def.reward;
+  save(); Audio.conserve();
+  const idx = CHALLENGES.indexOf(C.def), next = CHALLENGES[idx + 1];
+  openModal(`<h2>✶ Испытание пройдено!</h2><p>«${C.def.name}» — система подчинилась тебе.</p>
+    ${first ? `<p>Награда: <b style="color:var(--gold)">+${C.def.reward} ✦</b> звёздной пыли для твоего сада.</p>` : '<p>Награда уже была получена раньше.</p>'}
+    <div class="row">${next ? `<button class="mb" data-act="ch-start" data-id="${next.id}">Следующее: ${next.name}</button>` : ''}
+    <button class="mb" data-act="challenges">К списку</button><button class="mb" data-act="close">Остаться</button></div>`);
+}
+
+// ---------- Галактика: бонусы соседей и пассивная пыль ----------
+const GAL_R = 170;
+const PAIR_BONUS = {
+  'gentle|gentle': [0.2, 'Созвездие нежности'], 'poetic|poetic': [0.4, 'Резонанс муз'], 'gentle|greedy': [0.25, 'Притяжение противоположностей'],
+  'capricious|poetic': [0.3, 'Вдохновенный хаос'], 'poetic|shy': [0.25, 'Тихие стихи'], 'capricious|shy': [0.15, 'Танец нервов'], 'greedy|greedy': [0.15, 'Союз голодных'],
+};
+let galCache = null, galCacheT = 0;
+function galaxyBonuses(force) {
+  if (!force && galCache && Game.realT - galCacheT < 1) return galCache;
+  const res = {}, links = [];
+  const gs = S.gardens.filter(g => g.conserved && !g.dead);
+  for (const g of gs) {
+    const r = res[g.id] = { mult: 1, notes: [] };
+    const pc = g.persCounts || {}, has = k => (pc[k] || 0) > 0;
+    const add = (v, t) => { r.mult += v; r.notes.push(`${t} +${Math.round(v * 100)}%`); };
+    if (PERS_KEYS.every(has)) add(1, 'Полный хор характеров');
+    else {
+      if (has('gentle') && has('shy')) add(0.3, 'Тихая гавань');
+      if (has('capricious') && has('gentle')) add(0.25, 'Буря и штиль');
+      if (has('greedy') && has('poetic')) add(0.35, 'Голодная муза');
+      if (has('greedy') && has('shy')) add(0.2, 'Пугливый пир');
+    }
+  }
+  for (let i = 0; i < gs.length; i++) for (let j = i + 1; j < gs.length; j++) {
+    const a = gs[i], b = gs[j], d = Math.hypot(a.gx - b.gx, a.gy - b.gy);
+    if (d > GAL_R) continue;
+    const strong = a.strength >= b.strength ? a : b, weak = strong === a ? b : a;
+    const ratio = strong.strength / Math.max(0.1, weak.strength);
+    const link = { a: strong, b: weak, pull: ratio > 1.2, d };
+    if (link.pull) { const v = clamp(0.1 * ratio, 0.1, 0.5); res[weak.id].mult += v; res[weak.id].notes.push(`Притяжение «${strong.name}» +${Math.round(v * 100)}%`); }
+    if (a.dominant && b.dominant) {
+      const pb = PAIR_BONUS[[a.dominant, b.dominant].sort().join('|')];
+      if (pb) { for (const g of [a, b]) { res[g.id].mult += pb[0]; res[g.id].notes.push(`${pb[1]} с «${(g === a ? b : a).name}» +${Math.round(pb[0] * 100)}%`); } link.combo = pb[1]; }
+    }
+    links.push(link);
+  }
+  // Созвездие: у сада не меньше двух соседей-звёзд
+  for (const g of gs) {
+    const n = gs.filter(o => o !== g && Math.hypot(o.gx - g.gx, o.gy - g.gy) < GAL_R).length;
+    if (n >= 2) { res[g.id].mult += 0.2; res[g.id].notes.push(`Созвездие из ${n + 1} садов +20%`); }
+  }
+  galCache = { res, links }; galCacheT = Game.realT;
+  return galCache;
+}
+function passiveRate() {
+  const { res } = galaxyBonuses();
+  let sum = 0;
+  for (const g of S.gardens) {
+    if (!g.conserved || g.dead) continue;
+    if (Game.mode === 'garden' && Game.view === 'garden' && Game.gardenRef && g.id === Game.gardenRef.id) continue;
+    sum += g.strength * 0.3 * (res[g.id] ? res[g.id].mult : 1);
+  }
+  return sum;
+}
+// Пассивная пыль идёт в реальном времени; слабые сады медленно дрейфуют к сильным
+function passiveTick(rdt) {
+  const r = passiveRate();
+  if (r > 0) S.dust += r * rdt;
+  const { links } = galaxyBonuses();
+  for (const l of links) if (l.pull && l.d > 60) {
+    const dx = l.a.gx - l.b.gx, dy = l.a.gy - l.b.gy, d = Math.hypot(dx, dy) || 1;
+    l.b.gx += dx / d * 1.2 * rdt; l.b.gy += dy / d * 1.2 * rdt;
+  }
+}
+
+// ======================= 7. ОТРИСОВКА =======================
+const cv = $('#cv'), ctx = cv.getContext('2d');
+let VW = 800, VH = 600, DPR = 1;
+const cam = { x: 0, y: 0, zoom: 1, base: 1 };
+const scale = () => cam.base * cam.zoom;
+const w2s = (x, y) => { const s = scale(); return [(x - cam.x) * s + VW / 2, (y - cam.y) * s + VH / 2]; };
+const s2w = (x, y) => { const s = scale(); return [(x - VW / 2) / s + cam.x, (y - VH / 2) / s + cam.y]; };
+function resetCamera() { cam.x = 0; cam.y = 0; cam.zoom = 1; }
+
+let bgCanvas = null, galBg = null;
+const pStars = Array.from({ length: 140 }, () => ({ x: Math.random(), y: Math.random(), z: rand(0.04, 0.22), s: rand(0.5, 1.6), tw: rand(TAU), sp: rand(0.5, 2) }));
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  VW = innerWidth; VH = innerHeight;
+  cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR);
+  cv.style.width = VW + 'px'; cv.style.height = VH + 'px';
+  cam.base = Math.min(VW, VH) / 820;
+  document.documentElement.style.setProperty('--topH', $('#top').offsetHeight + 'px');
+  document.documentElement.style.setProperty('--bottomH', $('#bottom').offsetHeight + 'px');
+  buildBackground(); galBg = null;
+}
+// Статичный фон: градиент, туманности, звёзды
+function buildBackground() {
+  bgCanvas = document.createElement('canvas');
+  bgCanvas.width = cv.width; bgCanvas.height = cv.height;
+  const g = bgCanvas.getContext('2d'); g.scale(DPR, DPR);
+  const grd = g.createLinearGradient(0, 0, VW, VH); grd.addColorStop(0, '#03040b'); grd.addColorStop(0.5, '#060819'); grd.addColorStop(1, '#0a0b20');
+  g.fillStyle = grd; g.fillRect(0, 0, VW, VH);
+  for (let i = 0; i < 7; i++) {
+    const x = rand(VW), y = rand(VH), r = rand(0.25, 0.6) * Math.max(VW, VH), h = rand(200, 320);
+    const rg = g.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, `hsla(${h},70%,35%,0.10)`); rg.addColorStop(0.5, `hsla(${h + 20},60%,25%,0.05)`); rg.addColorStop(1, 'hsla(0,0%,0%,0)');
+    g.fillStyle = rg; g.fillRect(0, 0, VW, VH);
+  }
+  const n = Math.round(VW * VH / 1400);
+  for (let i = 0; i < n; i++) {
+    const a = rand(0.15, 0.8), hue = pick([210, 220, 40, 0, 260]);
+    g.fillStyle = `hsla(${hue},60%,90%,${a})`;
+    const s = Math.random() < 0.92 ? rand(0.4, 1) : rand(1, 1.8);
+    g.fillRect(rand(VW), rand(VH), s, s);
+  }
+}
+
+// Кэш спрайтов свечения (радиальный градиент, рисуется в режиме 'lighter')
+const glowCache = new Map();
+function glowSprite(c) {
+  const key = c.join(','); let s = glowCache.get(key); if (s) return s;
+  s = document.createElement('canvas'); s.width = s.height = 128;
+  const g = s.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, `rgba(${key},1)`); gr.addColorStop(0.18, `rgba(${key},0.5)`); gr.addColorStop(0.45, `rgba(${key},0.14)`); gr.addColorStop(1, `rgba(${key},0)`);
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128); glowCache.set(key, s); return s;
+}
+function glow(x, y, rad, c, a) { if (rad < 1 || a <= 0) return; ctx.globalAlpha = Math.min(1, a); ctx.drawImage(glowSprite(c), x - rad, y - rad, rad * 2, rad * 2); ctx.globalAlpha = 1; }
+
+// ---------- Эффекты ----------
+const FX = [];
+function fxRing(x, y, r0, r1, col, life = 1, w = 2) { FX.push({ k: 'ring', x, y, r0, r1, col, life, max: life, w }); }
+function fxSparks(x, y, n, col, spd = 40, life = 1) {
+  for (let i = 0; i < n; i++) { const a = rand(TAU), s = rand(0.2, 1) * spd; FX.push({ k: 'spark', x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, col, life: rand(0.4, 1) * life, max: life, size: rand(0.8, 2) }); }
+}
+function updateDrawFx(rdt) {
+  const s = scale();
+  for (let i = FX.length - 1; i >= 0; i--) {
+    const f = FX[i];
+    if (f.delay > 0) { f.delay -= rdt; continue; }
+    f.life -= rdt; if (f.life <= 0) { FX.splice(i, 1); continue; }
+    const k = f.life / f.max;
+    if (f.k === 'spark' || f.k === 'glint') { f.x += f.vx * rdt; f.y += f.vy * rdt; f.vx *= 0.98; f.vy *= 0.98; }
+    if (f.k === 'meteor') {
+      f.sx += f.vx * rdt; f.sy += f.vy * rdt;
+      const gr = ctx.createLinearGradient(f.sx, f.sy, f.sx - f.vx * 0.15, f.sy - f.vy * 0.15);
+      gr.addColorStop(0, `rgba(255,255,255,${0.9 * k})`); gr.addColorStop(1, 'rgba(180,200,255,0)');
+      ctx.strokeStyle = gr; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(f.sx, f.sy); ctx.lineTo(f.sx - f.vx * 0.15, f.sy - f.vy * 0.15); ctx.stroke();
+      continue;
+    }
+    const [x, y] = w2s(f.x, f.y);
+    if (f.k === 'ring') {
+      const r = lerp(f.r1, f.r0, k) * s;
+      ctx.strokeStyle = rgba(f.col, 0.7 * k); ctx.lineWidth = f.w * k + 0.5; ctx.beginPath(); ctx.arc(x, y, Math.max(0.5, r), 0, TAU); ctx.stroke();
+    } else if (f.k === 'spark') {
+      ctx.fillStyle = rgba(f.col, k); ctx.fillRect(x - f.size / 2, y - f.size / 2, f.size, f.size);
+    } else if (f.k === 'glint') {
+      glow(x, y, 8, [255, 210, 122], k * 0.9);
+      ctx.fillStyle = `rgba(255,235,180,${k})`; ctx.fillRect(x - 1, y - 1, 2, 2);
+    } else if (f.k === 'text') {
+      f.y -= 12 * rdt / s;
+      ctx.fillStyle = rgba(f.col, k); ctx.font = '600 12px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.fillText(f.text, x, y);
+    }
+  }
+}
+
+// ---------- Главная отрисовка ----------
+function render(rdt) {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (Game.view === 'galaxy') { renderGalaxy(rdt); return; }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(bgCanvas, 0, 0, VW, VH);
+  const t = Game.realT, s = scale();
+  // Параллакс-звёзды
+  ctx.globalCompositeOperation = 'lighter';
+  for (const p of pStars) {
+    const x = mod(p.x * VW - cam.x * s * p.z, VW), y = mod(p.y * VH - cam.y * s * p.z, VH);
+    const a = 0.35 + 0.35 * Math.sin(t * p.sp + p.tw);
+    ctx.fillStyle = `rgba(200,215,255,${a})`; ctx.fillRect(x, y, p.s, p.s);
+  }
+  if (!W) return;
+  // Туманности поэтичных планет
+  for (const n of W.nebulae) {
+    const [x, y] = w2s(n.x, n.y), k = Math.sin(Math.PI * (1 - n.t / n.max));
+    for (let i = 0; i < 3; i++) {
+      const rr = (160 + i * 70) * s, gx = x + Math.cos(t * 0.2 + i * 2) * 30 * s, gy = y + Math.sin(t * 0.15 + i) * 30 * s;
+      const rg = ctx.createRadialGradient(gx, gy, 0, gx, gy, rr);
+      rg.addColorStop(0, `hsla(${n.hue + i * 35},80%,60%,${0.16 * k})`); rg.addColorStop(1, 'hsla(0,0%,0%,0)');
+      ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(gx, gy, rr, 0, TAU); ctx.fill();
+    }
+  }
+  // Сияние (аврора) — мягкая подсветка экрана
+  if (W.auroraT > 0) {
+    const k = Math.min(1, W.auroraT / 2) * 0.08;
+    const rg = ctx.createLinearGradient(0, 0, VW, VH);
+    rg.addColorStop(0, `rgba(80,255,180,${k})`); rg.addColorStop(0.5, `rgba(120,140,255,${k * 0.6})`); rg.addColorStop(1, `rgba(255,120,220,${k})`);
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, VW, VH);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  if (W.disease) drawDiseaseAura(W.disease, t);
+  // Связи ласковой стабилизации
+  ctx.globalCompositeOperation = 'lighter';
+  for (const b of W.bodies) if (b.calm && W.map.get(b.calmBy)) {
+    const g = W.map.get(b.calmBy); const [x1, y1] = w2s(b.x, b.y), [x2, y2] = w2s(g.x, g.y);
+    ctx.strokeStyle = `rgba(255,154,213,${0.12 + 0.06 * Math.sin(t * 2 + b.id)})`; ctx.lineWidth = 1;
+    ctx.setLineDash([2, 6]); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (S.settings.orbits) drawOrbits();
+  if (S.settings.trails) drawTrails();
+  // Астероиды
+  ctx.fillStyle = 'rgba(215,195,170,0.85)';
+  for (const p of W.particles) {
+    const [x, y] = w2s(p.x, p.y);
+    if (x < -5 || y < -5 || x > VW + 5 || y > VH + 5) continue;
+    const sz = 1.2 + 0.5 * Math.sin(t * 3 + p.tw);
+    ctx.fillRect(x - sz / 2, y - sz / 2, sz, sz);
+  }
+  // Тела: сначала свечение, потом сами тела
+  for (const b of W.bodies) drawBodyGlow(b, t);
+  ctx.globalCompositeOperation = 'source-over';
+  for (const b of W.bodies) drawBody(b, t);
+  if (W.disease) drawDisease(W.disease, t);
+  ctx.globalCompositeOperation = 'lighter';
+  updateDrawFx(rdt);
+  ctx.globalCompositeOperation = 'source-over';
+  drawLabels(t);
+  drawInputPreview(t);
+  // Переход консервации: вспышка и схлопывание в звезду
+  if (Game.transition) {
+    const T = Game.transition; T.t += rdt; const k = clamp(T.t / T.dur, 0, 1);
+    cam.zoom *= Math.exp(-rdt * 0.9);
+    const [x, y] = w2s(0, 0);
+    ctx.globalCompositeOperation = 'lighter';
+    glow(x, y, (40 + k * k * Math.max(VW, VH) * 1.3), [255, 230, 190], k * 1.2);
+    ctx.globalCompositeOperation = 'source-over';
+    if (k > 0.75) { ctx.fillStyle = `rgba(255,250,240,${(k - 0.75) * 4})`; ctx.fillRect(0, 0, VW, VH); }
+    if (T.t >= T.dur) { Game.transition = null; T.onEnd(); }
+  }
+  // Виньетка
+  const vg = ctx.createRadialGradient(VW / 2, VH / 2, Math.min(VW, VH) * 0.35, VW / 2, VH / 2, Math.max(VW, VH) * 0.75);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, W.disease ? 'rgba(40,0,30,0.55)' : 'rgba(0,0,0,0.45)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, VW, VH);
+}
+
+// Кеплеровы эллипсы орбит по текущим орбитальным элементам
+function drawOrbits() {
+  const s = scale(); ctx.lineWidth = 1;
+  for (const b of W.bodies) {
+    if (!b.P || !b.bound || b.evx === undefined || b.e > 0.97 || b.type === 'shard' || b.type === 'rogue' || !isFinite(b.a) || b.a > 4000 || b.a * s < 4) continue;
+    const fx = b.P.x + (b.ocdx || 0), fy = b.P.y + (b.ocdy || 0), ang = Math.atan2(b.evy, b.evx), e = b.e, a = b.a;
+    const [cx, cy] = w2s(fx - a * e * Math.cos(ang), fy - a * e * Math.sin(ang));
+    const hl = UI.hover === b || UI.sel === b;
+    ctx.strokeStyle = rgba(b.chaos > 0.5 ? [255, 92, 122] : trailColor(b), hl ? 0.5 : 0.12);
+    ctx.beginPath(); ctx.ellipse(cx, cy, a * s, a * Math.sqrt(1 - e * e) * s, ang, 0, TAU); ctx.stroke();
+  }
+}
+function trailColor(b) { return b.pers ? PERS[b.pers].rgb : b.col; }
+function drawTrails() {
+  ctx.lineCap = 'round';
+  for (const b of W.bodies) {
+    const tr = b.trail, n = tr.length / 2; if (n < 2) continue;
+    const c = trailColor(b), chunks = 6, per = Math.ceil(n / chunks);
+    ctx.lineWidth = b.type === 'comet' ? 1.6 : 1.2;
+    for (let ci = 0; ci < chunks; ci++) {
+      const i0 = ci * per, i1 = Math.min(n - 1, (ci + 1) * per); if (i1 <= i0) continue;
+      ctx.strokeStyle = rgba(c, 0.05 + 0.3 * (ci + 1) / chunks);
+      ctx.beginPath();
+      for (let i = i0; i <= i1; i++) { const [x, y] = w2s(tr[i * 2], tr[i * 2 + 1]); i === i0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+      if (ci === chunks - 1) { const [x, y] = w2s(b.x, b.y); ctx.lineTo(x, y); }
+      ctx.stroke();
+    }
+  }
+}
+
+function onScreen(x, y, r) { return x > -r && y > -r && x < VW + r && y < VH + r; }
+
+// Свечение тела и ауры характеров (режим lighter)
+function drawBodyGlow(b, t) {
+  const [x, y] = w2s(b.x, b.y), s = scale(), R = Math.max(1.6, b.r * s);
+  if (!onScreen(x, y, R * 12)) return;
+  const fl = b.flash || 0;
+  if (b.type === 'sun') {
+    glow(x, y, R * 9, [255, 170, 80], 0.45); glow(x, y, R * 3.5, [255, 220, 150], 0.9);
+    // корональные лучи
+    ctx.save(); ctx.translate(x, y);
+    for (let i = 0; i < 14; i++) {
+      const a = i / 14 * TAU + t * 0.05, L = R * (1.8 + 0.5 * Math.sin(t * 0.7 + i * 1.7));
+      const gr = ctx.createLinearGradient(0, 0, Math.cos(a) * L, Math.sin(a) * L);
+      gr.addColorStop(0, 'rgba(255,210,140,0.35)'); gr.addColorStop(1, 'rgba(255,160,80,0)');
+      ctx.strokeStyle = gr; ctx.lineWidth = R * 0.25; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * L, Math.sin(a) * L); ctx.stroke();
+    }
+    ctx.restore();
+  } else if (b.type === 'rogue') {
+    const f = 1 + 0.1 * Math.sin(t * 4 + b.seed);
+    glow(x, y, R * 9 * f, [255, 70, 50], 0.5); glow(x, y, R * 3, [255, 170, 140], 0.9);
+  } else if (b.type === 'dwarf') {
+    const f = 1 + 0.08 * Math.sin(t * 5 + b.seed) + 0.05 * Math.sin(t * 13 + b.seed);
+    glow(x, y, R * 7 * f, [255, 120, 60], 0.5); glow(x, y, R * 2.8, [255, 200, 140], 0.85);
+  } else if (b.type === 'neutron') {
+    glow(x, y, R * 10, [120, 170, 255], 0.55); glow(x, y, R * 3, [220, 235, 255], 1);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(t * 3 + b.seed);
+    for (const sgn of [1, -1]) {
+      const L = R * 22, gr = ctx.createLinearGradient(0, 0, sgn * L, 0);
+      gr.addColorStop(0, 'rgba(200,225,255,0.55)'); gr.addColorStop(1, 'rgba(120,160,255,0)');
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(sgn * L, -R * 2); ctx.lineTo(sgn * L, R * 2); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  } else if (b.type === 'comet') {
+    // хвост направлен от звезды
+    const L = clamp(9000 / Math.max(60, b.starD), 10, 90) * s, ang = Math.atan2(-b.ly, -b.lx);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+    let gr = ctx.createLinearGradient(0, 0, L, 0); gr.addColorStop(0, 'rgba(170,230,255,0.6)'); gr.addColorStop(1, 'rgba(120,180,255,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(0, -R * 0.9); ctx.lineTo(L, -R * 0.3); ctx.lineTo(L, R * 0.3); ctx.lineTo(0, R * 0.9); ctx.fill();
+    gr = ctx.createLinearGradient(0, 0, L * 0.7, 0); gr.addColorStop(0, 'rgba(255,240,210,0.45)'); gr.addColorStop(1, 'rgba(255,220,180,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(0, -R); ctx.quadraticCurveTo(L * 0.4, R * 0.5, L * 0.7, R * 2.6); ctx.lineTo(L * 0.6, R * 3.2); ctx.quadraticCurveTo(L * 0.3, R * 1.5, 0, R); ctx.fill();
+    ctx.restore();
+    glow(x, y, R * 4, [190, 235, 255], 0.8);
+  } else {
+    glow(x, y, R * 2.6, b.col, 0.28 + fl * 0.5);
+  }
+  if (fl > 0 && isStar(b)) glow(x, y, R * 6, [255, 255, 255], fl * 0.6);
+  // Ауры характеров
+  const P = b.pers;
+  if (P === 'gentle') {
+    const br = 0.5 + 0.5 * Math.sin(t * 1.8 + b.seed);
+    glow(x, y, R * (3.2 + br * 0.8), PERS.gentle.rgb, 0.22 + br * 0.12);
+    ctx.strokeStyle = `rgba(255,154,213,${0.2 + 0.2 * br})`; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(x, y, R * (1.7 + 0.2 * br) + 3, 0, TAU); ctx.stroke();
+  } else if (P === 'greedy') {
+    ctx.save(); ctx.translate(x, y);
+    for (let k = 0; k < 3; k++) {
+      const a0 = -t * 1.6 + k * TAU / 3; ctx.beginPath();
+      for (let i = 0; i <= 14; i++) { const u = i / 14, rr = R * (2.8 - 1.5 * u) + 3, a = a0 + u * 2.2; const px = Math.cos(a) * rr, py = Math.sin(a) * rr; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+      ctx.strokeStyle = 'rgba(167,123,255,0.4)'; ctx.lineWidth = 1.3; ctx.stroke();
+    }
+    ctx.restore();
+    glow(x, y, R * 2.5, [120, 70, 220], 0.25);
+  } else if (P === 'shy') {
+    if (b.shyNear) { ctx.strokeStyle = `rgba(143,233,255,${0.3 + 0.3 * Math.sin(t * 12)})`; ctx.setLineDash([2, 4]); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, R + 8, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
+    glow(x, y, R * 2.4, PERS.shy.rgb, 0.12 + 0.08 * Math.sin(t * 4 + b.seed));
+  } else if (P === 'poetic') {
+    ctx.save(); ctx.translate(x, y);
+    ctx.strokeStyle = `hsla(${(t * 40 + b.seed) % 360},90%,72%,0.55)`; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.ellipse(0, 0, R * 2.1 + 2, R * 0.75 + 1, b.tilt, 0, TAU); ctx.stroke();
+    for (let k = 0; k < 3; k++) {
+      const a = t * 1.2 + k * TAU / 3, px = Math.cos(a) * (R * 2.3 + 4), py = Math.sin(a) * (R * 2.3 + 4);
+      ctx.fillStyle = `hsla(${(t * 60 + k * 120) % 360},100%,80%,0.9)`; ctx.fillRect(px - 1, py - 1, 2, 2);
+    }
+    ctx.restore();
+    if (b.aurora > 0) {
+      for (let k = 0; k < 3; k++) { ctx.strokeStyle = `hsla(${140 + k * 50 + Math.sin(t) * 20},90%,65%,${0.25 * Math.min(1, b.aurora / 2)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, R * (3 + k * 0.8) + Math.sin(t * 2 + k) * 3, 0, TAU); ctx.stroke(); }
+    }
+  } else if (P === 'capricious' && Math.random() < 0.03) {
+    FX.push({ k: 'spark', x: b.x + rand(-b.r, b.r), y: b.y + rand(-b.r, b.r), vx: rand(-15, 15), vy: rand(-15, 15), col: PERS.capricious.rgb, life: 0.6, max: 0.6, size: 1.4 });
+  }
+}
+
+// Форма тела (капризные «дрожат», осколки неровные)
+function bodyPath(b, R, t) {
+  ctx.beginPath();
+  if (b.pers === 'capricious' || b.type === 'shard') {
+    const n = 18;
+    for (let i = 0; i <= n; i++) {
+      const a = i / n * TAU;
+      const w = b.type === 'shard' ? 1 + 0.25 * Math.sin(a * 3 + b.seed) + 0.12 * Math.sin(a * 5 + b.seed * 2)
+        : 1 + 0.07 * Math.sin(a * 3 + t * 4 + b.seed) + 0.05 * Math.sin(a * 5 - t * 3);
+      const px = Math.cos(a) * R * w, py = Math.sin(a) * R * w; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.closePath();
+  } else ctx.arc(0, 0, R, 0, TAU);
+}
+function shade(c, k) { return [clamp(Math.round(c[0] * k), 0, 255), clamp(Math.round(c[1] * k), 0, 255), clamp(Math.round(c[2] * k), 0, 255)]; }
+
+function drawBody(b, t) {
+  const [x, y] = w2s(b.x, b.y), s = scale(), R = Math.max(1.6, b.r * s);
+  if (!onScreen(x, y, R * 3)) return;
+  ctx.save(); ctx.translate(x, y);
+  if (b.pers === 'shy') ctx.globalAlpha = 0.72 + 0.18 * Math.sin(t * 3 + b.seed);
+  const c = b.col;
+  if (isStar(b)) {
+    const core = b.type === 'neutron' ? ['#ffffff', '#e8f2ff', '#9cc4ff'] : b.type === 'dwarf' ? ['#fff7e0', '#ffb45e', '#e0502a'] : b.type === 'rogue' ? ['#ffe6dc', '#ff7a5a', '#a8201a'] : ['#fffbe8', '#ffd98a', '#ff9a3c'];
+    const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
+    gr.addColorStop(0, core[0]); gr.addColorStop(0.55, core[1]); gr.addColorStop(1, core[2]);
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
+    if (b.type !== 'neutron' && R > 6) { // грануляция поверхности
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 5; i++) { const a = b.seed + i * 1.3 + t * 0.1, rr = R * 0.5 * ((i * 0.37 + 0.2) % 1); ctx.fillStyle = 'rgba(255,240,200,0.12)'; ctx.beginPath(); ctx.arc(Math.cos(a) * rr, Math.sin(a) * rr, R * 0.3, 0, TAU); ctx.fill(); }
+    }
+    ctx.restore(); return;
+  }
+  // Планеты: освещение со стороны звезды
+  const lx = b.lx * R * 0.4, ly = b.ly * R * 0.4;
+  const gr = ctx.createRadialGradient(lx, ly, R * 0.1, 0, 0, R * 1.25);
+  gr.addColorStop(0, rgba(shade(c, 1.45), 1)); gr.addColorStop(0.5, rgba(c, 1)); gr.addColorStop(1, rgba(shade(c, 0.35), 1));
+  bodyPath(b, R, t); ctx.fillStyle = gr; ctx.fill();
+  if (R > 3.5) {
+    ctx.save(); bodyPath(b, R, t); ctx.clip();
+    if (b.type === 'rock' || b.type === 'moon' || b.type === 'shard') {
+      for (let k = 0; k < (b.type === 'moon' ? 2 : 3); k++) {
+        const a = b.seed * (k + 1) * 1.7, rr = R * (0.25 + 0.3 * ((b.seed * (k + 3)) % 1)), cr = R * (0.15 + 0.1 * ((b.seed * (k + 7)) % 1));
+        ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.arc(Math.cos(a) * rr, Math.sin(a) * rr, cr, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(Math.cos(a) * rr, Math.sin(a) * rr, cr, Math.PI, Math.PI * 1.6); ctx.stroke();
+      }
+    } else if (b.type === 'ocean') {
+      for (let k = 0; k < 3; k++) {
+        const px = mod(b.seed * 37 * (k + 1) + t * R * 0.18, R * 3) - R * 1.5, py = Math.sin(b.seed + k * 2.1) * R * 0.5;
+        ctx.fillStyle = 'rgba(95,185,115,0.75)'; ctx.beginPath(); ctx.ellipse(px, py, R * 0.38, R * 0.22, k, 0, TAU); ctx.fill();
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = Math.max(1, R * 0.08);
+      for (let k = 0; k < 2; k++) { const px = mod(b.seed * 11 * (k + 2) + t * R * 0.3, R * 3) - R * 1.5; ctx.beginPath(); ctx.arc(px, (k - 0.5) * R * 0.8, R * 0.5, 0.2, 1.6); ctx.stroke(); }
+    } else if (b.type === 'gas') {
+      ctx.rotate(b.tilt * 0.25);
+      for (let i = -5; i <= 5; i++) {
+        const h = R * (0.12 + 0.05 * Math.sin(i * 1.7 + b.seed));
+        ctx.fillStyle = rgba(i % 2 ? shade(c, 1.25) : shade(c, 0.72), 0.45);
+        ctx.fillRect(-R * 1.2, i * R * 0.2 - h / 2 + Math.sin(t * 0.5 + i) * R * 0.02, R * 2.4, h);
+      }
+      const sx = mod(b.seed * 13 + t * R * 0.12, R * 2.6) - R * 1.3;
+      ctx.fillStyle = 'rgba(190,80,50,0.55)'; ctx.beginPath(); ctx.ellipse(sx, R * 0.3, R * 0.22, R * 0.12, 0, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+    // Ночная сторона
+    const sh = ctx.createRadialGradient(lx * 1.4, ly * 1.4, R * 0.3, lx * 1.4, ly * 1.4, R * 1.9);
+    sh.addColorStop(0, 'rgba(0,0,10,0)'); sh.addColorStop(0.55, 'rgba(0,0,10,0.05)'); sh.addColorStop(1, 'rgba(0,0,15,0.75)');
+    bodyPath(b, R, t); ctx.fillStyle = sh; ctx.fill();
+  }
+  // Кольца из пойманных астероидов (вид сверху — кольцевые полосы)
+  if (b.rings) {
+    for (let k = 0; k < 4; k++) {
+      ctx.strokeStyle = `rgba(${k % 2 ? '235,215,180' : '200,180,150'},${0.38 - k * 0.06})`;
+      ctx.lineWidth = Math.max(1, R * (0.18 - k * 0.02));
+      ctx.beginPath(); ctx.arc(0, 0, R * (1.45 + k * 0.28), 0, TAU); ctx.stroke();
+    }
+  }
+  if (b.flash > 0) { bodyPath(b, R, t); ctx.fillStyle = `rgba(255,255,255,${b.flash * 0.5})`; ctx.fill(); }
+  ctx.restore();
+  // Индикатор хаоса
+  if (b.chaos > 0.55 && b.type !== 'shard') {
+    ctx.strokeStyle = `rgba(255,92,122,${(b.chaos - 0.4) * (0.5 + 0.5 * Math.sin(t * 8 + b.id))})`; ctx.lineWidth = 1.2; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.arc(x, y, R + 5, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (UI.hover === b || UI.sel === b) { ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, R + 4, 0, TAU); ctx.stroke(); }
+}
+
+function drawLabels() {
+  if (!S.settings.names) return;
+  const s = scale();
+  ctx.font = '11px system-ui,sans-serif'; ctx.textAlign = 'center';
+  for (const b of W.bodies) {
+    if (b.type === 'shard' || (W.bodies.length > 25 && !b.pers && !isStar(b))) continue;
+    const [x, y] = w2s(b.x, b.y), R = Math.max(1.6, b.r * s);
+    if (!onScreen(x, y, 40)) continue;
+    ctx.fillStyle = b.pers ? rgba(PERS[b.pers].rgb, 0.7) : 'rgba(220,228,255,0.55)';
+    ctx.fillText((b.pers ? PERS[b.pers].icon + ' ' : '') + b.name, x, y + R + 14);
+  }
+}
+
+// ---------- Болезнь ----------
+function drawDiseaseAura(D, t) {
+  const [x, y] = w2s(D.x, D.y), s = scale(), R = D.rh * s;
+  const rg = ctx.createRadialGradient(x, y, R * 0.5, x, y, R * 7 + 40);
+  rg.addColorStop(0, 'rgba(0,0,0,0.75)'); rg.addColorStop(0.4, 'rgba(20,0,30,0.35)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, R * 7 + 40, 0, TAU); ctx.fill();
+  // зона лечения
+  ctx.strokeStyle = `rgba(125,255,176,${0.18 + 0.08 * Math.sin(t * 2)})`; ctx.setLineDash([4, 8]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(x, y, CURE_R * s, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+}
+function drawDisease(D, t) {
+  const [x, y] = w2s(D.x, D.y), s = scale(), R = Math.max(3, D.rh * s);
+  ctx.globalCompositeOperation = 'lighter';
+  for (let k = 0; k < 6; k++) {
+    const rr = R * (1.35 + k * 0.28), a0 = t * (2.4 - k * 0.25) + k * 1.3;
+    ctx.strokeStyle = k % 2 ? `rgba(255,60,140,${0.35 - k * 0.04})` : `rgba(170,70,255,${0.4 - k * 0.04})`;
+    ctx.lineWidth = Math.max(1, R * 0.18); ctx.beginPath(); ctx.arc(x, y, rr, a0, a0 + 1.6 + Math.sin(t + k) * 0.5); ctx.stroke();
+  }
+  glow(x, y, R * 4, [140, 40, 200], 0.35 + 0.1 * Math.sin(t * 3));
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x, y, R, 0, TAU); ctx.fill();
+  ctx.strokeStyle = `rgba(255,190,255,${0.6 + 0.2 * Math.sin(t * 6)})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, y, R * 1.05, 0, TAU); ctx.stroke();
+  if (D.cure > 0) { ctx.strokeStyle = 'rgba(125,255,176,0.9)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, R * 2.4 + 6, -Math.PI / 2, -Math.PI / 2 + D.cure * TAU); ctx.stroke(); }
+  ctx.font = '600 12px system-ui,sans-serif'; ctx.textAlign = 'center';
+  ctx.fillStyle = D.healers || D.starving ? 'rgba(125,255,176,0.95)' : 'rgba(255,120,150,0.95)';
+  ctx.fillText(D.healers || D.starving ? `✚ исцеление ${Math.floor(D.cure * 100)}%` : `☠ ${Math.ceil(D.timer)} с`, x, y - R * 2.4 - 14);
+}
+
+// ---------- Предпросмотр запуска и толчка ----------
+function drawInputPreview(t) {
+  const s = scale();
+  const dashed = (pts, col, hit) => {
+    ctx.setLineDash([4, 6]); ctx.lineWidth = 1.6;
+    const n = pts.length / 2, chunks = 8, per = Math.ceil(n / chunks);
+    for (let ci = 0; ci < chunks; ci++) {
+      const i0 = ci * per, i1 = Math.min(n - 1, (ci + 1) * per); if (i1 <= i0) continue;
+      ctx.strokeStyle = rgba(col, 0.85 * (1 - ci / chunks) + 0.1);
+      ctx.beginPath();
+      for (let i = i0; i <= i1; i++) { const [x, y] = w2s(pts[i * 2], pts[i * 2 + 1]); i === i0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    if (hit) {
+      const [x, y] = w2s(hit.x, hit.y); ctx.strokeStyle = 'rgba(255,92,122,0.9)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x - 6, y - 6); ctx.lineTo(x + 6, y + 6); ctx.moveTo(x + 6, y - 6); ctx.lineTo(x - 6, y + 6); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,120,150,0.9)'; ctx.font = '11px system-ui'; ctx.textAlign = 'center'; ctx.fillText('столкновение', x, y - 10);
+    }
+  };
+  const ghost = (wx, wy, type, a) => {
+    const [x, y] = w2s(wx, wy), R = Math.max(2, TYPES[type].r * s);
+    ctx.globalAlpha = a; ctx.fillStyle = rgba(TYPES[type].col, 1); ctx.beginPath(); ctx.arc(x, y, R, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+  };
+  const d = UI.drag;
+  if (d && d.kind === 'seed') {
+    const T = TYPES[d.type];
+    ghost(d.wx, d.wy, d.type, 0.75);
+    const [sx, sy] = w2s(d.wx, d.wy);
+    if (d.circ) { // золотая стрелка — круговая скорость
+      const [ex, ey] = w2s(d.wx + (d.circ[0] - d.attV[0]) / LAUNCH_K, d.wy + (d.circ[1] - d.attV[1]) / LAUNCH_K);
+      ctx.strokeStyle = 'rgba(255,210,122,0.55)'; ctx.setLineDash([3, 4]); ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,210,122,0.7)'; ctx.beginPath(); ctx.arc(ex, ey, 4, 0, TAU); ctx.fill();
+    }
+    if (d.moved) {
+      const [cx, cy] = [d.cx, d.cy];
+      ctx.strokeStyle = d.snapped ? 'rgba(125,255,176,0.95)' : 'rgba(255,255,255,0.8)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(cx, cy); ctx.stroke();
+      const a = Math.atan2(cy - sy, cx - sx); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx - Math.cos(a - 0.4) * 9, cy - Math.sin(a - 0.4) * 9); ctx.moveTo(cx, cy); ctx.lineTo(cx - Math.cos(a + 0.4) * 9, cy - Math.sin(a + 0.4) * 9); ctx.stroke();
+      if (d.pred) dashed(d.pred.pts, d.snapped ? [125, 255, 176] : T.col, d.pred.hit);
+      ctx.font = '11px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = d.snapped ? 'rgba(125,255,176,0.95)' : 'rgba(220,228,255,0.8)';
+      ctx.fillText(d.snapped ? 'круговая орбита ✓' : `скорость ${Math.round(Math.hypot(d.vx - d.attV[0], d.vy - d.attV[1]))}`, cx, cy - 12);
+    }
+  } else if (d && d.kind === 'push' && d.moved) {
+    const [bx, by] = w2s(d.body.x, d.body.y);
+    ctx.strokeStyle = 'rgba(143,180,255,0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(d.cx, d.cy); ctx.stroke();
+    if (d.pred) dashed(d.pred.pts, [143, 180, 255], d.pred.hit);
+  } else if (!d && UI.mouse && TYPES[UI.tool] && Game.view === 'garden' && !UI.hover) {
+    // Подсказка для касания: где пройдёт круговая орбита
+    const [wx, wy] = s2w(UI.mouse.x, UI.mouse.y);
+    const T = TYPES[UI.tool], att = localAttractor(wx, wy, T.m);
+    ghost(wx, wy, UI.tool, 0.45);
+    if (att) {
+      const res = circularVelocity(wx, wy, T.m, att), c = res[2];
+      const [ox, oy] = w2s(c.x, c.y), rr = Math.hypot(wx - c.x, wy - c.y) * s;
+      ctx.strokeStyle = 'rgba(255,210,122,0.18)'; ctx.setLineDash([2, 6]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(ox, oy, rr, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+}
+
+// ---------- Галактика ----------
+const GAL = { sel: null, size: 0, ox: 0, oy: 0 };
+function galMetrics() {
+  const top = 70, bottom = 20, sz = Math.min(VW, VH - top - bottom) * 0.96;
+  GAL.size = sz; GAL.ox = (VW - sz) / 2; GAL.oy = top + (VH - top - bottom - sz) / 2;
+}
+const g2s = (gx, gy) => [GAL.ox + gx / 1000 * GAL.size, GAL.oy + gy / 1000 * GAL.size];
+function buildGalaxyBg() {
+  galMetrics();
+  galBg = document.createElement('canvas'); galBg.width = cv.width; galBg.height = cv.height;
+  const g = galBg.getContext('2d'); g.scale(DPR, DPR);
+  g.fillStyle = '#020309'; g.fillRect(0, 0, VW, VH);
+  for (let i = 0; i < VW * VH / 1600; i++) { g.fillStyle = `rgba(210,220,255,${rand(0.1, 0.6)})`; g.fillRect(rand(VW), rand(VH), 1, 1); }
+  const [cx, cy] = g2s(500, 500), k = GAL.size / 1000;
+  let rg = g.createRadialGradient(cx, cy, 0, cx, cy, 470 * k);
+  rg.addColorStop(0, 'rgba(255,220,170,0.35)'); rg.addColorStop(0.15, 'rgba(200,170,255,0.12)'); rg.addColorStop(0.6, 'rgba(80,100,200,0.05)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = rg; g.fillRect(0, 0, VW, VH);
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 7000; i++) {
+    const arm = i % 2, u = Math.pow(Math.random(), 0.8), r = 25 + u * 450;
+    const th = arm * Math.PI + Math.log(r / 30) * 2.1 + (Math.random() + Math.random() - 1) * 0.45;
+    const x = cx + Math.cos(th) * r * k + (Math.random() - 0.5) * 18 * k, y = cy + Math.sin(th) * r * k + (Math.random() - 0.5) * 18 * k;
+    const warm = 1 - u;
+    g.fillStyle = `rgba(${Math.round(170 + 85 * warm)},${Math.round(180 + 40 * warm)},${Math.round(255 - 80 * warm)},${rand(0.08, 0.5)})`;
+    const sz = rand(0.5, 1.6); g.fillRect(x, y, sz, sz);
+  }
+  rg = g.createRadialGradient(cx, cy, 0, cx, cy, 60 * k); rg.addColorStop(0, 'rgba(255,240,210,0.7)'); rg.addColorStop(1, 'rgba(255,200,150,0)');
+  g.fillStyle = rg; g.beginPath(); g.arc(cx, cy, 60 * k, 0, TAU); g.fill();
+}
+const hexRgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+function renderGalaxy(rdt) {
+  if (!galBg) buildGalaxyBg();
+  galMetrics();
+  const t = Game.realT;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(galBg, 0, 0, VW, VH);
+  const { links } = galaxyBonuses();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const l of links) {
+    const [x1, y1] = g2s(l.a.gx, l.a.gy), [x2, y2] = g2s(l.b.gx, l.b.gy);
+    ctx.strokeStyle = l.combo ? 'rgba(255,180,230,0.35)' : 'rgba(150,180,255,0.22)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    if (l.pull) for (let k = 0; k < 3; k++) { const u = mod(t * 0.25 + k / 3, 1); glow(lerp(x1, x2, u), lerp(y1, y2, u), 6, [200, 220, 255], 0.6 * Math.sin(u * Math.PI)); }
+  }
+  ctx.font = '11px system-ui,sans-serif'; ctx.textAlign = 'center';
+  for (const g of S.gardens) {
+    const [x, y] = g2s(g.gx, g.gy);
+    const c = hexRgb(g.color || '#ffd27a');
+    if (g.dead) {
+      glow(x, y, 16, [140, 70, 110], 0.35);
+      ctx.fillStyle = 'rgba(160,110,140,0.5)'; ctx.fillText('† ' + g.name, x, y + 18);
+    } else if (g.conserved) {
+      const sz = 6 + Math.sqrt(Math.max(0.1, g.strength)) * 5, tw = 0.85 + 0.15 * Math.sin(t * 2 + g.gx);
+      glow(x, y, sz * 4 * tw, c, 0.55); glow(x, y, sz * 1.4, [255, 255, 255], 0.9);
+      ctx.strokeStyle = rgba(c, 0.35); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - sz * 2.5, y); ctx.lineTo(x + sz * 2.5, y); ctx.moveTo(x, y - sz * 2.5); ctx.lineTo(x, y + sz * 2.5); ctx.stroke();
+      ctx.fillStyle = 'rgba(235,240,255,0.85)'; ctx.fillText(g.name, x, y + sz + 14);
+    } else {
+      const p = 0.5 + 0.5 * Math.sin(t * 2.5);
+      ctx.strokeStyle = `rgba(255,210,122,${0.3 + 0.4 * p})`; ctx.setLineDash([3, 4]); ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(x, y, 9 + p * 3, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+      glow(x, y, 10, [255, 210, 122], 0.6);
+      ctx.fillStyle = 'rgba(255,220,160,0.75)'; ctx.fillText(g.name + ' · растёт', x, y + 24);
+    }
+    if (GAL.sel === g.id) { ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, y, 20 + Math.sin(t * 3) * 2, 0, TAU); ctx.stroke(); }
+    if (g.id === S.activeId && !g.dead) { ctx.fillStyle = 'rgba(125,255,176,0.9)'; ctx.beginPath(); ctx.moveTo(x, y - 24); ctx.lineTo(x - 5, y - 32); ctx.lineTo(x + 5, y - 32); ctx.fill(); }
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  updateDrawFx(rdt);
+}
+function openGalaxy(selId) {
+  save();
+  if (Game.mode !== 'challenge') Game.prevMode = Game.mode;
+  Game.view = 'galaxy'; document.body.classList.add('gal');
+  GAL.sel = selId || (Game.gardenRef && Game.gardenRef.id) || null;
+  galaxyBonuses(true); galCard(); Audio.setDrone(false); hideTip();
+}
+function closeGalaxy() {
+  Game.view = 'garden'; document.body.classList.remove('gal');
+  if (Game.mode === 'garden' && (!W || W.dead || (Game.gardenRef && Game.gardenRef.dead))) { enterGarden(null); return; }
+  resetCamera(); uiUpdate(1, true);
+}
+function galCard() {
+  const el = $('#galCard'), g = S.gardens.find(x => x.id === GAL.sel);
+  const r = passiveRate();
+  $('#galRate').textContent = `Садов: ${S.gardens.filter(x => x.conserved && !x.dead).length} сияют · пассивно +${fmt(r)} ✦/с · пыль ${Math.floor(S.dust)} ✦`;
+  if (!g) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  const { res } = galaxyBonuses();
+  const pc = g.persCounts || {};
+  const pcs = PERS_KEYS.filter(k => pc[k]).map(k => `<span style="color:${PERS[k].col}">${PERS[k].icon} ${PERS[k].f} ×${pc[k]}</span>`).join('') || '<span style="color:var(--dim)">характеров нет</span>';
+  const st = g.dead ? '† Погиб' : g.conserved ? '❄ Законсервирован' : '🌱 Растёт';
+  const b = res[g.id];
+  const out = g.conserved && !g.dead ? `<div class="st">Сила: ${fmt(g.strength)} ✦/с · даёт галактике +${fmt(g.strength * 0.3 * (b ? b.mult : 1))} ✦/с</div>` : '';
+  const notes = b && b.notes.length ? `<ul>${b.notes.map(n => `<li>${n}</li>`).join('')}</ul>` : '';
+  setHtml(el, `<h3>${g.name}</h3><div class="st">${st} · возраст ${fmtTime(g.age || 0)} · тел ${g.bodies || 0}</div>${out}<div class="pc">${pcs}</div>${notes}
+    <div class="row">${g.dead ? `<button class="mb" data-gact="story">История гибели</button>` : `<button class="mb" data-gact="enter">Войти в сад</button>`}<button class="mb" data-gact="close">Закрыть</button></div>`);
+}
+// Меняем разметку только при изменении, чтобы не терять клики по кнопкам
+function setHtml(el, html) { if (el._html !== html) { el._html = html; el.innerHTML = html; } }
+$('#galCard').addEventListener('click', e => {
+  const a = e.target.closest('[data-gact]'); if (!a) return; Audio.click();
+  const g = S.gardens.find(x => x.id === GAL.sel);
+  if (a.dataset.gact === 'close') { GAL.sel = null; galCard(); }
+  else if (a.dataset.gact === 'enter' && g) { Game.view = 'garden'; document.body.classList.remove('gal'); save(); enterGarden(g.id); Game.paused = false; toast(`Ты вернулся в «${g.name}»`); }
+  else if (a.dataset.gact === 'story' && g) unlockAch('memory'), openModal(`<h2>☾ ${g.name}</h2>${g.story || '<p>История утеряна во тьме.</p>'}<div class="row"><button class="mb" data-act="close">Закрыть</button></div>`);
+});
+$('#bNewGarden').onclick = () => {
+  Audio.init(); Audio.click(); save();
+  Game.view = 'garden'; document.body.classList.remove('gal');
+  Game.mode = 'garden'; const g = createGarden(); Game.gardenRef = g; Game.paused = false;
+  afterWorldChange(); save(); toast(`🌱 Посажен новый сад: «${g.name}»`, 'gold');
+};
+$('#bGalBack').onclick = () => { Audio.click(); if (Game.prevMode === 'sandbox' && Game.mode === 'sandbox') { Game.view = 'garden'; document.body.classList.remove('gal'); return; } closeGalaxy(); };
+
+// ======================= 8. ИНТЕРФЕЙС =======================
+const UI = { tool: 'rock', hover: null, sel: null, selT: 0, drag: null, mouse: null, tipT: 0 };
+
+function buildSeeds() {
+  const el = $('#seeds'); let html = '';
+  const tool = (k, ic, nm, cost = '') => `<button class="seed ${UI.tool === k ? 'on' : ''}" data-t="${k}" title="${nm}"><i class="orb o-tool">${ic}</i><span class="nm">${nm}</span><span class="cost">${cost}</span></button>`;
+  html += tool('inspect', '✋', 'Осмотр');
+  html += tool('push', '➹', 'Толчок', Game.mode === 'garden' ? '5✦' : Game.mode === 'challenge' && W.chal.def.pushes ? `${W.chal.def.pushes - W.chal.pushes} шт` : '');
+  const allowed = Game.mode === 'challenge' ? W.chal.def.types : SEED_ORDER;
+  for (const t of SEED_ORDER) {
+    if (!allowed.includes(t)) continue;
+    const T = TYPES[t], locked = Game.mode === 'garden' && !S.unlocked[t];
+    const cost = Game.mode === 'garden' ? (locked ? '🔒' + T.unlock : T.cost) + '✦' : '';
+    html += `<button class="seed ${locked ? 'locked' : ''} ${UI.tool === t ? 'on' : ''}" data-t="${t}" data-cost="${locked ? T.unlock : T.cost}" title="${T.name}: ${T.desc}"><i class="orb o-${t}"></i><span class="nm">${T.short}</span><span class="cost">${cost}</span></button>`;
+  }
+  el.innerHTML = html;
+}
+$('#seeds').addEventListener('click', e => {
+  const b = e.target.closest('[data-t]'); if (!b) return;
+  Audio.init(); selectTool(b.dataset.t);
+});
+function selectTool(t) {
+  if (TYPES[t] && Game.mode === 'garden' && !S.unlocked[t]) { tryUnlock(t); return; }
+  if (Game.mode === 'challenge' && TYPES[t] && !W.chal.def.types.includes(t)) return;
+  UI.tool = t; buildSeeds(); Audio.click(); uiUpdate(1, true);
+}
+function tryUnlock(t) {
+  const T = TYPES[t];
+  if (S.dust < T.unlock) { toast(`Чтобы открыть «${T.name}», нужно ${T.unlock} ✦`, 'bad'); Audio.bad(); return; }
+  S.dust -= T.unlock; S.unlocked[t] = true; UI.tool = t;
+  toast(`✦ Открыт новый тип: ${T.name}!`, 'gold'); Audio.unlock(); buildSeeds(); save();
+}
+
+function toast(text, cls = '') {
+  const el = document.createElement('div'); el.className = 'toast ' + cls; el.innerHTML = text;
+  const box = $('#toasts'); box.appendChild(el);
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 500); }, 3600);
+}
+
+// Обновление панелей (не чаще 10 раз в секунду)
+let uiAcc = 0;
+function uiUpdate(rdt, force) {
+  uiAcc -= rdt; if (uiAcc > 0 && !force) return; uiAcc = 0.1;
+  if (!W) return;
+  const st = W.stabShow;
+  $('#stabPct').textContent = Math.round(st * 100) + '%';
+  const f = $('#stabFill'); f.style.width = (st * 100).toFixed(1) + '%'; f.style.background = `linear-gradient(90deg,hsl(${st * 120},80%,45%),hsl(${st * 120 + 20},90%,62%))`;
+  $('#tLbl').textContent = fmtTime(W.age);
+  $('#modeLbl').textContent = Game.mode === 'garden' ? (W.conserved ? 'Сад · ❄ законсервирован' : 'Сад') : Game.mode === 'sandbox' ? 'Песочница' : 'Испытание';
+  $('#gName').textContent = W.name;
+  const dl = $('#dustLbl'), dv = Game.mode === 'sandbox' ? '∞' : String(Math.floor(S.dust));
+  if (dl.textContent !== dv) { dl.textContent = dv; dl.classList.add('bump'); setTimeout(() => dl.classList.remove('bump'), 250); }
+  const pr = passiveRate();
+  $('#dustRate').textContent = Game.mode === 'garden' ? `✦ +${fmt(W.rate + pr)}/с${W.stab < 0.5 ? ' · хаос!' : ''}` : Game.mode === 'sandbox' ? `✦ +${fmt(W.rate)}/с` : `✦ испытание`;
+  $('#bPause').textContent = Game.paused ? '▶' : '⏸';
+  $('#bSpeed').textContent = Game.speed + '×';
+  // семена: хватает ли пыли
+  for (const el of document.querySelectorAll('.seed[data-cost]')) el.classList.toggle('poor', Game.mode === 'garden' && S.dust < +el.dataset.cost);
+  // консервация
+  const bc = $('#bConserve');
+  bc.classList.toggle('hidden', Game.mode !== 'garden');
+  bc.classList.toggle('ready', canConserve());
+  $('#consProg').style.width = (W.conserved ? 100 : clamp(W.stableTime / CONSERVE_TIME, 0, 1) * 100) + '%';
+  bc.title = W.conserved ? 'Сад уже законсервирован' : `Консервация: ${Math.floor(W.stableTime)}/${CONSERVE_TIME} с стабильности ≥ 70%, планет ${W.planets}/3`;
+  $('#bGalaxy').classList.toggle('hidden', Game.mode === 'challenge');
+  // характер следующей планеты
+  const chip = $('#chip');
+  if (TYPES[UI.tool] && TYPES[UI.tool].pers) {
+    const P = PERS[S.nextPers];
+    chip.classList.remove('hidden');
+    setHtml(chip, `<span>Характер:</span><span class="pn" style="color:${P.col}">${P.icon} ${P.f}</span><button id="bReroll" title="${P.desc}">🎲${Game.mode === 'garden' ? ' 3✦' : ''}</button>`);
+  } else chip.classList.add('hidden');
+  // болезнь
+  const al = $('#alert'), D = W.disease;
+  if (D && !W.dead) {
+    al.classList.remove('hidden');
+    const heal = D.healers || D.starving; al.classList.toggle('heal', !!heal);
+    al.innerHTML = heal ? `<b>✚ Исцеление ${Math.floor(D.cure * 100)}%</b><br>${D.healers ? 'Стабилизатор рядом с очагом растапливает тьму.' : 'Тьме нечем питаться — она тает.'}`
+      : `<b>☠ Болезнь сада · ${Math.ceil(D.timer)} с</b><br>Внеси ласковую планету ♥ или звезду-карлик в зелёный круг у очага — или уведи все тела подальше от него.`;
+  } else if (W.cosmic && !W.dead) {
+    const C = W.cosmic, K = COSMIC[C.kind];
+    al.classList.remove('hidden'); al.classList.remove('heal');
+    al.innerHTML = C.phase === 'warn' ? `<b>⚠ ${K.name} · ${Math.ceil(C.t)} с</b><br>${K.warn}` : `<b>${K.icon} ${K.name}</b><br>Продержись — если не потерять ни одной планеты, сад станет сильнее.`;
+  } else al.classList.add('hidden');
+  Audio.setDrone(!!(D && !W.dead && Game.view === 'garden'));
+  // цель испытания
+  const ob = $('#objective');
+  if (Game.mode === 'challenge') {
+    const C = W.chal, g = C.def.goal; ob.classList.remove('hidden');
+    const p = g.kind === 'mass' ? clamp((C.best || 0) / g.n, 0, 1) : g.kind === 'cure' ? (W.disease ? W.disease.cure : 1) : clamp(C.progress / g.secs, 0, 1);
+    let extra = '';
+    if (g.kind === 'res') extra = C.pair ? `Резонанс: ${C.pair[0].name} и ${C.pair[1].name}` : 'Резонанс не найден';
+    if (g.kind === 'belt') extra = `Астероидов: ${W.particles.length}/${g.n}`;
+    if (g.kind === 'mass') extra = `Самый тяжёлый мир: ${Math.floor(C.best || 0)}/${g.n}`;
+    if (g.kind === 'storm') extra = W.rogueGone ? `Планет: ${W.planets}` : 'Звезда ещё в саду';
+    if (g.kind === 'comet') extra = (() => { const c = W.bodies.find(b => b.type === 'comet'); return c ? `Комета: e=${c.e.toFixed(2)}${c.bound ? '' : ', улетает'}` : 'Кометы нет'; })();
+    if (g.kind === 'stable') extra = `Планет: ${W.planets}/${g.planets}`;
+    ob.innerHTML = `<h4>✶ ${C.def.name}</h4><p>${C.def.desc}</p><div class="pbar"><i style="width:${p * 100}%"></i></div>
+      <div class="objRow"><span>Тел: ${C.used}/${C.def.budget}${C.def.pushes ? ` · толчков ${C.pushes}/${C.def.pushes}` : ''}</span><span>${extra}</span></div>`;
+  } else ob.classList.add('hidden');
+  // подсказка новичку
+  const hint = $('#hint');
+  if (!S.hintDone && Game.view === 'garden') { hint.classList.remove('hidden'); hint.innerHTML = 'Выбери семя внизу и <b>коснись поля</b> — мир выйдет на круговую орбиту.<br>Или <b>нажми и потяни</b>, чтобы задать толчок самому: пунктир покажет путь.'; }
+  else hint.classList.add('hidden');
+  if (Game.view === 'galaxy') galCard();
+}
+$('#chip').addEventListener('click', e => {
+  if (!e.target.closest('#bReroll')) return;
+  if (Game.mode === 'garden') { if (S.dust < 3) { toast('Не хватает пыли', 'bad'); return; } S.dust -= 3; }
+  let n; do { n = rollPers(); } while (n === S.nextPers);
+  S.nextPers = n; Audio.click(); uiUpdate(1, true);
+});
+
+// ---------- Подсказка при наведении ----------
+function hideTip() { $('#tip').classList.add('hidden'); }
+function showTip(b) {
+  const tip = $('#tip');
+  if (!b || b.dead || !W.bodies.includes(b) || Game.view !== 'garden') { hideTip(); return; }
+  const [x, y] = w2s(b.x, b.y);
+  const T = TYPES[b.type];
+  let orbit = '';
+  if (b.P) {
+    const state = !b.bound ? 'уходит прочь' : b.chaos > 0.55 ? 'хаотичная' : b.chaos > 0.25 ? 'неспокойная' : 'стабильная';
+    orbit = `<div class="ts">Орбита вокруг ${b.P.name}: ${state}${b.bound ? ` · e=${b.e.toFixed(2)} · период ${b.T < 1000 ? b.T.toFixed(1) + ' с' : '∞'}` : ''}</div>
+      <div class="cb"><i style="width:${Math.round((1 - b.chaos) * 100)}%;background:hsl(${(1 - b.chaos) * 120},80%,55%)"></i></div>`;
+  } else if (b.type === 'sun') orbit = '<div class="ts">Центр сада. Всё вращается вокруг него.</div>';
+  const pers = b.pers ? `<div class="tp" style="color:${PERS[b.pers].col}">${PERS[b.pers].icon} ${persAdj(b)}</div><div class="td">${PERS[b.pers].desc}</div>` : (T.desc ? `<div class="td">${T.desc}</div>` : '');
+  tip.innerHTML = `<div class="tn">${b.name}</div><div class="ts">${T.name} · масса ${b.m < 10 ? b.m.toFixed(1) : Math.round(b.m)}</div>${pers}${orbit}`;
+  tip.classList.remove('hidden');
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let tx = x + 18, ty = y - h / 2;
+  if (tx + w > VW - 8) tx = x - w - 18;
+  tip.style.left = clamp(tx, 8, VW - w - 8) + 'px'; tip.style.top = clamp(ty, 8, VH - h - 8) + 'px';
+}
+
+// ---------- Модальные окна ----------
+function openModal(html) { $('#modalBox').innerHTML = html; $('#modal').classList.remove('hidden'); Game.modal = true; hideTip(); }
+function closeModal() { $('#modal').classList.add('hidden'); Game.modal = false; }
+$('#modal').addEventListener('click', e => {
+  if (e.target.id === 'modal' && !Game.lockModal) { closeModal(); return; }
+  const a = e.target.closest('[data-act]'); if (!a) return;
+  Audio.init(); Audio.click(); handleAct(a.dataset.act, a.dataset);
+});
+function handleAct(act, ds) {
+  const st = S.settings;
+  switch (act) {
+    case 'close': Game.lockModal = false; closeModal(); break;
+    case 'mode-garden': Game.lockModal = false; closeModal(); if (Game.mode !== 'garden' || Game.view === 'galaxy') switchMode('garden'); break;
+    case 'mode-sandbox': Game.lockModal = false; closeModal(); if (Game.mode !== 'sandbox' || Game.view === 'galaxy') switchMode('sandbox'); toast('∞ Песочница: всё открыто и бесплатно'); break;
+    case 'challenges': showChallenges(); break;
+    case 'ch-start': Game.lockModal = false; closeModal(); startChallenge(ds.id); break;
+    case 'help': showHelp(); break;
+    case 'menu': showMenu(); break;
+    case 'upg': buyUpgrade(ds.k); break;
+    case 'tg': st[ds.k] = !st[ds.k]; Audio.apply(); save(); a_refreshMenu(); break;
+    case 'reset-yes': closeModal(); resetWorld(); break;
+    case 'wipe': openModal(`<h2>Стереть весь прогресс?</h2><p>Исчезнут все сады, пыль, улучшения и пройденные испытания. Это нельзя отменить.</p><div class="row"><button class="mb danger" data-act="wipe-yes">Да, стереть</button><button class="mb" data-act="menu">Нет</button></div>`); break;
+    case 'wipe-yes': localStorage.removeItem(SAVE_KEY); S = defaultSave(); Game.gardenRef = null; closeModal(); switchMode('garden'); showMenu(); break;
+    case 'story-new': closeModal(); afterDeath('new'); break;
+    case 'story-galaxy': closeModal(); afterDeath('galaxy'); break;
+    case 'ach': showAch(); break;
+    case 'journal': showJournal(); break;
+    case 'news': showNews(); break;
+    case 'shot': Game.lockModal = false; closeModal(); setTimeout(takeShot, 80); break;
+    case 'story-retry': closeModal(); startChallenge(W.chal.def.id); break;
+  }
+}
+function a_refreshMenu() { if (!$('#modal').classList.contains('hidden') && $('#modalBox').querySelector('.tg')) showMenu(); }
+function showMenu(first) {
+  const st = S.settings, done = Object.keys(S.chDone).length;
+  const tg = (k, nm) => `<button class="${st[k] ? 'on' : ''}" data-act="tg" data-k="${k}">${st[k] ? '✓' : '○'} ${nm}</button>`;
+  Game.lockModal = !!first;
+  openModal(`<h1>Гравитационный сад</h1><p class="sub">Сажай семена миров. Дай им толчок. Береги равновесие.</p>
+    <div class="mbtns">
+      <button class="mb" data-act="mode-garden"><span class="ic">🌱</span><span>Сад<small>Пыль, улучшения, болезнь и галактика садов</small></span></button>
+      <button class="mb" data-act="mode-sandbox"><span class="ic">∞</span><span>Песочница<small>Без целей, всё открыто и бесплатно</small></span></button>
+      <button class="mb" data-act="challenges"><span class="ic">✶</span><span>Испытания<small>Пройдено ${done} из ${CHALLENGES.length}</small></span></button>
+      <button class="mb" data-act="ach"><span class="ic">🏆</span><span>Достижения<small>Получено ${Object.keys(S.ach).length} из ${ACH.length}</small></span></button>
+      ${W && W.events.length ? '<button class="mb" data-act="journal"><span class="ic">📜</span><span>Летопись сада<small>История «' + W.name + '»</small></span></button>' : ''}
+      <button class="mb" data-act="help"><span class="ic">?</span><span>Как играть</span></button>
+    </div>
+    <div class="tg">${tg('music', 'Музыка')}${tg('sfx', 'Звуки')}${tg('trails', 'Следы орбит')}${tg('names', 'Имена')}${tg('orbits', 'Линии орбит')}${tg('cosmic', 'Космические события')}${tg('sandboxDisease', 'Болезнь в песочнице')}</div>
+    <div class="row">${first ? '' : '<button class="mb" data-act="close">Продолжить</button>'}<button class="mb" data-act="shot">📷 Снимок</button><button class="mb danger" data-act="wipe">Стереть прогресс</button></div>
+    <p class="stats" style="text-align:center;margin:12px 0 0">Версия ${VERSION} · <a href="#" data-act="news" style="color:var(--accent)">Что нового</a></p>`);
+}
+function showAch() {
+  const rows = ACH.map(a => `<div class="chl ${S.ach[a.id] ? 'done' : ''}"><span class="ok" style="opacity:${S.ach[a.id] ? 1 : 0.25}">🏆</span><div class="info"><b>${a.name}</b><small>${a.desc}${a.r ? ' · награда ' + a.r + ' ✦' : ''}</small></div>${S.ach[a.id] ? '<span class="ok">✓</span>' : ''}</div>`).join('');
+  openModal(`<h2>🏆 Достижения · ${Object.keys(S.ach).length}/${ACH.length}</h2><p class="stats">Посажено миров: ${S.stats.planted} · поэтичных событий: ${S.stats.poems}. В песочнице достижения не выдаются.</p>${rows}<div class="row"><button class="mb" data-act="menu">Меню</button>${Game.lockModal ? '' : '<button class="mb" data-act="close">Закрыть</button>'}</div>`);
+}
+function showJournal() {
+  const items = W.events.map(e => `<li><span class="t">${fmtTime(e.t)}</span>${e.text}</li>`).join('');
+  openModal(`<h2>📜 Летопись: ${W.name}</h2><p class="stats">Возраст ${fmtTime(W.age)} · миров сейчас ${W.bodies.length} · в расцвете ${W.maxBodies}</p><ul class="story">${items}</ul><div class="row"><button class="mb" data-act="menu">Меню</button>${Game.lockModal ? '' : '<button class="mb" data-act="close">Закрыть</button>'}</div>`);
+}
+function showNews(first) {
+  S.seenVersion = VERSION; save();
+  if (first) Game.lockModal = true;
+  openModal(`<h2>✦ Глобальное обновление ${VERSION}</h2>
+  <h3>☄ Космические события</h3><p>В саду с тремя и более планетами время от времени случаются <b>блуждающие звёзды</b>, <b>метеоритные дожди</b> и <b>солнечные вспышки</b>. О каждом предупреждают заранее; переживи событие без потерь — и получишь достижение.</p>
+  <h3>🏆 Достижения</h3><p>${ACH.length} достижений с наградами звёздной пылью.</p>
+  <h3>💫 Кольца планет</h3><p>Планета, поймавшая много астероидов, обретает кольца.</p>
+  <h3>◌ Линии орбит</h3><p>Видны эллипсы орбит: красные — хаотичные. Наведи на мир, чтобы подсветить его орбиту.</p>
+  <h3>✶ Четыре новых испытания</h3><p>«Возвращение кометы», «Колыбель гиганта», «Пульсарный сад» и «Буря».</p>
+  <h3>✷ Созвездия</h3><p>Сад, рядом с которым сияют два и больше соседей, получает +20% пыли.</p>
+  <h3>📜 Летопись и 📷 снимки</h3><p>История текущего сада доступна в меню в любой момент, а красивый момент можно сохранить картинкой.</p>
+  <div class="row"><button class="mb" data-act="menu">${first ? 'Играть' : 'Меню'}</button></div>`);
+}
+function showHelp() {
+  openModal(`<h2>Как играть</h2>
+  <h3>Посадка</h3><p>Выбери семя в нижней панели. <b>Короткое касание</b> поля — тело выйдет на круговую орбиту вокруг ближайшего притягивающего мира. <b>Нажми и потяни</b> — задашь направление и силу толчка: пунктир покажет путь, золотая стрелка — круговую скорость (рядом с ней толчок «примагничивается»).</p>
+  <h3>Звёздная пыль ✦</h3><p>Пока стабильность ≥ 50%, система копит пыль. Хаос (вытянутые, пересекающиеся орбиты, улетающие тела, удары) пыль не даёт. Пыль тратится на семена, новые типы тел, улучшения и толчки.</p>
+  <h3>Столкновения</h3><p>Медленные — слияние: камни растут в газовых гигантов, а гиганты могут вспыхнуть звездой. Быстрые — осколки и астероидный пояс.</p>
+  <h3>Характеры</h3><p><span style="color:${PERS.gentle.col}">♥ Ласковая</span> скругляет орбиты соседей и даёт больше пыли. <span style="color:${PERS.capricious.col}">↯ Капризная</span> сама меняет орбиту. <span style="color:${PERS.greedy.col}">◉ Жадная</span> сильнее тянет мелочь. <span style="color:${PERS.shy.col}">❀ Застенчивая</span> убегает от близких тел. <span style="color:${PERS.poetic.col}">♪ Поэтичная</span> даёт мало пыли, но приносит звездопады, сияния, песни и редких гостей. Характер следующей планеты виден над панелью — его можно перебросить 🎲.</p>
+  <h3>Болезнь</h3><p>Если хаос держится долго, появляется чёрная дыра-болезнь. Внеси ласковую планету или звезду-карлик в зелёный круг рядом с ней — или уведи все тела подальше. Не успеешь — сад погибнет, и ты прочтёшь его историю.</p>
+  <h3>Космические события</h3><p>Блуждающие звёзды, метеоритные дожди и солнечные вспышки приходят с предупреждением. Укрепи орбиты заранее или уведи миры подальше.</p>
+  <h3>Галактика</h3><p>Удержи сад стабильным ${CONSERVE_TIME} с (≥ 70%, от 3 планет) — и законсервируй: он станет звездой на карте и будет приносить пыль постоянно. Сильные сады подтягивают слабых, редкие сочетания характеров дают бонусы. В любой сад можно вернуться.</p>
+  <h3>Управление</h3><p>Колесо или щипок — масштаб, «Осмотр» + перетаскивание — сдвиг вида, двойной щелчок — центр. «Толчок» — подтолкнуть существующее тело. <kbd>Пробел</kbd> пауза, <kbd>1</kbd>–<kbd>7</kbd> семена, <kbd>G</kbd> галактика, <kbd>Esc</kbd> меню.</p>
+  <div class="row"><button class="mb" data-act="menu">Меню</button><button class="mb" data-act="close">Играть</button></div>`);
+}
+function showUpgrades() {
+  if (Game.mode !== 'garden') { toast(Game.mode === 'sandbox' ? 'В песочнице все улучшения уже на максимуме' : 'В испытаниях действуют улучшения твоего сада'); return; }
+  const rows = Object.keys(UPGRADES).map(k => {
+    const U = UPGRADES[k], l = S.upg[k] || 0, max = l >= U.max, c = upgCost(k);
+    return `<div class="upg"><div class="info"><b>${U.name}</b><small>${U.desc}</small><div class="lv">${Array.from({ length: U.max }, (_, i) => `<i class="${i < l ? 'f' : ''}"></i>`).join('')}</div></div>
+      <button class="ib" data-act="upg" data-k="${k}" ${max || S.dust < c ? 'disabled' : ''}>${max ? 'макс.' : c + ' ✦'}</button></div>`;
+  }).join('');
+  const locks = SEED_ORDER.filter(t => !S.unlocked[t]).map(t => `<div class="upg"><i class="orb o-${t}"></i><div class="info"><b>${TYPES[t].name}</b><small>${TYPES[t].desc}</small></div><button class="ib" onclick="tryUnlock('${t}');showUpgrades()" ${S.dust < TYPES[t].unlock ? 'disabled' : ''}>${TYPES[t].unlock} ✦</button></div>`).join('');
+  openModal(`<h2>⬆ Улучшения · ${Math.floor(S.dust)} ✦</h2>${rows}${locks ? '<h3>Новые типы тел</h3>' + locks : ''}<div class="row"><button class="mb" data-act="close">Закрыть</button></div>`);
+}
+function buyUpgrade(k) {
+  const c = upgCost(k);
+  if (S.dust < c || (S.upg[k] || 0) >= UPGRADES[k].max) return;
+  S.dust -= c; S.upg[k] = (S.upg[k] || 0) + 1; Audio.unlock(); toast(`⬆ ${UPGRADES[k].name}: уровень ${S.upg[k]}`, 'gold'); save(); showUpgrades();
+}
+function showChallenges() {
+  const rows = CHALLENGES.map((c, i) => `<div class="chl ${S.chDone[c.id] ? 'done' : ''}"><div class="info"><b>${i + 1}. ${c.name}</b><small>${c.desc}</small><small>Тела: ${c.types.map(t => TYPES[t].short).join(', ')} · лимит ${c.budget} · награда ${c.reward} ✦</small></div>
+    ${S.chDone[c.id] ? '<span class="ok">✓</span>' : ''}<button class="ib" data-act="ch-start" data-id="${c.id}">Начать</button></div>`).join('');
+  openModal(`<h2>✶ Испытания</h2>${rows}<div class="row"><button class="mb" data-act="menu">Меню</button>${Game.lockModal ? '' : '<button class="mb" data-act="close">Закрыть</button>'}</div>`);
+}
+function showStory(story) {
+  unlockAch('memory');
+  Game.lockModal = true;
+  const btns = Game.mode === 'challenge'
+    ? `<button class="mb" data-act="story-retry">Попробовать снова</button><button class="mb" data-act="challenges">К списку</button>`
+    : Game.mode === 'sandbox' ? `<button class="mb" data-act="story-new">Начать заново</button>`
+      : `<button class="mb" data-act="story-new">Посадить новый сад</button><button class="mb" data-act="story-galaxy">К галактике</button>`;
+  openModal(`<h2>☾ Сад погиб</h2>${story}<div class="row">${btns}</div>`);
+}
+function afterDeath(where) {
+  Game.lockModal = false;
+  if (Game.mode === 'sandbox') { S.sandbox = null; W = newWorld({ name: 'Песочница' }); addSun(W); afterWorldChange(); return; }
+  if (where === 'galaxy') { openGalaxy(Game.gardenRef && Game.gardenRef.id); return; }
+  const g = createGarden(); Game.gardenRef = g; Game.mode = 'garden'; afterWorldChange(); save();
+  toast(`🌱 Новый сад: «${g.name}»`, 'gold');
+}
+function confirmReset() {
+  const txt = Game.mode === 'garden' ? 'Все тела исчезнут, останется только Сердце. Пыль не вернётся' + (W.conserved ? ', а сад потеряет звезду в галактике.' : '.') : Game.mode === 'sandbox' ? 'Песочница будет очищена.' : 'Испытание начнётся заново.';
+  openModal(`<h2>Сбросить?</h2><p>${txt}</p><div class="row"><button class="mb danger" data-act="reset-yes">Сбросить</button><button class="mb" data-act="close">Отмена</button></div>`);
+}
+
+// Кнопки верхней и нижней панели
+$('#bMenu').onclick = () => { Audio.init(); Audio.click(); showMenu(); };
+$('#bPause').onclick = () => { Audio.init(); Game.paused = !Game.paused; Audio.click(); uiUpdate(1, true); };
+$('#bSpeed').onclick = () => { Audio.init(); const sp = [1, 2, 4, 8]; Game.speed = sp[(sp.indexOf(Game.speed) + 1) % sp.length]; Audio.click(); uiUpdate(1, true); };
+$('#bReset').onclick = () => { Audio.init(); Audio.click(); confirmReset(); };
+$('#bConserve').onclick = () => { Audio.init(); conserve(); };
+$('#bGalaxy').onclick = () => { Audio.init(); Audio.click(); openGalaxy(); };
+function takeShot() {
+  try {
+    const a = document.createElement('a');
+    a.download = (W ? W.name : 'Гравитационный сад') + '.png'; a.href = cv.toDataURL('image/png'); a.click();
+    toast('📷 Снимок сада сохранён'); Audio.click();
+  } catch (e) { toast('Не удалось сделать снимок', 'bad'); }
+}
+$('#bShot').onclick = () => { Audio.init(); takeShot(); };
+$('#bUpg').onclick = () => { Audio.init(); Audio.click(); showUpgrades(); };
+
+// ---------- Посадка семян и толчки ----------
+function placeSeed(type, x, y, vx, vy) {
+  const T = TYPES[type];
+  for (const b of W.bodies) if (Math.hypot(b.x - x, b.y - y) < b.r + T.r + 2) { toast('Слишком близко к другому телу', 'bad'); Audio.bad(); return false; }
+  if (Game.mode === 'garden') {
+    if (!S.unlocked[type]) { tryUnlock(type); return false; }
+    if (S.dust < T.cost) { toast(`Не хватает пыли: нужно ${T.cost} ✦`, 'bad'); Audio.bad(); return false; }
+    S.dust -= T.cost;
+  }
+  if (Game.mode === 'challenge') {
+    const C = W.chal;
+    if (C.used >= C.def.budget) { toast('Лимит тел в испытании исчерпан. Сбрось, чтобы начать заново.', 'bad'); Audio.bad(); return false; }
+    C.used++;
+  }
+  const pers = T.pers ? S.nextPers : null;
+  const b = makeBody(W, type, x, y, vx, vy, { pers });
+  W.bodies.push(b); computeAcc(); analyze(0.01);
+  if (pers) S.nextPers = rollPers();
+  S.stats.planted++; unlockAch('first'); if (S.stats.planted >= 25) unlockAch('gardener');
+  W.maxBodies = Math.max(W.maxBodies, W.bodies.length);
+  const first = !W.events.some(e => e.k === 'plant');
+  logEv(first ? `Первым миром сада ${vf(b, 'стала', 'стал')} ${descOf(b)} ${b.name}.` : `В саду ${vf(b, 'появилась', 'появился')} ${descOf(b)} ${b.name}.`, 'plant');
+  fxRing(x, y, 1, T.r * 4, b.pers ? PERS[b.pers].rgb : T.col, 0.8, 2);
+  Audio.place();
+  if (!S.hintDone) { S.hintDone = true; uiUpdate(1, true); }
+  if (b.pers) toast(`<span style="color:${PERS[b.pers].col}">${PERS[b.pers].icon} ${persAdj(b)}</span> ${b.name}`);
+  return true;
+}
+function applyPush(b, dvx, dvy) {
+  if (Game.mode === 'garden') { if (S.dust < 5) { toast('Толчок стоит 5 ✦', 'bad'); Audio.bad(); return; } S.dust -= 5; }
+  if (Game.mode === 'challenge' && W.chal.def.pushes) {
+    if (W.chal.pushes >= W.chal.def.pushes) { toast('Толчки закончились', 'bad'); Audio.bad(); return; }
+    W.chal.pushes++; buildSeeds();
+  }
+  b.vx += dvx; b.vy += dvy; b.flash = 0.8;
+  fxSparks(b.x, b.y, 14, [143, 180, 255], 40, 0.8); Audio.launch();
+}
+
+// ---------- Ввод: мышь, касания, щипок ----------
+const pointers = new Map();
+function bodyAt(sx, sy) {
+  if (!W) return null;
+  const s = scale(); let best = null, bd = 1e9;
+  for (const b of W.bodies) {
+    const [x, y] = w2s(b.x, b.y), d = Math.hypot(x - sx, y - sy), R = Math.max(10, b.r * s + 6);
+    if (d < R && d < bd) { bd = d; best = b; }
+  }
+  return best;
+}
+function galaxyHit(sx, sy) {
+  let best = null, bd = 28;
+  for (const g of S.gardens) { const [x, y] = g2s(g.gx, g.gy), d = Math.hypot(x - sx, y - sy); if (d < bd) { bd = d; best = g; } }
+  return best;
+}
+// Пересчёт состояния перетаскивания семени: скорость, «магнит» к круговой орбите, предсказание
+function updateSeedDrag(d, cx, cy) {
+  d.cx = cx; d.cy = cy;
+  if (Math.hypot(cx - d.sx, cy - d.sy) > 9) d.moved = true;
+  const T = TYPES[d.type];
+  d.att = localAttractor(d.wx, d.wy, T.m);
+  d.attV = d.att ? [d.att.vx, d.att.vy] : [0, 0];
+  d.circ = d.att ? circularVelocity(d.wx, d.wy, T.m, d.att, d.type === 'comet' ? 0.55 : 1) : null;
+  if (!d.moved) return;
+  const [wx, wy] = s2w(cx, cy);
+  let vx = d.attV[0] + (wx - d.wx) * LAUNCH_K, vy = d.attV[1] + (wy - d.wy) * LAUNCH_K;
+  d.snapped = false;
+  if (d.circ) {
+    const rx = d.circ[0] - d.attV[0], ry = d.circ[1] - d.attV[1], mag = Math.hypot(rx, ry);
+    if (Math.hypot(vx - d.circ[0], vy - d.circ[1]) < mag * 0.12) { vx = d.circ[0]; vy = d.circ[1]; d.snapped = true; }
+  }
+  d.vx = vx; d.vy = vy;
+  d.pred = predictPath(d.wx, d.wy, vx, vy, T.m, T.r, -1);
+}
+function updatePushDrag(d, cx, cy) {
+  d.cx = cx; d.cy = cy;
+  if (Math.hypot(cx - d.sx, cy - d.sy) > 9) d.moved = true;
+  if (!d.moved) return;
+  const [wx, wy] = s2w(cx, cy), b = d.body;
+  d.dvx = (wx - b.x) * LAUNCH_K * 0.5; d.dvy = (wy - b.y) * LAUNCH_K * 0.5;
+  d.pred = predictPath(b.x, b.y, b.vx + d.dvx, b.vy + d.dvy, b.m, b.r, b.id);
+}
+
+cv.addEventListener('pointerdown', e => {
+  Audio.init();
+  cv.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (Game.transition || !W) return;
+  if (pointers.size === 2) { // щипок
+    const [p1, p2] = [...pointers.values()];
+    UI.drag = { kind: 'pinch', d0: Math.hypot(p1.x - p2.x, p1.y - p2.y), zoom0: cam.zoom, mx: (p1.x + p2.x) / 2, my: (p1.y + p2.y) / 2, camx: cam.x, camy: cam.y };
+    return;
+  }
+  const sx = e.clientX, sy = e.clientY;
+  if (Game.view === 'galaxy') { UI.drag = { kind: 'gtap', sx, sy }; return; }
+  if (W.dead) return;
+  const hit = bodyAt(sx, sy);
+  if (UI.tool === 'push' && hit) { UI.drag = { kind: 'push', body: hit, sx, sy, moved: false }; return; }
+  if (TYPES[UI.tool] && !hit) {
+    const [wx, wy] = s2w(sx, sy);
+    UI.drag = { kind: 'seed', type: UI.tool, wx, wy, sx, sy, moved: false };
+    updateSeedDrag(UI.drag, sx, sy);
+    return;
+  }
+  UI.drag = { kind: 'pan', sx, sy, camx: cam.x, camy: cam.y, moved: false, hit };
+});
+cv.addEventListener('pointermove', e => {
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (e.pointerType === 'mouse') UI.mouse = { x: e.clientX, y: e.clientY };
+  const d = UI.drag;
+  if (!d) {
+    if (e.pointerType === 'mouse' && Game.view === 'garden') UI.hover = bodyAt(e.clientX, e.clientY);
+    cv.style.cursor = Game.view === 'galaxy' ? (galaxyHit(e.clientX, e.clientY) ? 'pointer' : 'default') : UI.hover ? 'pointer' : TYPES[UI.tool] ? 'crosshair' : 'grab';
+    return;
+  }
+  if (d.kind === 'pinch' && pointers.size >= 2) {
+    const [p1, p2] = [...pointers.values()], dd = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+    cam.zoom = clamp(d.zoom0 * dd / Math.max(10, d.d0), 0.2, 5);
+    const s = scale(); cam.x = d.camx - ((p1.x + p2.x) / 2 - d.mx) / s; cam.y = d.camy - ((p1.y + p2.y) / 2 - d.my) / s;
+  } else if (d.kind === 'seed') updateSeedDrag(d, e.clientX, e.clientY);
+  else if (d.kind === 'push') updatePushDrag(d, e.clientX, e.clientY);
+  else if (d.kind === 'pan') {
+    if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 6) d.moved = true;
+    if (d.moved) { const s = scale(); cam.x = d.camx - (e.clientX - d.sx) / s; cam.y = d.camy - (e.clientY - d.sy) / s; }
+  }
+});
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  const d = UI.drag; if (!d) return;
+  if (d.kind === 'pinch') { if (pointers.size === 0) UI.drag = null; return; }
+  UI.drag = null;
+  if (e.type === 'pointercancel') return;
+  if (d.kind === 'gtap') { if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 10) { const g = galaxyHit(e.clientX, e.clientY); GAL.sel = g ? g.id : null; if (g) Audio.click(); galCard(); } return; }
+  if (d.kind === 'seed') {
+    updateSeedDrag(d, e.clientX, e.clientY);
+    let vx, vy;
+    if (d.moved) { vx = d.vx; vy = d.vy; }
+    else if (d.circ) { vx = d.circ[0]; vy = d.circ[1]; } // касание: круговая орбита
+    else { vx = 0; vy = 0; }
+    if (placeSeed(d.type, d.wx, d.wy, vx, vy) && d.moved) Audio.launch();
+  } else if (d.kind === 'push') {
+    if (d.moved) applyPush(d.body, d.dvx, d.dvy); else { UI.sel = d.body; UI.selT = 4; }
+  } else if (d.kind === 'pan' && !d.moved) {
+    UI.sel = d.hit || null; UI.selT = d.hit ? 4 : 0;
+  }
+}
+cv.addEventListener('pointerup', endPointer);
+cv.addEventListener('pointercancel', endPointer);
+cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { UI.mouse = null; UI.hover = null; } });
+cv.addEventListener('wheel', e => {
+  e.preventDefault(); if (Game.view !== 'garden') return;
+  const [bx, by] = s2w(e.clientX, e.clientY);
+  cam.zoom = clamp(cam.zoom * Math.exp(-e.deltaY * 0.0015), 0.2, 5);
+  const [ax, ay] = s2w(e.clientX, e.clientY); cam.x += bx - ax; cam.y += by - ay;
+}, { passive: false });
+cv.addEventListener('dblclick', () => { if (Game.view === 'garden') resetCamera(); });
+cv.addEventListener('contextmenu', e => e.preventDefault());
+
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  Audio.init();
+  if (e.key === 'Escape') { if (Game.modal && !Game.lockModal) closeModal(); else if (!Game.modal) { if (Game.view === 'galaxy') $('#bGalBack').onclick(); else showMenu(); } return; }
+  if (Game.modal) return;
+  if (e.code === 'Space') { e.preventDefault(); Game.paused = !Game.paused; uiUpdate(1, true); }
+  else if (e.key === 'g' || e.key === 'G' || e.key === 'п' || e.key === 'П') { if (Game.mode !== 'challenge') { if (Game.view === 'galaxy') $('#bGalBack').onclick(); else openGalaxy(); } }
+  else if (e.key === 'c' || e.key === 'с') resetCamera();
+  else if (/^[1-7]$/.test(e.key) && Game.view === 'garden') {
+    const list = SEED_ORDER.filter(t => Game.mode !== 'challenge' || W.chal.def.types.includes(t));
+    const t = list[+e.key - 1]; if (t) selectTool(t);
+  }
+});
+
+// ---------- Главный цикл ----------
+let last = performance.now(), simAcc = 0;
+function frame(now) {
+  const rdt = Math.min(0.05, (now - last) / 1000); last = now;
+  Game.realT += rdt;
+  try {
+    if (W && Game.view === 'garden' && !Game.paused && !Game.modal && !W.dead && !Game.transition) {
+      simAcc += rdt * Game.speed;
+      let n = 0;
+      while (simAcc >= DT && n < MAX_STEPS && !W.dead) { stepWorld(DT); simAcc -= DT; n++; }
+      if (n >= MAX_STEPS) simAcc = 0;
+      tickWorld(n * DT);
+    }
+    passiveTick(rdt);
+    Audio.updateMusic();
+    render(rdt);
+    uiUpdate(rdt);
+    // подсказка: наведение или выбранное касанием тело
+    if (UI.selT > 0) UI.selT -= rdt; else UI.sel = null;
+    UI.tipT -= rdt;
+    if (UI.tipT <= 0) { UI.tipT = 0.12; const tb = UI.drag && UI.drag.kind !== 'pan' ? null : (UI.hover || UI.sel); if (tb && !Game.modal) showTip(tb); else hideTip(); }
+    Game.saveT += rdt;
+    if (Game.saveT > 5) { Game.saveT = 0; save(); }
+  } catch (err) { console.error(err); }
+  requestAnimationFrame(frame);
+}
+
+// ---------- Запуск ----------
+function init() {
+  resize();
+  window.addEventListener('resize', () => { resize(); uiUpdate(1, true); });
+  // Пассивная пыль, накопленная галактикой, пока игрока не было (25%, максимум за 2 часа)
+  const away = Math.min(7200, (Date.now() - (S.lastSeen || Date.now())) / 1000);
+  enterGarden(S.activeId);
+  const offline = passiveRate() * away * 0.25;
+  if (offline >= 1) { S.dust += offline; setTimeout(() => toast(`✷ Пока тебя не было, галактика собрала ${Math.floor(offline)} ✦`, 'gold'), 800); }
+  if (S.seenVersion !== VERSION) showNews(true); else showMenu(true);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+  window.addEventListener('beforeunload', save);
+  requestAnimationFrame(t => { last = t; frame(t); });
+}
+init();
+</script>
+</body>
+</html>
