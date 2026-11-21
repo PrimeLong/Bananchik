@@ -245,6 +245,7 @@ header.top {
 .bld-cost { font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 4px 10px; }
 .bld-cost .c { white-space: nowrap; }
 .bld-cost .c.no { color: var(--bad); }
+.bld-cost .hint { flex-basis: 100%; font-size: 11.5px; margin-top: 2px; }
 .bld-actions { display: flex; gap: 8px; margin-top: auto; }
 .bld.locked { opacity: .55; }
 .bld.locked .bld-name { color: var(--muted); }
@@ -471,6 +472,7 @@ body.shake .layout { animation: shake .45s ease; }
       <button class="tab active" data-tab="prod">Производство</button>
       <button class="tab" data-tab="life">Жизнеобеспечение</button>
       <button class="tab" data-tab="def">Оборона</button>
+      <button class="tab" data-tab="research">Исследования</button>
       <button class="tab" data-tab="tech">Технологии</button>
       <button class="tab" data-tab="ach">Достижения</button>
       <button class="tab" data-tab="opts">Настройки</button>
@@ -508,6 +510,11 @@ body.shake .layout { animation: shake .45s ease; }
       </div>
       <div class="section-title">Оборонительные сооружения</div>
       <div class="grid" id="grid-def"></div>
+    </section>
+
+    <section class="panel" id="panel-research">
+      <div class="muted" style="margin-bottom:12px;font-size:13px" id="researchInfo"></div>
+      <div id="researchGroups"></div>
     </section>
 
     <section class="panel" id="panel-tech">
@@ -634,7 +641,7 @@ const BALANCE = {
     press:       { cat: 'prod', name: 'Кирпичный пресс', desc: 'Прессует реголит в строительные блоки.',
                    cost: { dust: 150, regolith: 80 }, cons: { regolith: 2, energy: 0.5 }, prod: { bricks: 1 }, unlock: { regolith: 30 } },
     shipyard:    { cat: 'prod', name: 'Купольная верфь', desc: 'Собирает жилые купола из кирпичей.',
-                   cost: { regolith: 250, bricks: 50 }, cons: { bricks: 2, energy: 1 }, prod: { domes: 0.025 }, unlock: { bricks: 15 } },
+                   cost: { dust: 300, bricks: 120 }, cons: { bricks: 2, energy: 1 }, prod: { domes: 0.025 }, unlock: { bricks: 15 } },
     factory:     { cat: 'prod', auto: true, name: 'Нанофабрика', desc: 'Оптимизирует всю цепочку переработки.',
                    cost: { bricks: 250, credits: 200 }, bonus: 0.08, unlock: { credits: 50 } },
 
@@ -665,10 +672,13 @@ const BALANCE = {
   },
 
   waves: {
-    firstDelay: 210,                // секунд до первой волны
+    firstDelay: 270,                // секунд до первой волны
     intervalMin: 120, intervalMax: 180,
     baseStrength: 3,                // сила первой волны
-    growth: 1.3,                    // рост силы за каждую волну
+    growth: 1.22,                   // рост силы за каждую отбитую волну
+    garrison: 4,                    // постоянная мощь охраны базы: без энергии и строительства
+    growthOnLoss: 0,                // рост уровня угрозы после прорыва (0 — передышка, база успевает восстановиться)
+    maxBreakShare: 0.2,             // прорыв ломает не больше этой доли работающих зданий
     jitter: 0.1,                    // случайный разброс силы ±10%
     forecastSpread: 0.25,           // неточность прогноза ±25%
     rewardPerStrength: 6,           // кредитов за единицу силы отбитой волны
@@ -710,6 +720,18 @@ const BALANCE = {
   },
   startKit: { dust: 200, regolith: 60, bricks: 25 },   // стартовый набор за уровень eco5
 
+  /* Исследования: покупаются кредитами, сбрасываются при эвакуации.
+     Уровни бесконечные (если не задан max), цена = cost × costMult^уровень. */
+  research: {
+    brushes:    { cost: 40,  costMult: 1.5,  per: 0.12 },            // +12% добычи пыли
+    logistics:  { cost: 100, costMult: 1.55, per: 0.10 },            // +10% реголита, кирпичей, куполов
+    turretCal:  { cost: 60,  costMult: 1.45, per: 0.15 },            // +15% мощи турелей
+    shieldHarm: { cost: 150, costMult: 1.45, per: 0.15 },            // +15% мощи щитов
+    armor:      { cost: 200, costMult: 1.7,  per: 0.08, max: 6 },    // −8% поломок
+    recycling:  { cost: 150, costMult: 1.65, per: 0.06, max: 10 },   // −6% потребностей жильцов (мультипликативно)
+    density:    { cost: 300, costMult: 1.8,  per: 1 },               // +1 место в каждом куполе
+  },
+
   events: {
     firstDelay: 90, intervalMin: 70, intervalMax: 150,
     /* Параметры конкретных событий. *Sec — цена в секундах текущего производства,
@@ -748,11 +770,22 @@ const RES = {
 const RES_KEYS = Object.keys(RES);
 const CAT_COLOR = { prod: '#d9a75f', life: '#5eead4', def: '#7c9cff' };
 const BUILD_ORDER = Object.keys(BALANCE.buildings);   // порядок важен: кто раньше — тот первым получает ресурсы
+// конвертеры — здания, которые перерабатывают один ресурс цепочки в другой
+const CONVERTERS = BUILD_ORDER.filter(id => { const d = BALANCE.buildings[id]; return d.prod && d.cons && Object.keys(d.cons).some(r => BALANCE.factoryChain.includes(r)); });
 
 const BRANCHES = {
   eco: { name: 'Экономика',     color: '#f5c84c' },
   def: { name: 'Оборона',       color: '#7c9cff' },
   aut: { name: 'Автоматизация', color: '#5eead4' },
+};
+const RESEARCH_TEXT = {
+  brushes:    { name: 'Абразивные щётки',  group: 'Экономика', desc: p => `+${pct(p)} к добыче пыли за уровень` },
+  logistics:  { name: 'Логистика цепочки', group: 'Экономика', desc: p => `+${pct(p)} к выходу реголита, кирпичей и куполов` },
+  density:    { name: 'Плотная застройка', group: 'Колония',   desc: p => `+${p} место в каждом куполе` },
+  recycling:  { name: 'Рециркуляция',      group: 'Колония',   desc: p => `−${pct(p)} к потреблению воздуха, тепла и еды` },
+  turretCal:  { name: 'Калибровка турелей', group: 'Оборона',  desc: p => `+${pct(p)} к мощи турелей` },
+  shieldHarm: { name: 'Гармоники щитов',   group: 'Оборона',   desc: p => `+${pct(p)} к мощи щитов` },
+  armor:      { name: 'Бронирование',      group: 'Оборона',   desc: p => `−${pct(p)} поломок при прорыве` },
 };
 const TREE_TEXT = {
   eco1: { name: 'Глубокая экскавация', desc: p => `+${pct(p)} к добыче пыли за уровень` },
@@ -864,7 +897,8 @@ function newState() {
     residents: 0,
     b: Object.fromEntries(BUILD_ORDER.map(id => [id, { n: 0, broken: 0, off: false }])),
     unlocked: {},
-    wave: { num: 1, timeLeft: 0, total: 0, type: 'meteor', strength: 0, lo: 0, hi: 0 },
+    wave: { num: 1, level: 0, timeLeft: 0, total: 0, type: 'meteor', strength: 0, lo: 0, hi: 0 },
+    research: {},                          // исследования за кредиты (сбрасываются при эвакуации)
     waveHistory: [],
     waveMod: 1, rewardMod: 1, mercWaves: 0,  // модификаторы от событий
     event: { nextIn: BALANCE.events.firstDelay, active: null, last: null },
@@ -902,13 +936,18 @@ let lastSatisfaction = 1;                            // удовлетворён
 let residentRate = 0, residentAcc = 0;
 let HIST = [];                                       // история для графика
 let histTimer = 0, secondTimer = 0;
-let offlineSim = false;                              // во время офлайн-симуляции волны и события на паузе
+let offlineSim = false;
+let QUIET = false;                                   // симулятор баланса: без уведомлений, анимаций и окон                              // во время офлайн-симуляции волны и события на паузе
 RES_KEYS.forEach(r => { FLOW.prod[r] = 0; FLOW.cons[r] = 0; RATE.prod[r] = 0; RATE.cons[r] = 0; RATE.net[r] = 0; });
 
 /* =====================================================================
    5. ЭКОНОМИКА: множители, цены, покупки
    ===================================================================== */
 const lvl = id => state.tree[id] || 0;
+const rl = id => (state.research && state.research[id]) || 0;     // уровень исследования
+const rp = id => BALANCE.research[id].per;
+const turretMult = () => (1 + lvl('def1') * tp('def1')) * (1 + rl('turretCal') * rp('turretCal'));
+const shieldMult = () => (1 + lvl('def2') * tp('def2')) * (1 + rl('shieldHarm') * rp('shieldHarm'));
 const tp = id => BALANCE.tree[id].per;
 const bOf = id => state.b[id];
 const nEff = id => Math.max(0, state.b[id].n - state.b[id].broken);
@@ -932,17 +971,18 @@ function factoryMult() { return 1 + nEff('factory') * BALANCE.buildings.factory.
 /** Множитель выхода ресурса res у здания id. */
 function outMult(id, res) {
   let m = globalMult() * buffMult(res);
-  if (res === 'dust') m *= 1 + lvl('eco1') * tp('eco1');
+  if (res === 'dust') m *= (1 + lvl('eco1') * tp('eco1')) * (1 + rl('brushes') * rp('brushes'));
   if (id === 'drone') m *= 1 + lvl('aut2') * tp('aut2');
-  if (res === 'regolith' || res === 'bricks' || res === 'domes') m *= 1 + lvl('eco2') * tp('eco2');
+  if (res === 'regolith' || res === 'bricks' || res === 'domes') m *= (1 + lvl('eco2') * tp('eco2')) * (1 + rl('logistics') * rp('logistics'));
   if (BALANCE.factoryChain.includes(res)) m *= factoryMult();
   return m;
 }
 function clickPower() { return BALANCE.click.base + lvl('aut1') * tp('aut1'); }
 function clickGain() { return clickPower() * outMult('click', 'dust'); }
 function taxMult() { return globalMult() * (1 + lvl('eco3') * tp('eco3')) * buffMult('tax'); }
-function needMult() { return Math.max(0.1, 1 - lvl('eco4') * tp('eco4')); }
-function housing() { return Math.floor(state.res.domes) * BALANCE.residents.housingPerDome; }
+function needMult() { return Math.max(0.1, 1 - lvl('eco4') * tp('eco4')) * Math.pow(1 - rp('recycling'), rl('recycling')); }
+function housingPerDome() { return BALANCE.residents.housingPerDome + rl('density') * rp('density'); }
+function housing() { return Math.floor(state.res.domes) * housingPerDome(); }
 function costGrowth() { return Math.max(1.05, BALANCE.costGrowth - lvl('aut4') * tp('aut4')); }
 
 function capOf(res) {
@@ -1170,7 +1210,8 @@ function scheduleWave(s, delay) {
   const W = BALANCE.waves;
   const types = Object.keys(W.types);
   s.wave.type = types[Math.floor(Math.random() * types.length)];
-  s.wave.strength = W.baseStrength * Math.pow(W.growth, s.wave.num - 1) * rand(1 - W.jitter, 1 + W.jitter);
+  // сила зависит от уровня угрозы: он растёт после отбитых волн и замирает после прорыва
+  s.wave.strength = W.baseStrength * Math.pow(W.growth, s.wave.level || 0) * rand(1 - W.jitter, 1 + W.jitter);
   const spread = Math.max(0, W.forecastSpread - (s.tree.def3 || 0) * BALANCE.tree.def3.per);
   // Настоящая сила всегда внутри диапазона прогноза
   s.wave.lo = s.wave.strength * (1 - spread * rand(0.3, 1));
@@ -1182,15 +1223,15 @@ function scheduleWave(s, delay) {
 /** Мощь обороны против волны указанного типа (учитывает энергию, поломки, улучшения). */
 function defensePower(type) {
   const T = BALANCE.waves.types[type], B = BALANCE.buildings;
-  const turrets = nEff('turret') * B.turret.power * (EFF.turret ?? 1) * (1 + lvl('def1') * tp('def1')) * T.turret;
-  const shields = nEff('shield') * B.shield.power * (EFF.shield ?? 1) * (1 + lvl('def2') * tp('def2')) * T.shield;
+  const turrets = nEff('turret') * B.turret.power * (EFF.turret ?? 1) * turretMult() * T.turret;
+  const shields = nEff('shield') * B.shield.power * (EFF.shield ?? 1) * shieldMult() * T.shield;
   const merc = state.mercWaves > 0 ? BALANCE.events.tuning.truce.mercMult : 1;
-  return (turrets + shields) * buffMult('defense') * merc;
+  return (BALANCE.waves.garrison + turrets + shields) * buffMult('defense') * merc;
 }
 function breakReduction() {
   const R = BALANCE.repairStation;
   const st = Math.min(R.breakReductionCap, nEff('repair') * R.breakReduction);
-  return clamp(1 - (1 - st) * (1 - lvl('def4') * tp('def4')), 0, 0.9);
+  return clamp(1 - (1 - st) * (1 - lvl('def4') * tp('def4')) * (1 - rl('armor') * rp('armor')), 0, 0.9);
 }
 
 /** Ломает count случайных работающих зданий. weightFn позволяет целиться в определённые типы. */
@@ -1228,6 +1269,8 @@ function resolveWave() {
   } else {
     const deficit = 1 - def / strength;
     let count = Math.max(1, Math.round(deficit * (W.breakBase + s.wave.num * W.breakPerWave) * (1 - breakReduction())));
+    const working = BUILD_ORDER.reduce((a, id) => a + nEff(id), 0);
+    count = Math.min(count, Math.max(1, Math.floor(working * W.maxBreakShare)));
     const weight = T.autoWeight ? (id => BALANCE.buildings[id].auto ? T.autoWeight : 1) : undefined;
     const broken = breakRandom(count, weight);
     lastBroken = broken;
@@ -1248,12 +1291,13 @@ function resolveWave() {
     hitEffect();
   }
 
-  if (!offlineSim) Scene.wave({ type: s.wave.type, win, deficit: 1 - def / strength, broken: lastBroken, num: s.wave.num });
+  if (!offlineSim && !QUIET) Scene.wave({ type: s.wave.type, win, deficit: 1 - def / strength, broken: lastBroken, num: s.wave.num });
 
   // Сбрасываем разовые модификаторы событий
   s.waveMod = 1; s.rewardMod = 1;
   if (s.mercWaves > 0) s.mercWaves--;
   s.wave.num++;
+  s.wave.level = (s.wave.level || 0) + (win ? 1 : W.growthOnLoss);
   if (s.wave.num > s.stats.bestWave) s.stats.bestWave = s.wave.num;
   scheduleWave(s, rand(W.intervalMin, W.intervalMax));
   checkAchievements();
@@ -1410,21 +1454,42 @@ function triggerEvent() {
   s.event.last = ev.id;
   toast(`Событие: ${ev.title}`, 'warn');
 }
-function resolveEventChoice(index) {
+/** Применяет выбранный вариант события. Возвращает true, если получилось. */
+function applyEventChoice(index) {
   const a = state.event.active;
-  if (!a) return;
+  if (!a) return false;
   const ev = EVENT_BY_ID[a.id];
   const choice = ev.choices(a.params)[index];
-  if (!choice) return;
-  if (choice.cost && !canAfford(choice.cost)) return;
+  if (!choice) return false;
+  if (choice.cost && !canAfford(choice.cost)) return false;
   if (choice.cost) pay(choice.cost);
   choice.apply();
   state.stats.events++;
   state.event.active = null;
   log(`${ev.title}: «${choice.label}»`, 'warn');
+  return true;
+}
+function resolveEventChoice(index) {
+  if (!applyEventChoice(index)) return;
   closeModal();
   checkAchievements();
   render(true);
+}
+
+/* =====================================================================
+   8б. ИССЛЕДОВАНИЯ ЗА КРЕДИТЫ
+   ===================================================================== */
+function researchCost(id) { const d = BALANCE.research[id]; return Math.ceil(d.cost * Math.pow(d.costMult, rl(id))); }
+function researchAvailable(id) { const d = BALANCE.research[id]; return d.max == null || rl(id) < d.max; }
+function buyResearch(id) {
+  if (!researchAvailable(id)) return false;
+  const c = researchCost(id);
+  if (state.res.credits < c) return false;
+  state.res.credits -= c;
+  state.research[id] = rl(id) + 1;
+  if (!QUIET) log(`Исследовано: ${RESEARCH_TEXT[id].name} (ур. ${state.research[id]})`, 'info');
+  render(true);
+  return true;
 }
 
 /* =====================================================================
@@ -1492,6 +1557,7 @@ function log(text, type = 'info') {
   logDirty = true;
 }
 function toast(text, type = 'info') {
+  if (QUIET) return;
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   el.textContent = text;
@@ -1500,6 +1566,7 @@ function toast(text, type = 'info') {
   setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 320); }, 4200);
 }
 function hitEffect() {
+  if (QUIET) return;
   const f = $('#hitFlash');
   f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
   document.body.classList.add('shake');
@@ -1530,6 +1597,9 @@ function loadFrom(obj) {
   for (const id of BUILD_ORDER) state.b[id] = { n: 0, broken: 0, off: false, ...(state.b[id] || {}) };
   for (const r of RES_KEYS) { if (typeof state.res[r] !== 'number' || !isFinite(state.res[r])) state.res[r] = 0; }
   if (state.event.active && !EVENT_BY_ID[state.event.active.id]) state.event.active = null;
+  // миграция: в старых сохранениях не было уровня угрозы — берём его из номера волны
+  if (!obj.wave || obj.wave.level == null) state.wave.level = Math.max(0, (state.wave.num || 1) - 1);
+  if (!state.research) state.research = {};
   resetTransient();
 }
 function resetTransient() {
@@ -1573,7 +1643,7 @@ function applyOffline(seconds) {
 /* =====================================================================
    12. ИНТЕРФЕЙС: построение
    ===================================================================== */
-const UI = { res: {}, bld: {}, tree: {}, ach: {} };
+const UI = { res: {}, bld: {}, tree: {}, ach: {}, research: {} };
 let activeTab = 'prod';
 let chartRes = 'dust';
 
@@ -1649,6 +1719,27 @@ function buildUI() {
       UI.tree[id] = ui;
     }
     tree.appendChild(col);
+  }
+
+  // Исследования
+  const rg = $('#researchGroups');
+  const groups = [...new Set(Object.values(RESEARCH_TEXT).map(t => t.group))];
+  for (const g of groups) {
+    const title = document.createElement('div'); title.className = 'section-title'; title.textContent = g; rg.appendChild(title);
+    const grid = document.createElement('div'); grid.className = 'grid'; rg.appendChild(grid);
+    for (const id of Object.keys(RESEARCH_TEXT).filter(k => RESEARCH_TEXT[k].group === g)) {
+      const node = document.createElement('div');
+      node.className = 'node';
+      node.innerHTML = `
+        <div class="node-head"><span>${RESEARCH_TEXT[id].name}</span><span class="node-lvl num"></span></div>
+        <div class="node-desc">${RESEARCH_TEXT[id].desc(BALANCE.research[id].per)}</div>
+        <div class="node-desc r-total"></div>
+        <button class="btn small"></button>`;
+      grid.appendChild(node);
+      const ui = { node, lvl: $('.node-lvl', node), total: $('.r-total', node), btn: $('button', node) };
+      ui.btn.addEventListener('click', () => buyResearch(id));
+      UI.research[id] = ui;
+    }
   }
 
   // Достижения
@@ -1756,6 +1847,7 @@ function buildUI() {
 }
 
 function markTab(tab, on) {
+  if (QUIET) return;
   const t = document.querySelector(`.tab[data-tab="${tab}"]`);
   if (!t) return;
   const b = $('.badge', t);
@@ -1766,6 +1858,15 @@ function markTab(tab, on) {
 /* =====================================================================
    13. ИНТЕРФЕЙС: обновление (вызывается ~10 раз в секунду)
    ===================================================================== */
+/** Если ресурс для покупки съедают конвертеры — подсказываем поставить их на паузу. */
+function starvationHint(cost) {
+  for (const r in cost) {
+    if (state.res[r] >= cost[r] || RATE.net[r] > 0.01) continue;
+    const eaters = CONVERTERS.filter(id => nEff(id) > 0 && !state.b[id].off && BALANCE.buildings[id].cons[r]);
+    if (eaters.length) return `<div class="hint warn">${RES[r].name} уходит в «${eaters.map(id => BALANCE.buildings[id].name).join('», «')}». Поставьте на паузу, чтобы накопить.</div>`;
+  }
+  return '';
+}
 function costHtml(cost) {
   return Object.entries(cost).map(([r, v]) =>
     `<span class="c${state.res[r] < v ? ' no' : ''}"><span style="color:${RES[r].color}">●</span> ${fmt(v)} ${RES[r].gen}</span>`).join('');
@@ -1774,6 +1875,7 @@ function setText(el, txt) { if (el.textContent !== txt) el.textContent = txt; }
 function setHtml(el, html) { if (el._h !== html) { el.innerHTML = html; el._h = html; } }
 
 function render(force = false) {
+  if (QUIET) return;
   const s = state;
 
   // Шапка
@@ -1828,6 +1930,7 @@ function render(force = false) {
   if (activeTab === 'life') renderColony();
   if (activeTab === 'def') renderDefense();
   if (activeTab === 'tech') renderTech();
+  if (activeTab === 'research') renderResearch();
   if (activeTab === 'ach') renderAch();
   if (activeTab === 'opts') renderStats();
   document.querySelectorAll('#buySeg button').forEach(b => b.classList.toggle('active', b.dataset.buy === s.settings.buy));
@@ -1859,8 +1962,8 @@ function buildingStats(id) {
   if (id === 'autoclicker') lines.push(`<div>Каждый: ${def.clicks} клик/с (+${fmt(def.clicks * clickGain(), 2)} пыли/с)</div>`);
   if (id === 'factory') lines.push(`<div>+${pct(def.bonus)} к цепочке за штуку · сейчас +${pct(factoryMult() - 1)}</div>`);
   if (def.power) {
-    const up = id === 'turret' ? 1 + lvl('def1') * tp('def1') : 1 + lvl('def2') * tp('def2');
-    lines.push(`<div>Мощь: ${fmt(def.power * up, 1)} · энергия −${fmt(def.cons.energy, 2)}/с</div>`);
+    const up = id === 'turret' ? turretMult() : shieldMult();
+    lines.push(`<div>Мощь: ${fmt(def.power * up, 1)} · ${Object.entries(def.cons).map(([r, v]) => `${RES[r].gen} −${fmt(v, 2)}/с`).join(', ')}</div>`);
     if (n > 0) lines.push(`<div class="muted">Всего: ${fmt(def.power * up * n * (EFF[id] ?? 1), 1)} мощи (до типовых множителей)</div>`);
   }
   if (id === 'repair') {
@@ -1905,7 +2008,7 @@ function renderBuildings(cat) {
     const amount = buyAmountFor(id);
     const shownAmount = Math.max(1, amount);
     const cost = costFor(id, shownAmount);
-    setHtml(ui.cost, costHtml(cost));
+    setHtml(ui.cost, costHtml(cost) + starvationHint(cost));
     setText(ui.buy, `Купить ×${amount}`);
     ui.buy.disabled = amount <= 0 || !canAfford(cost);
     if (b.broken > 0) {
@@ -1925,7 +2028,7 @@ function renderColony() {
     <div class="stat-box"><div class="lbl">Жильцы</div><div class="val num">${Math.floor(s.residents)} <span class="muted" style="font-size:14px">/ ${housing()}</span></div><div class="sub num">${fmtRate(residentRate)}</div></div>
     <div class="stat-box"><div class="lbl">Обеспеченность</div><div class="val num ${sat > 0.99 ? 'good' : sat > 0.6 ? 'warn' : 'bad'}">${pct(sat)}</div><div class="sub">${sat > 0.99 ? 'всем хватает' : 'дефицит — люди уезжают'}</div></div>
     <div class="stat-box"><div class="lbl">Налоги</div><div class="val num" style="color:#f5c84c">${fmtRate(tax)}</div><div class="sub">${fmt(R.tax * taxMult(), 2)} с жильца</div></div>
-    <div class="stat-box"><div class="lbl">Купола</div><div class="val num">${Math.floor(s.res.domes)}</div><div class="sub">${R.housingPerDome} мест в каждом</div></div>`);
+    <div class="stat-box"><div class="lbl">Купола</div><div class="val num">${Math.floor(s.res.domes)}</div><div class="sub">${fmt(housingPerDome())} мест в каждом</div></div>`);
   const nm = needMult();
   setHtml($('#needsList'), Object.entries(R.needs).map(([k, v]) => {
     const need = s.residents * v * nm, prod = RATE.prod[k];
@@ -1944,6 +2047,7 @@ function renderDefense() {
     <div class="stat-box" style="${k === s.wave.type ? 'border-color:rgba(248,113,113,.45)' : ''}">
       <div class="lbl">${t.name}${k === s.wave.type ? ' · <span class="bad">следующая</span>' : ''}</div>
       <div class="val num">${fmt(defensePower(k), 1)}</div><div class="sub">${t.hint}</div></div>`).join('') + `
+    <div class="stat-box"><div class="lbl">Гарнизон базы</div><div class="val num">${fmt(BALANCE.waves.garrison)}</div><div class="sub">охрана, работает всегда</div></div>
     <div class="stat-box"><div class="lbl">Снижение поломок</div><div class="val num">${pct(breakReduction())}</div><div class="sub">станции и протоколы</div></div>`);
   const eT = EFF.turret ?? 1, eS = EFF.shield ?? 1;
   const warn = (nEff('turret') && eT < 0.99) || (nEff('shield') && eS < 0.99);
@@ -1974,6 +2078,28 @@ function renderWave() {
   $('#waveCard').classList.toggle('alert', W.timeLeft < 20 && def < hi);
 }
 
+function researchTotal(id) {
+  const L = rl(id), p = rp(id);
+  switch (id) {
+    case 'recycling': return `Сейчас: −${pct(1 - Math.pow(1 - p, L))}`;
+    case 'density':   return `Сейчас: +${L} ${plural(L, 'место', 'места', 'мест')} в куполе`;
+    case 'armor':     return `Сейчас: −${pct(L * p)}`;
+    default:          return `Сейчас: +${pct(L * p)}`;
+  }
+}
+function renderResearch() {
+  setHtml($('#researchInfo'), `Исследования оплачиваются кредитами и действуют до эвакуации. Уровни бесконечные, цена растёт с каждым уровнем.
+    Кредиты: <b class="num" style="color:#f5c84c">${fmt(state.res.credits)}</b> (${fmtRate(RATE.net.credits)}).`);
+  for (const id in UI.research) {
+    const ui = UI.research[id], d = BALANCE.research[id], L = rl(id);
+    setText(ui.lvl, d.max != null ? `${L}/${d.max}` : `ур. ${L}`);
+    setText(ui.total, researchTotal(id));
+    if (!researchAvailable(id)) { setText(ui.btn, 'Максимум'); ui.btn.disabled = true; ui.node.classList.add('maxed'); continue; }
+    const c = researchCost(id);
+    setText(ui.btn, `Изучить · ${fmt(c)} кредитов`);
+    ui.btn.disabled = state.res.credits < c;
+  }
+}
 function renderTech() {
   const s = state, g = prestigeGain();
   setHtml($('#prestigeInfo'), `
@@ -2895,12 +3021,203 @@ function init() {
   window.addEventListener('beforeunload', () => save());
 }
 
+/* =====================================================================
+   17. СИМУЛЯТОР БАЛАНСА
+   Бот с «типичной» стратегией играет с нуля на копии состояния и выдаёт
+   таблицу прогресса. Ваше сохранение не трогается.
+   Запуск из консоли браузера:
+     LR.balance(180)                         — 3 часа игры, строка каждые 10 мин
+     LR.balance(300, { every: 15 })          — 5 часов, строка каждые 15 мин
+     LR.balance(120, { prestige: false })    — без эвакуаций
+     LR.balance(180, { casual: true })       — «обычный игрок»: заходит раз в 30 с, оборона впритык
+   Меняйте числа в BALANCE прямо в консоли (LR.BALANCE.waves.growth = 1.2)
+   и перезапускайте — так удобно подбирать баланс.
+   ===================================================================== */
+const BalanceSim = (() => {
+  const BD = () => BALANCE.buildings;
+  const sumObj = o => Object.values(o).reduce((a, b) => a + b, 0);
+
+  function buy(id) {
+    if (!isUnlocked(id)) return false;
+    const c = costFor(id, 1);
+    if (!canAfford(c)) return false;
+    pay(c); state.b[id].n++; state.stats.buildingsBought++;
+    return true;
+  }
+  // Номинальное производство и потребление (без учёта нехватки входов)
+  function prodOf(r) {
+    let t = 0;
+    for (const id of BUILD_ORDER) { const d = BD()[id]; if (d.prod && d.prod[r]) t += d.prod[r] * nEff(id) * outMult(id, r); }
+    if (r === 'dust') t += nEff('autoclicker') * BD().autoclicker.clicks * clickGain();
+    return t;
+  }
+  function needOf(r) {
+    let t = 0;
+    for (const id of BUILD_ORDER) { const d = BD()[id]; if (d.cons && d.cons[r] && !state.b[id].off) t += d.cons[r] * nEff(id); }
+    return t;
+  }
+  const dustPerCost = id => (BD()[id].prod.dust * outMult(id, 'dust')) / costFor(id, 1).dust;
+
+  let BOT = { margin: 1.25, think: 5, research: 0.6 };   // параметры стиля игры бота
+
+  /** Главная цель бота: что важнее всего купить прямо сейчас */
+  function pickGoal() {
+    const s = state, R = BALANCE.residents;
+    const T = BALANCE.waves.types[s.wave.type];
+    // 1. энергия, если оборона или цепочка обесточены
+    const powerShort = needOf('energy') > 0 && prodOf('energy') < needOf('energy') * 1.1 + 0.3;
+    if (isUnlocked('solar') && powerShort) return 'solar';
+    // 2. оборона с запасом над верхом прогноза
+    if (defensePower(s.wave.type) < (s.wave.lo + s.wave.hi) / 2 * s.waveMod * BOT.margin) {
+      const shieldOk = isUnlocked('shield') && (RATE.prod.credits > 0.5 || s.res.credits >= costFor('shield', 1).credits);
+      return shieldOk && (T.shield > T.turret || s.b.shield.n * 2 < s.b.turret.n) ? 'shield' : 'turret';
+    }
+    // 3. жизнеобеспечение под всю вместимость куполов
+    if (isUnlocked('oxygen') && housing() > 0) {
+      const people = housing() * 1.05 + 2, nm = needMult();
+      for (const [k, id] of [['oxygen', 'oxygen'], ['heat', 'heater'], ['food', 'greenhouse']])
+        if (prodOf(k) < people * R.needs[k] * nm) return id;
+    }
+    // 4. цепочка: расширяем узкое место; пока следующее звено закрыто — копим на него
+    if (!isUnlocked('sinter') && s.b.worker.n >= 5) return 'sinter';
+    if (isUnlocked('shipyard') && (s.b.shipyard.n === 0 || prodOf('bricks') > needOf('bricks') + BD().shipyard.cons.bricks * 0.7)) return 'shipyard';
+    if (isUnlocked('press') && (s.b.press.n === 0 || prodOf('regolith') > needOf('regolith') + BD().press.cons.regolith * 0.7)) return 'press';
+    if (isUnlocked('sinter') && (s.b.sinter.n === 0 || prodOf('dust') > needOf('dust') + BD().sinter.cons.dust * 0.7)) return 'sinter';
+    return isUnlocked('drone') && dustPerCost('drone') > dustPerCost('worker') ? 'drone' : 'worker';
+  }
+
+  /** Если для цели нужен ресурс, который никто не производит, — сначала строим его производителя */
+  const PRODUCER = { regolith: 'sinter', bricks: 'press', domes: 'shipyard', energy: 'solar' };
+  function resolveGoal(goal) {
+    for (let depth = 0; depth < 4; depth++) {
+      const c = costFor(goal, 1);
+      const missing = Object.keys(c).find(r => state.res[r] < c[r] && prodOf(r) <= 0 && PRODUCER[r] && PRODUCER[r] !== goal);
+      if (!missing) break;
+      goal = PRODUCER[missing];
+    }
+    return goal;
+  }
+
+  /** Одно решение бота (раз в 5 игровых секунд) */
+  function botStep() {
+    const s = state;
+    // события — случайный доступный вариант, как у среднего игрока
+    if (s.event.active) {
+      const ch = EVENT_BY_ID[s.event.active.id].choices(s.event.active.params);
+      const ok = ch.map((c, i) => i).filter(i => !ch[i].cost || canAfford(ch[i].cost));
+      applyEventChoice(ok[Math.floor(Math.random() * ok.length)]);
+    }
+    // ремонт
+    for (const id of BUILD_ORDER) while (s.b[id].broken > 0 && canAfford(repairCost(id))) { pay(repairCost(id)); s.b[id].broken--; }
+
+    // главная цель: покупаем, пока получается; иначе копим на неё
+    let goal = resolveGoal(pickGoal()), guard = 0;
+    while (guard++ < 20 && buy(goal)) goal = resolveGoal(pickGoal());
+    const need = costFor(goal, 1);
+    const saving = new Set(Object.keys(need).filter(r => s.res[r] < need[r]));
+    // конвертеры, которые съедают нужное для цели, — на паузу
+    for (const id of CONVERTERS) {
+      const def = BD()[id];
+      s.b[id].off = Object.keys(def.cons).some(r => saving.has(r)) && id !== goal;
+    }
+    // мелочи по пути: только то, что не мешает копить (дешевле 15% запаса и без «копимых» ресурсов)
+    const extras = ['worker', 'autoclicker', 'drone', 'solar', 'factory', 'repair', 'turret'];
+    for (const id of extras) {
+      if (!isUnlocked(id) || id === goal) continue;
+      if (id === 'repair' && s.b.repair.n >= 1 + Math.floor(s.wave.num / 8)) continue;
+      const c = costFor(id, 1);
+      const share = id === 'autoclicker' || id === 'worker' ? 0.05 : 0.15;
+      if (Object.keys(c).some(r => saving.has(r) || c[r] > s.res[r] * share)) continue;
+      buy(id);
+    }
+    // исследования за кредиты
+    for (let k = 0; k < 5; k++) {
+      const ids = Object.keys(BALANCE.research).filter(researchAvailable);
+      if (!ids.length) break;
+      ids.sort((a, b) => researchCost(a) - researchCost(b));
+      if (researchCost(ids[0]) > s.res.credits * BOT.research) break;
+      buyResearch(ids[0]);
+    }
+  }
+
+  /** Эвакуироваться, если база упёрлась в стену и кристаллов набралось достаточно */
+  function maybePrestige(meta) {
+    const s = state, g = prestigeGain();
+    const recent = s.waveHistory.slice(-3);
+    const stuck = recent.length === 3 && recent.filter(w => !w.win).length >= 2;
+    if (g >= Math.max(5, Math.ceil(s.prestige.total * 0.5)) && stuck) {
+      meta.prestiges.push({ at: meta.t, wave: s.wave.num, gain: g });
+      doPrestige();
+      // тратим кристаллы на самые дешёвые доступные улучшения
+      for (;;) {
+        const ids = Object.keys(BALANCE.tree).filter(id => treeAvailable(id) && lvl(id) < BALANCE.tree[id].max && treeCost(id) <= s.prestige.crystals);
+        if (!ids.length) break;
+        ids.sort((a, b) => treeCost(a) - treeCost(b));
+        buyTree(ids[0]);
+      }
+    }
+  }
+
+  function row(meta) {
+    const s = state, str = s.wave.strength * s.waveMod;
+    return {
+      'время': fmtTime(meta.t), 'забег': s.prestige.count + 1, 'волна': s.wave.num,
+      'отбито/прорывов': `${s.stats.wavesWon}/${s.stats.wavesLost}`,
+      'оборона/угроза': `${fmt(defensePower(s.wave.type))} / ${fmt(str)}`,
+      'жильцы': Math.floor(s.residents), 'кредиты/с': fmt(RATE.prod.credits), 'кредиты': fmt(s.res.credits),
+      'исслед.': s.research ? sumObj(s.research) : '—', 'зданий': totalBuildings(s),
+      'кристаллы': s.prestige.total, 'дерево': sumObj(s.tree),
+    };
+  }
+
+  function run(minutes = 180, opt = {}) {
+    const { every = 10, dt = 0.25, prestige = true, casual = false } = opt;
+    // casual — «обычный игрок»: заходит раз в 30 с, оборону строит впритык к прогнозу, кликает реже
+    BOT = casual ? { margin: 1.0, think: 30, research: 0.4 } : { margin: 1.25, think: 5, research: 0.6 };
+    const clicksPerSec = opt.clicksPerSec ?? (casual ? 1.5 : 3), clickMinutes = opt.clickMinutes ?? (casual ? 5 : 10);
+    const saved = state;
+    const t0 = performance.now();
+    const meta = { t: 0, prestiges: [], firstLoss: null };
+    const rows = [];
+    QUIET = true;
+    try {
+      state = newState(); resetTransient();
+      let botT = 0, rowT = 0;
+      while (meta.t < minutes * 60) {
+        tick(dt); meta.t += dt; botT += dt; rowT += dt;
+        if (state.time < clickMinutes * 60) { gain('dust', clickGain() * clicksPerSec * dt); state.stats.clicks += clicksPerSec * dt; }
+        if (meta.firstLoss === null && state.stats.wavesLost > 0) meta.firstLoss = { at: meta.t, wave: state.wave.num - 1 };
+        if (botT >= BOT.think) { botT = 0; botStep(); if (prestige) maybePrestige(meta); }
+        if (rowT >= every * 60) { rowT = 0; rows.push(row(meta)); }
+      }
+      meta.final = {
+        'здания': BUILD_ORDER.filter(id => state.b[id].n).map(id => `${id}:${state.b[id].n}${state.b[id].broken ? '!' + state.b[id].broken : ''}${state.b[id].off ? '(пауза)' : ''}`).join(' '),
+        'ресурсы': RES_KEYS.map(r => `${r}:${fmt(state.res[r])}`).join(' '),
+      };
+    } finally {
+      state = saved; resetTransient(); QUIET = false; render(true);
+    }
+    const summary = {
+      'первый прорыв': meta.firstLoss ? `${fmtTime(meta.firstLoss.at)} (волна ${meta.firstLoss.wave})` : 'не было',
+      'эвакуации': meta.prestiges.map(p => `${fmtTime(p.at)}: волна ${p.wave}, +${p.gain}`).join('; ') || 'нет',
+      'симуляция заняла': `${Math.round(performance.now() - t0)} мс`,
+      'итог: здания': meta.final ? meta.final['здания'] : '',
+      'итог: ресурсы': meta.final ? meta.final['ресурсы'] : '',
+    };
+    console.table(rows);
+    console.log(summary);
+    return { rows, summary };
+  }
+  return { run };
+})();
+
 /* Отладка из консоли: LR.skip(600) — промотать 10 минут, LR.give('credits', 1e4) */
 window.LR = {
   get state() { return state; },
   skip(sec) { const n = Math.round(sec / BALANCE.tickSeconds); for (let i = 0; i < n; i++) tick(BALANCE.tickSeconds); render(true); drawCharts(); },
   give(res, x) { addResource(res, x); state.peak[res] = Math.max(state.peak[res], state.res[res]); render(true); },
   crystals(x) { state.prestige.crystals += x; render(true); },
+  balance: (minutes, opt) => BalanceSim.run(minutes, opt),
   BALANCE,
 };
 
