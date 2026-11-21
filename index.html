@@ -1,0 +1,2171 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#060912">
+<title>Лунная утилизация</title>
+<style>
+/* =====================================================================
+   ТЕМА И БАЗОВЫЕ СТИЛИ
+   ===================================================================== */
+:root {
+  --bg: #060912;
+  --bg-2: #0b1020;
+  --panel: rgba(16, 21, 36, 0.86);
+  --panel-2: rgba(24, 31, 52, 0.9);
+  --panel-3: rgba(34, 43, 70, 0.9);
+  --border: rgba(148, 163, 200, 0.13);
+  --border-2: rgba(148, 163, 200, 0.24);
+  --text: #e7eaf3;
+  --muted: #8b94ab;
+  --dim: #5d6680;
+  --accent: #7c9cff;
+  --accent-2: #a78bfa;
+  --good: #4ade80;
+  --bad: #f87171;
+  --warn: #fbbf24;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background-color: var(--bg);
+  /* Звёздное небо и Земля на горизонте — только градиенты, без картинок */
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,.7), transparent 60%),
+    radial-gradient(1px 1px at 72% 12%, rgba(255,255,255,.55), transparent 60%),
+    radial-gradient(1.5px 1.5px at 38% 62%, rgba(255,255,255,.45), transparent 60%),
+    radial-gradient(1px 1px at 88% 48%, rgba(255,255,255,.6), transparent 60%),
+    radial-gradient(1px 1px at 22% 82%, rgba(255,255,255,.4), transparent 60%),
+    radial-gradient(1.5px 1.5px at 58% 32%, rgba(200,210,255,.5), transparent 60%),
+    radial-gradient(1px 1px at 92% 88%, rgba(255,255,255,.5), transparent 60%),
+    radial-gradient(900px 500px at 85% -10%, rgba(124,156,255,.13), transparent 70%),
+    radial-gradient(700px 500px at -10% 110%, rgba(167,139,250,.10), transparent 70%);
+  background-attachment: fixed;
+  color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* =====================================================================
+   ШАПКА
+   ===================================================================== */
+header.top {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 18px;
+  background: rgba(6, 9, 18, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .2px; white-space: nowrap; }
+.logo .moon {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f1f3f8, #a9b0c2 55%, #6b7288 100%);
+  box-shadow: inset -5px -4px 0 rgba(0,0,0,.25), 0 0 18px rgba(200,210,255,.25);
+  position: relative;
+}
+.logo .moon::after {
+  content: ""; position: absolute; width: 6px; height: 6px; border-radius: 50%;
+  left: 13px; top: 7px; background: rgba(90,96,115,.55);
+  box-shadow: -6px 8px 0 -1px rgba(90,96,115,.45), 2px 11px 0 -2px rgba(90,96,115,.4);
+}
+.logo small { display: block; font-weight: 500; color: var(--muted); font-size: 11px; }
+.top-stats { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 999px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  font-size: 13px; white-space: nowrap;
+}
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+.chip.wave-chip.danger { border-color: rgba(248,113,113,.5); color: #fecaca; }
+.save-ind { color: var(--dim); font-size: 12px; }
+
+/* =====================================================================
+   РАСКЛАДКА
+   ===================================================================== */
+.layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 330px;
+  grid-template-areas: "left main right";
+  gap: 16px; padding: 16px 18px 40px;
+  max-width: 1600px; margin: 0 auto;
+  align-items: start;
+}
+.col-left { grid-area: left; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 70px; }
+.col-main { grid-area: main; min-width: 0; }
+.col-right { grid-area: right; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 70px; }
+
+@media (max-width: 1180px) {
+  .layout { grid-template-columns: 290px minmax(0, 1fr); grid-template-areas: "left main" "right main"; }
+  .col-right { position: static; }
+  .col-left { position: static; }
+}
+@media (max-width: 760px) {
+  /* на телефоне: ресурсы → волна → вкладки → график и журнал */
+  .layout { display: flex; flex-direction: column; align-items: stretch; padding: 12px 12px 40px; gap: 12px; }
+  .col-left { order: 1; }
+  .col-right { display: contents; }
+  #waveCard { order: 2; }
+  .col-main { order: 3; }
+  .col-right > .card:not(#waveCard) { order: 4; }
+  header.top { padding: 8px 12px; gap: 10px; }
+  .logo small { display: none; }
+  .top-stats .chip { padding: 4px 8px; font-size: 12px; }
+  .save-ind { display: none; }
+}
+
+/* =====================================================================
+   КАРТОЧКИ
+   ===================================================================== */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+.card h3 {
+  margin: 0 0 10px; font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .9px; color: var(--muted);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.muted { color: var(--muted); }
+.dim { color: var(--dim); }
+.good { color: var(--good); }
+.bad { color: var(--bad); }
+.warn { color: var(--warn); }
+
+/* --- Кнопка клика --- */
+.clicker { display: flex; align-items: center; gap: 14px; }
+.click-btn {
+  position: relative; flex: 0 0 auto;
+  width: 96px; height: 96px; border-radius: 50%;
+  border: 1px solid rgba(200,210,255,.25);
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,.28), transparent 40%),
+    radial-gradient(circle at 50% 60%, #8a8fa3, #4a5066 70%, #2c3144 100%);
+  box-shadow: 0 0 0 6px rgba(124,156,255,.08), 0 10px 25px rgba(0,0,0,.45), inset 0 -8px 16px rgba(0,0,0,.35);
+  cursor: pointer; user-select: none; touch-action: manipulation;
+  transition: transform .06s ease, box-shadow .2s ease;
+  display: grid; place-items: center; font-weight: 700; font-size: 12px; letter-spacing: .5px;
+  text-shadow: 0 1px 2px rgba(0,0,0,.6);
+}
+.click-btn:hover { box-shadow: 0 0 0 8px rgba(124,156,255,.14), 0 10px 25px rgba(0,0,0,.45), inset 0 -8px 16px rgba(0,0,0,.35); }
+.click-btn:active { transform: scale(.95); }
+.click-info { min-width: 0; }
+.click-info .big { font-size: 22px; font-weight: 700; }
+.floater {
+  position: absolute; pointer-events: none; font-weight: 700; color: #e5e7eb;
+  animation: floatUp .9s ease-out forwards; font-size: 14px; text-shadow: 0 1px 3px #000;
+}
+@keyframes floatUp { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -46px); } }
+
+/* --- Ресурсы --- */
+.res-list { display: flex; flex-direction: column; gap: 2px; }
+.res-row {
+  display: grid; grid-template-columns: 10px 1fr auto; column-gap: 8px; row-gap: 3px;
+  align-items: center; padding: 6px 4px; border-radius: 8px;
+}
+.res-row:hover { background: rgba(255,255,255,.03); }
+.res-row .dot { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+.res-row .rname { font-weight: 500; }
+.res-row .rval { font-weight: 600; text-align: right; }
+.res-row .rrate { grid-column: 2 / 4; display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.res-row .bar { grid-column: 2 / 4; }
+.bar { height: 5px; border-radius: 99px; background: rgba(255,255,255,.07); overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0%; border-radius: 99px; transition: width .25s ease; }
+.res-section { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: .8px; margin: 8px 4px 2px; }
+
+/* =====================================================================
+   ВКЛАДКИ
+   ===================================================================== */
+.tabs {
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+  padding: 4px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; margin-bottom: 14px;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex: 0 0 auto; padding: 8px 14px; border-radius: 9px; border: 0; background: transparent;
+  color: var(--muted); cursor: pointer; font-weight: 500; white-space: nowrap; position: relative;
+}
+.tab:hover { color: var(--text); background: rgba(255,255,255,.04); }
+.tab.active { background: var(--panel-3); color: var(--text); box-shadow: inset 0 0 0 1px var(--border-2); }
+.tab .badge {
+  display: inline-block; min-width: 8px; height: 8px; border-radius: 50%; background: var(--warn);
+  margin-left: 6px; vertical-align: middle; box-shadow: 0 0 8px var(--warn);
+}
+.panel { display: none; }
+.panel.active { display: block; animation: fadeIn .18s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+.seg button { border: 0; background: transparent; padding: 5px 12px; border-radius: 7px; cursor: pointer; color: var(--muted); }
+.seg button.active { background: var(--panel-3); color: var(--text); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.section-title { margin: 18px 2px 10px; font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .3px; }
+.section-title:first-child { margin-top: 0; }
+
+/* --- Карточка здания --- */
+.bld { display: flex; flex-direction: column; gap: 8px; padding: 13px; position: relative; overflow: hidden; }
+.bld::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--cat, var(--accent)); opacity: .8;
+}
+.bld-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.bld-name { font-weight: 650; font-size: 15px; }
+.bld-count { font-weight: 700; font-size: 18px; }
+.bld-count .broken { font-size: 12px; color: var(--bad); font-weight: 600; margin-left: 4px; }
+.bld-desc { color: var(--muted); font-size: 12.5px; }
+.bld-stats { font-size: 12.5px; display: flex; flex-direction: column; gap: 2px; }
+.bld-cost { font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.bld-cost .c { white-space: nowrap; }
+.bld-cost .c.no { color: var(--bad); }
+.bld-actions { display: flex; gap: 8px; margin-top: auto; }
+.bld.locked { opacity: .55; }
+.bld.locked .bld-name { color: var(--muted); }
+.bld.hidden { display: none; }
+.eff { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted); }
+.eff .bar { flex: 1; }
+
+.btn {
+  border: 1px solid var(--border-2); background: var(--panel-3); color: var(--text);
+  border-radius: 9px; padding: 8px 12px; cursor: pointer; font-weight: 600; font-size: 13px;
+  transition: background .15s, border-color .15s, opacity .15s, transform .05s;
+}
+.btn:hover:not(:disabled) { background: #2d3960; border-color: rgba(124,156,255,.45); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .42; cursor: not-allowed; }
+.btn.primary { background: linear-gradient(180deg, #5b7cff, #4561e6); border-color: rgba(160,180,255,.5); }
+.btn.primary:hover:not(:disabled) { background: linear-gradient(180deg, #6b8aff, #506cf0); }
+.btn.danger { background: rgba(248,113,113,.14); border-color: rgba(248,113,113,.45); color: #fecaca; }
+.btn.danger:hover:not(:disabled) { background: rgba(248,113,113,.24); }
+.btn.repair { background: rgba(251,191,36,.12); border-color: rgba(251,191,36,.45); color: #fde68a; }
+.btn.grow { flex: 1; }
+.btn.small { padding: 5px 9px; font-size: 12px; }
+
+/* --- Жильцы --- */
+.colony { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.stat-box { background: var(--panel-2); border: 1px solid var(--border); border-radius: 11px; padding: 10px 12px; }
+.stat-box .lbl { font-size: 11.5px; color: var(--muted); }
+.stat-box .val { font-size: 20px; font-weight: 700; margin-top: 2px; }
+.stat-box .sub { font-size: 12px; color: var(--muted); }
+.needs { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.need-row { display: grid; grid-template-columns: 90px 1fr auto; gap: 10px; align-items: center; font-size: 12.5px; }
+
+/* --- Волна --- */
+.wave-card { position: relative; overflow: hidden; }
+.wave-card.alert { border-color: rgba(248,113,113,.45); box-shadow: 0 0 0 1px rgba(248,113,113,.2), var(--shadow); }
+.wave-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wave-name { font-weight: 650; font-size: 15px; }
+.wave-timer { font-family: var(--mono); font-size: 26px; font-weight: 700; letter-spacing: 1px; margin: 4px 0 6px; }
+.wave-timer.soon { color: var(--bad); animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .55; } }
+.vs { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
+.vs-row { display: grid; grid-template-columns: 62px 1fr auto; gap: 8px; align-items: center; }
+.vs-row .bar { height: 8px; }
+.vs-row .num { white-space: nowrap; min-width: 48px; }
+.verdict { margin-top: 8px; padding: 7px 10px; border-radius: 9px; font-size: 12.5px; font-weight: 600; }
+.verdict.ok { background: rgba(74,222,128,.1); color: #bbf7d0; border: 1px solid rgba(74,222,128,.3); }
+.verdict.risk { background: rgba(251,191,36,.1); color: #fde68a; border: 1px solid rgba(251,191,36,.3); }
+.verdict.fail { background: rgba(248,113,113,.1); color: #fecaca; border: 1px solid rgba(248,113,113,.3); }
+canvas { display: block; width: 100%; }
+.chart-wrap { margin-top: 10px; }
+.chart-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+.chart-chips button {
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  padding: 3px 9px; border-radius: 999px; font-size: 11.5px; cursor: pointer;
+}
+.chart-chips button.active { color: var(--text); border-color: var(--border-2); background: var(--panel-3); }
+
+/* --- Журнал --- */
+.log { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; padding-right: 4px; }
+.log-item { padding: 5px 8px; border-radius: 7px; background: rgba(255,255,255,.025); border-left: 2px solid var(--dim); }
+.log-item time { color: var(--dim); font-family: var(--mono); font-size: 11px; margin-right: 6px; }
+.log-item.good { border-left-color: var(--good); color: var(--text); }
+.log-item.bad { border-left-color: var(--bad); color: var(--text); }
+.log-item.warn { border-left-color: var(--warn); color: var(--text); }
+.log-item.info { border-left-color: var(--accent); color: var(--text); }
+
+/* --- Баффы --- */
+.buffs { display: flex; flex-wrap: wrap; gap: 6px; }
+.buff { font-size: 11.5px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border-2); background: var(--panel-2); }
+.buff.up { border-color: rgba(74,222,128,.4); color: #bbf7d0; }
+.buff.down { border-color: rgba(248,113,113,.4); color: #fecaca; }
+
+/* --- Дерево улучшений --- */
+.prestige-card { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; margin-bottom: 14px;
+  background: linear-gradient(135deg, rgba(124,156,255,.12), rgba(167,139,250,.1)), var(--panel); }
+.crystal { display: inline-block; width: 11px; height: 11px; transform: rotate(45deg); border-radius: 2px;
+  background: linear-gradient(135deg, #e0e7ff, #a78bfa 60%, #6d28d9); box-shadow: 0 0 10px rgba(167,139,250,.7); margin-right: 4px; }
+.tree { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 900px) { .tree { grid-template-columns: minmax(0, 1fr); } }
+.branch { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+.branch h4 { margin: 0 0 10px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.branch h4 .sw { width: 10px; height: 10px; border-radius: 3px; }
+.node {
+  position: relative; background: var(--panel-2); border: 1px solid var(--border); border-radius: 11px;
+  padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px;
+}
+.node.depth-1 { margin-left: 14px; }
+.node.depth-2 { margin-left: 28px; }
+.node.depth-1::before, .node.depth-2::before {
+  content: ""; position: absolute; left: -10px; top: -11px; width: 9px; height: 30px;
+  border-left: 1px solid var(--border-2); border-bottom: 1px solid var(--border-2); border-bottom-left-radius: 6px;
+}
+.node.locked { opacity: .5; }
+.node.maxed { border-color: rgba(74,222,128,.35); }
+.node-head { display: flex; justify-content: space-between; gap: 6px; font-weight: 600; font-size: 13px; }
+.node-lvl { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.node-desc { font-size: 12px; color: var(--muted); }
+.pips { display: flex; gap: 3px; }
+.pips i { width: 14px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.1); }
+.pips i.on { background: var(--branch, var(--accent)); }
+
+/* --- Достижения --- */
+.ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.ach { display: flex; gap: 10px; align-items: flex-start; padding: 11px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); }
+.ach .medal { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,.05);
+  border: 1px solid var(--border-2); display: grid; place-items: center; font-weight: 700; color: var(--dim); font-size: 13px; }
+.ach.done .medal { background: radial-gradient(circle at 35% 30%, #fff7cc, #f5c84c 50%, #b7791f); color: #4a3200; border-color: rgba(245,200,76,.6); box-shadow: 0 0 12px rgba(245,200,76,.35); }
+.ach .t { font-weight: 600; font-size: 13px; }
+.ach .d { font-size: 12px; color: var(--muted); }
+.ach:not(.done) { opacity: .62; }
+
+/* --- Настройки --- */
+textarea {
+  width: 100%; min-height: 90px; resize: vertical; background: #0a0f1d; color: var(--text);
+  border: 1px solid var(--border-2); border-radius: 10px; padding: 10px; font-family: var(--mono); font-size: 12px;
+}
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.stats-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.stats-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
+.stats-table td:last-child { text-align: right; font-weight: 600; }
+
+/* =====================================================================
+   МОДАЛЬНЫЕ ОКНА И УВЕДОМЛЕНИЯ
+   ===================================================================== */
+.modal-bg {
+  position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center;
+  background: rgba(3, 5, 12, 0.72); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); padding: 16px;
+}
+.modal-bg.open { display: flex; animation: fadeIn .2s ease; }
+.modal {
+  width: min(560px, 100%); max-height: calc(100vh - 32px); overflow-y: auto;
+  background: linear-gradient(180deg, #151c31, #0f1526); border: 1px solid var(--border-2);
+  border-radius: 18px; padding: 20px; box-shadow: 0 30px 80px rgba(0,0,0,.6);
+}
+.modal .kicker { font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--warn); font-weight: 700; }
+.modal h2 { margin: 4px 0 8px; font-size: 20px; }
+.modal p { color: #c5cbe0; margin: 0 0 14px; }
+.choices { display: flex; flex-direction: column; gap: 10px; }
+.choice {
+  text-align: left; border: 1px solid var(--border-2); background: var(--panel-2); border-radius: 12px; padding: 12px 14px;
+  cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: border-color .15s, background .15s;
+}
+.choice:hover:not(:disabled) { border-color: rgba(124,156,255,.55); background: var(--panel-3); }
+.choice:disabled { opacity: .45; cursor: not-allowed; }
+.choice .cl { font-weight: 650; }
+.choice .cd { font-size: 12.5px; color: var(--muted); }
+.choice .cc { font-size: 12px; color: var(--warn); }
+.modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+.summary-list { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 0; font-size: 13px; }
+.summary-list div { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 4px 0; }
+
+.toasts { position: fixed; right: 16px; bottom: 16px; z-index: 60; display: flex; flex-direction: column; gap: 8px; max-width: min(360px, calc(100vw - 32px)); }
+.toast {
+  background: rgba(20, 27, 46, .96); border: 1px solid var(--border-2); border-left: 3px solid var(--accent);
+  border-radius: 11px; padding: 10px 12px; font-size: 13px; box-shadow: var(--shadow); animation: slideIn .25s ease;
+}
+.toast.good { border-left-color: var(--good); }
+.toast.bad { border-left-color: var(--bad); }
+.toast.warn { border-left-color: var(--warn); }
+.toast.gold { border-left-color: #f5c84c; }
+.toast.out { opacity: 0; transform: translateX(20px); transition: all .3s ease; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+@media (max-width: 760px) {
+  .toasts { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+  .toast { font-size: 12.5px; padding: 8px 10px; }
+  /* компактная левая колонка на телефоне */
+  .res-list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; }
+  .res-section { grid-column: 1 / -1; }
+  .click-btn { width: 78px; height: 78px; }
+  .click-info .big { font-size: 19px; }
+  .card { padding: 12px; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.hit-flash { position: fixed; inset: 0; pointer-events: none; z-index: 40; background: radial-gradient(circle, transparent 40%, rgba(248,113,113,.35)); opacity: 0; }
+.hit-flash.on { animation: hit .9s ease-out; }
+@keyframes hit { 0% { opacity: 1; } 100% { opacity: 0; } }
+body.shake .layout { animation: shake .45s ease; }
+@keyframes shake { 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="logo"><div class="moon"></div><div>Лунная утилизация<small>Станция переработки «Море Спокойствия»</small></div></div>
+  <div class="top-stats">
+    <span class="chip num" title="Кредиты"><span class="dot" style="background:#f5c84c"></span><span id="topCredits">0</span></span>
+    <span class="chip num" title="Лунные кристаллы (непотраченные)"><span class="crystal"></span><span id="topCrystals">0</span></span>
+    <span class="chip num" title="Жильцы"><span class="dot" style="background:#8ec5ff"></span><span id="topResidents">0</span></span>
+    <span class="chip num wave-chip" id="topWave" title="До следующей волны">Волна 1 · 0:00</span>
+    <span class="save-ind" id="saveInd"></span>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- ЛЕВАЯ КОЛОНКА: клик и ресурсы -->
+  <aside class="col-left">
+    <div class="card">
+      <div class="clicker">
+        <button class="click-btn" id="clickBtn" aria-label="Чистить пыль">ЧИСТИТЬ</button>
+        <div class="click-info">
+          <div class="muted" style="font-size:12px">Ручная уборка</div>
+          <div class="big num" id="clickPower">+1 пыль</div>
+          <div class="muted num" style="font-size:12px" id="clickSub">за клик</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Ресурсы <span class="dim" style="text-transform:none;letter-spacing:0">в секунду</span></h3>
+      <div class="res-list" id="resList"></div>
+    </div>
+    <div class="card" id="buffCard" style="display:none">
+      <h3>Активные эффекты</h3>
+      <div class="buffs" id="buffList"></div>
+    </div>
+  </aside>
+
+  <!-- ЦЕНТР: вкладки -->
+  <main class="col-main">
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="prod">Производство</button>
+      <button class="tab" data-tab="life">Жизнеобеспечение</button>
+      <button class="tab" data-tab="def">Оборона</button>
+      <button class="tab" data-tab="tech">Технологии</button>
+      <button class="tab" data-tab="ach">Достижения</button>
+      <button class="tab" data-tab="opts">Настройки</button>
+    </nav>
+
+    <div class="toolbar" id="buyToolbar">
+      <span class="muted" style="font-size:12px">Покупать по:</span>
+      <div class="seg" id="buySeg">
+        <button data-buy="1" class="active">×1</button>
+        <button data-buy="10">×10</button>
+        <button data-buy="max">Макс</button>
+      </div>
+    </div>
+
+    <section class="panel active" id="panel-prod">
+      <div class="section-title">Цепочка переработки: пыль → реголит → кирпичи → купола</div>
+      <div class="grid" id="grid-prod"></div>
+    </section>
+
+    <section class="panel" id="panel-life">
+      <div class="card" style="margin-bottom:12px">
+        <h3>Колония</h3>
+        <div class="colony" id="colonyStats"></div>
+        <div class="needs" id="needsList"></div>
+      </div>
+      <div class="section-title">Энергия и системы жизнеобеспечения</div>
+      <div class="grid" id="grid-life"></div>
+    </section>
+
+    <section class="panel" id="panel-def">
+      <div class="card" style="margin-bottom:12px">
+        <h3>Оборонный штаб</h3>
+        <div class="colony" id="defStats"></div>
+        <div class="muted" style="font-size:12.5px;margin-top:10px" id="defHint"></div>
+      </div>
+      <div class="section-title">Оборонительные сооружения</div>
+      <div class="grid" id="grid-def"></div>
+    </section>
+
+    <section class="panel" id="panel-tech">
+      <div class="card prestige-card">
+        <div>
+          <h3 style="margin-bottom:6px">Престиж: эвакуация базы</h3>
+          <div id="prestigeInfo" class="muted" style="font-size:13px"></div>
+        </div>
+        <button class="btn primary" id="prestigeBtn">Эвакуироваться</button>
+      </div>
+      <div class="tree" id="tree"></div>
+    </section>
+
+    <section class="panel" id="panel-ach">
+      <div class="muted" style="margin-bottom:10px" id="achSummary"></div>
+      <div class="ach-grid" id="achGrid"></div>
+    </section>
+
+    <section class="panel" id="panel-opts">
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+        <div class="card">
+          <h3>Сохранение</h3>
+          <p class="muted" style="margin:0 0 10px;font-size:13px">Игра сохраняется автоматически каждые 15 секунд и при закрытии вкладки.</p>
+          <div class="row" style="margin-bottom:10px">
+            <button class="btn" id="saveNow">Сохранить сейчас</button>
+            <button class="btn" id="exportBtn">Экспорт</button>
+            <button class="btn" id="copyBtn">Копировать</button>
+          </div>
+          <textarea id="saveText" placeholder="Сюда выводится код сохранения. Вставьте свой код и нажмите «Импорт»."></textarea>
+          <div class="row" style="margin-top:10px">
+            <button class="btn primary" id="importBtn">Импорт</button>
+            <button class="btn danger" id="resetBtn">Полный сброс</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Статистика</h3>
+          <table class="stats-table" id="statsTable"></table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ПРАВАЯ КОЛОНКА: волна, график, журнал -->
+  <aside class="col-right">
+    <div class="card wave-card" id="waveCard">
+      <div class="muted" style="font-size:12px" id="waveNum">Волна №1</div>
+      <div class="wave-name" id="waveName">—</div>
+      <div class="muted" style="font-size:12px" id="waveTypeHint"></div>
+      <div class="wave-timer num" id="waveTimer">0:00</div>
+      <div class="bar"><i id="waveBar" style="background:linear-gradient(90deg,#7c9cff,#f87171)"></i></div>
+      <div class="vs">
+        <div class="vs-row"><span class="muted">Угроза</span><div class="bar"><i id="threatBar" style="background:#f87171"></i></div><span class="num" id="threatVal" style="text-align:right">0</span></div>
+        <div class="vs-row"><span class="muted">Оборона</span><div class="bar"><i id="defBar" style="background:#7c9cff"></i></div><span class="num" id="defVal" style="text-align:right">0</span></div>
+      </div>
+      <div class="verdict ok" id="verdict">—</div>
+      <div class="chart-wrap">
+        <div class="muted" style="font-size:11.5px;margin-bottom:4px">Прошлые волны: <span style="color:#f87171">■</span> угроза <span style="color:#7c9cff">■</span> оборона</div>
+        <canvas id="waveChart" height="80"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3>График</h3>
+      <div class="chart-chips" id="chartChips"></div>
+      <canvas id="resChart" height="130"></canvas>
+    </div>
+    <div class="card">
+      <h3>Журнал базы</h3>
+      <div class="log" id="log"></div>
+    </div>
+  </aside>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
+<div class="toasts" id="toasts"></div>
+<div class="hit-flash" id="hitFlash"></div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   1. БАЛАНС
+   Все числа игры собраны здесь. Меняйте смело — остальной код читает
+   значения только отсюда.
+   ===================================================================== */
+const BALANCE = {
+  tickSeconds: 0.1,          // фиксированный шаг симуляции
+  costGrowth: 1.15,          // множитель цены за каждую покупку здания
+  autosaveSeconds: 15,
+
+  click: { base: 1 },        // пыль за клик
+
+  offline: {
+    efficiency: 0.5,         // доля времени отсутствия, которая симулируется
+    maxHours: 8,             // предел офлайн-прогресса
+    minSeconds: 60,          // разрыв дольше этого считается «офлайном»
+  },
+
+  storage: {                 // ёмкость хранилищ «текучих» ресурсов
+    energyBase: 100, energyPerSolar: 50,
+    lifeBase: 100, lifePerBuilding: 40,
+  },
+
+  residents: {
+    housingPerDome: 5,                                   // мест в одном куполе
+    needs: { oxygen: 0.10, heat: 0.10, food: 0.08 },     // потребление на жильца в секунду
+    tax: 0.25,                                           // кредитов с жильца в секунду
+    immigrationBase: 0.15,                               // прибытие жильцов в секунду
+    immigrationPct: 0.02,                                // + доля от вместимости в секунду
+    leaveRate: 0.06,                                     // скорость отъезда при дефиците
+  },
+
+  /* Здания.
+     cost — базовая цена, prod/cons — производство/потребление одного здания в секунду,
+     unlock — порог максимума ресурса за забег, при котором здание появляется. */
+  buildings: {
+    worker:      { cat: 'prod', name: 'Рабочий-уборщик', desc: 'Метёт лунную пыль в контейнеры.',
+                   cost: { dust: 10 }, prod: { dust: 0.4 } },
+    autoclicker: { cat: 'prod', auto: true, name: 'Автоклик-манипулятор', desc: 'Механическая рука, повторяет ваш клик.',
+                   cost: { dust: 60 }, clicks: 1, unlock: { dust: 30 } },
+    sinter:      { cat: 'prod', name: 'Печь спекания', desc: 'Спекает пыль в плотный реголит.',
+                   cost: { dust: 80 }, cons: { dust: 3 }, prod: { regolith: 1 }, unlock: { dust: 40 } },
+    drone:       { cat: 'prod', auto: true, name: 'Дрон-сборщик', desc: 'Автономно прочёсывает кратеры.',
+                   cost: { dust: 300, regolith: 30 }, prod: { dust: 5 }, unlock: { regolith: 20 } },
+    press:       { cat: 'prod', name: 'Кирпичный пресс', desc: 'Прессует реголит в строительные блоки.',
+                   cost: { dust: 150, regolith: 80 }, cons: { regolith: 2, energy: 0.5 }, prod: { bricks: 1 }, unlock: { regolith: 30 } },
+    shipyard:    { cat: 'prod', name: 'Купольная верфь', desc: 'Собирает жилые купола из кирпичей.',
+                   cost: { regolith: 250, bricks: 50 }, cons: { bricks: 2, energy: 1 }, prod: { domes: 0.025 }, unlock: { bricks: 15 } },
+    factory:     { cat: 'prod', auto: true, name: 'Нанофабрика', desc: 'Оптимизирует всю цепочку переработки.',
+                   cost: { bricks: 250, credits: 200 }, bonus: 0.08, unlock: { credits: 50 } },
+
+    solar:       { cat: 'life', name: 'Солнечная панель', desc: 'Источник энергии для всей базы.',
+                   cost: { dust: 50, regolith: 8 }, prod: { energy: 1.5 }, unlock: { regolith: 3 } },
+    oxygen:      { cat: 'life', name: 'Генератор O₂', desc: 'Электролиз кислорода из реголита.',
+                   cost: { regolith: 40, bricks: 15 }, cons: { energy: 0.5 }, prod: { oxygen: 2 }, unlock: { bricks: 5 } },
+    heater:      { cat: 'life', name: 'Обогреватель', desc: 'Не даёт куполам промёрзнуть лунной ночью.',
+                   cost: { regolith: 40, bricks: 15 }, cons: { energy: 0.5 }, prod: { heat: 2 }, unlock: { bricks: 5 } },
+    greenhouse:  { cat: 'life', name: 'Теплица', desc: 'Гидропоника под искусственным солнцем.',
+                   cost: { regolith: 60, bricks: 25 }, cons: { energy: 0.4 }, prod: { food: 1.5 }, unlock: { bricks: 5 } },
+
+    turret:      { cat: 'def', name: 'Турель «Игла»', desc: 'Сбивает цели кинетическими иглами.',
+                   cost: { dust: 100, regolith: 20 }, cons: { energy: 0.3 }, power: 4, unlock: { regolith: 5 } },
+    shield:      { cat: 'def', name: 'Щит-купол', desc: 'Энергетический барьер над базой.',
+                   cost: { bricks: 60, credits: 40 }, cons: { energy: 1 }, power: 10, unlock: { bricks: 20 } },
+    repair:      { cat: 'def', name: 'Ремонтная станция', desc: 'Сама чинит сломанные здания, пока есть кирпичи.',
+                   cost: { bricks: 100, credits: 80 }, cons: { energy: 0.4, bricks: 0.3 }, unlock: { credits: 30 } },
+  },
+
+  factoryChain: ['dust', 'regolith', 'bricks', 'domes'],   // на что действует нанофабрика
+
+  repair: { costFraction: 0.35 },   // ручной ремонт = доля текущей цены здания
+  repairStation: {
+    interval: 20,                   // секунд на один ремонт одной станцией
+    breakReduction: 0.04,           // каждая станция снижает число поломок на 4%
+    breakReductionCap: 0.4,
+  },
+
+  waves: {
+    firstDelay: 210,                // секунд до первой волны
+    intervalMin: 120, intervalMax: 180,
+    baseStrength: 3,                // сила первой волны
+    growth: 1.3,                    // рост силы за каждую волну
+    jitter: 0.1,                    // случайный разброс силы ±10%
+    forecastSpread: 0.25,           // неточность прогноза ±25%
+    rewardPerStrength: 6,           // кредитов за единицу силы отбитой волны
+    breakBase: 2,                   // поломок при полном провале
+    breakPerWave: 0.35,             // + поломок за номер волны
+    types: {
+      meteor: { name: 'Метеоритный дождь', turret: 0.6, shield: 1.5, hint: 'Щиты ×1.5, турели ×0.6' },
+      raiders: { name: 'Лунные мародёры', turret: 1.4, shield: 0.7, steal: 0.3, hint: 'Турели ×1.4, щиты ×0.7, крадут ресурсы' },
+      robots: { name: 'Сбойные роботы', turret: 1.0, shield: 1.0, autoWeight: 4, hint: 'Бьют по автоматике' },
+    },
+  },
+
+  prestige: {
+    creditsPerCrystal: 1000,        // кристаллы = √(кредиты за забег / это число)
+    wavesPerCrystal: 5,             // + 1 кристалл за каждые N отбитых волн
+    bonusPerCrystal: 0.02,          // +2% ко всему производству за каждый полученный кристалл
+  },
+
+  achievementBonus: 0.01,           // +1% производства за достижение
+
+  /* Дерево улучшений (покупается кристаллами, сохраняется при престиже).
+     per — сила эффекта за уровень, cost — цена 1-го уровня, costMult — рост цены. */
+  tree: {
+    eco1: { branch: 'eco', req: null,   max: 5, cost: 1, costMult: 1.6, per: 0.25 },
+    eco2: { branch: 'eco', req: 'eco1', max: 5, cost: 2, costMult: 1.6, per: 0.15 },
+    eco3: { branch: 'eco', req: 'eco1', max: 5, cost: 2, costMult: 1.6, per: 0.20 },
+    eco4: { branch: 'eco', req: 'eco2', max: 3, cost: 3, costMult: 1.8, per: 0.10 },
+    eco5: { branch: 'eco', req: 'eco3', max: 3, cost: 3, costMult: 2.0, per: 1 },
+    def1: { branch: 'def', req: null,   max: 5, cost: 1, costMult: 1.6, per: 0.20 },
+    def2: { branch: 'def', req: 'def1', max: 5, cost: 2, costMult: 1.6, per: 0.20 },
+    def3: { branch: 'def', req: 'def1', max: 3, cost: 2, costMult: 1.8, per: 0.08 },
+    def4: { branch: 'def', req: 'def2', max: 3, cost: 3, costMult: 1.8, per: 0.20 },
+    def5: { branch: 'def', req: 'def3', max: 3, cost: 3, costMult: 1.8, per: 0.50 },
+    aut1: { branch: 'aut', req: null,   max: 5, cost: 1, costMult: 1.6, per: 1 },
+    aut2: { branch: 'aut', req: 'aut1', max: 5, cost: 2, costMult: 1.6, per: 0.25 },
+    aut3: { branch: 'aut', req: 'aut1', max: 3, cost: 2, costMult: 1.8, per: 0.15 },
+    aut4: { branch: 'aut', req: 'aut2', max: 3, cost: 4, costMult: 2.0, per: 0.01 },
+    aut5: { branch: 'aut', req: 'aut3', max: 3, cost: 3, costMult: 1.8, per: 0.25 },
+  },
+  startKit: { dust: 200, regolith: 60, bricks: 25 },   // стартовый набор за уровень eco5
+
+  events: {
+    firstDelay: 90, intervalMin: 70, intervalMax: 150,
+    /* Параметры конкретных событий. *Sec — цена в секундах текущего производства,
+       *Min — минимальная цена, *Dur — длительность эффекта, *Mult — множитель. */
+    tuning: {
+      dustStorm: { dur: 60, shelterMult: 0.5, workMult: 1.6 },
+      cache:     { dustSec: 120, dustMin: 150, regSec: 120, regMin: 30, credSec: 90, credMin: 40 },
+      crack:     { patchSec: 60, patchMin: 30, evacuate: 0.2, riskChance: 0.5, riskResidents: 0.3 },
+      refugees:  { acceptPct: 0.3, foodSec: 60, foodMin: 20, engSec: 60, engMin: 60, engMult: 1.25, engDur: 180, refuseTax: 0.85, refuseDur: 120 },
+      flare:     { shelterMult: 0.3, shelterDur: 45, overMult: 2.5, overDur: 60, overBreakChance: 0.35, overBreakMax: 3 },
+      caravan:   { regSec: 90, regMin: 100, credPerReg: 0.4, droneSec: 120, droneMin: 150, drones: 2 },
+      strike:    { foodSec: 60, foodMin: 25, rationMult: 1.15, rationDur: 120, forceMult: 1.4, forceDur: 90, forceLeave: 0.15, ignoreMult: 0.5, ignoreDur: 120 },
+      probe:     { studySec: 90, studyMin: 80, studyWave: 0.7, sellSec: 150, sellMin: 100, scrapSec: 120, scrapMin: 40 },
+      leak:      { bricksSec: 60, bricksMin: 25, energyCost: 40, sealO2: 0.6, sealResidents: 0.1 },
+      truce:     { tributeSec: 120, tributeMin: 100, tributeWave: 0.5, mercSec: 200, mercMin: 180, mercMult: 1.5, mercWaves: 2, refuseWave: 1.25, refuseReward: 2 },
+    },
+  },
+
+  history: { sampleSeconds: 2, points: 150 },   // точки графика
+};
+
+/* =====================================================================
+   2. СПРАВОЧНИКИ: ресурсы, тексты дерева, достижения
+   ===================================================================== */
+const RES = {
+  dust:     { name: 'Пыль', gen: 'пыли',      color: '#b8b2a7', group: 'Цепочка' },
+  regolith: { name: 'Реголит', gen: 'реголита',   color: '#d9a75f', group: 'Цепочка' },
+  bricks:   { name: 'Кирпичи', gen: 'кирпичей',   color: '#e57c5d', group: 'Цепочка' },
+  domes:    { name: 'Купола', gen: 'куполов',    color: '#8ec5ff', group: 'Цепочка' },
+  credits:  { name: 'Кредиты', gen: 'кредитов',   color: '#f5c84c', group: 'Финансы' },
+  energy:   { name: 'Энергия', gen: 'энергии',   color: '#a78bfa', group: 'Жизнеобеспечение', capped: true },
+  oxygen:   { name: 'Кислород', gen: 'кислорода',  color: '#5eead4', group: 'Жизнеобеспечение', capped: true },
+  heat:     { name: 'Тепло', gen: 'тепла',     color: '#fb923c', group: 'Жизнеобеспечение', capped: true },
+  food:     { name: 'Еда', gen: 'еды',       color: '#86efac', group: 'Жизнеобеспечение', capped: true },
+};
+const RES_KEYS = Object.keys(RES);
+const CAT_COLOR = { prod: '#d9a75f', life: '#5eead4', def: '#7c9cff' };
+const BUILD_ORDER = Object.keys(BALANCE.buildings);   // порядок важен: кто раньше — тот первым получает ресурсы
+
+const BRANCHES = {
+  eco: { name: 'Экономика',     color: '#f5c84c' },
+  def: { name: 'Оборона',       color: '#7c9cff' },
+  aut: { name: 'Автоматизация', color: '#5eead4' },
+};
+const TREE_TEXT = {
+  eco1: { name: 'Глубокая экскавация', desc: p => `+${pct(p)} к добыче пыли за уровень` },
+  eco2: { name: 'Плотная упаковка',    desc: p => `+${pct(p)} к выходу реголита, кирпичей и куполов` },
+  eco3: { name: 'Налоговая реформа',   desc: p => `+${pct(p)} к налогам жильцов` },
+  eco4: { name: 'Замкнутый цикл',      desc: p => `−${pct(p)} к потреблению воздуха, тепла и еды` },
+  eco5: { name: 'Стартовый капитал',   desc: () => `После эвакуации база стартует с запасом ресурсов` },
+  def1: { name: 'Закалённые иглы',     desc: p => `+${pct(p)} к мощи турелей` },
+  def2: { name: 'Фазовые щиты',        desc: p => `+${pct(p)} к мощи щитов` },
+  def3: { name: 'Дальний радар',       desc: p => `Прогноз волн точнее на ${pct(p)}` },
+  def4: { name: 'Аварийные протоколы', desc: p => `−${pct(p)} поломок при прорыве` },
+  def5: { name: 'Охота за трофеями',   desc: p => `+${pct(p)} к награде за отбитую волну` },
+  aut1: { name: 'Сервоприводы',        desc: p => `+${p} пыли к каждому клику` },
+  aut2: { name: 'Рой дронов',          desc: p => `+${pct(p)} к производству дронов` },
+  aut3: { name: 'Офлайн-ядро',         desc: p => `+${pct(p)} к эффективности офлайн-прогресса` },
+  aut4: { name: 'Самосборка',          desc: p => `Множитель цены зданий −${p}` },
+  aut5: { name: 'Ремонтные наниты',    desc: p => `Ремонт дешевле и станции быстрее на ${pct(p)}` },
+};
+
+/* Достижения: check(state) → true, когда выполнено. */
+const ACHIEVEMENTS = [
+  { id: 'click1',    name: 'Первая метла',       desc: 'Сделать первый клик',            check: s => s.stats.clicks >= 1 },
+  { id: 'click500',  name: 'Мозоли',             desc: 'Сделать 500 кликов',             check: s => s.stats.clicks >= 500 },
+  { id: 'click3k',   name: 'Пылесос в душе',     desc: 'Сделать 3000 кликов',            check: s => s.stats.clicks >= 3000 },
+  { id: 'reg',       name: 'Алхимия спекания',   desc: 'Получить первый реголит',        check: s => s.peak.regolith >= 1 },
+  { id: 'brick',     name: 'Кирпичик к кирпичику', desc: 'Получить первый кирпич',       check: s => s.peak.bricks >= 1 },
+  { id: 'dome',      name: 'Крыша над головой',  desc: 'Построить первый купол',         check: s => s.peak.domes >= 1 },
+  { id: 'res1',      name: 'Новосёлы',           desc: 'Заселить первого жильца',        check: s => s.residents >= 1 },
+  { id: 'res50',     name: 'Посёлок',            desc: '50 жильцов одновременно',        check: s => s.residents >= 50 },
+  { id: 'res250',    name: 'Лунный город',       desc: '250 жильцов одновременно',       check: s => s.residents >= 250 },
+  { id: 'bld50',     name: 'Стройка века',       desc: 'Иметь 50 зданий',                check: s => totalBuildings(s) >= 50 },
+  { id: 'bld200',    name: 'Промзона',           desc: 'Иметь 200 зданий',               check: s => totalBuildings(s) >= 200 },
+  { id: 'wave1',     name: 'Первая кровь',       desc: 'Отбить волну',                   check: s => s.stats.wavesWon >= 1 },
+  { id: 'wave10',    name: 'Несокрушимые',       desc: 'Отбить 10 волн за всё время',    check: s => s.stats.wavesWon >= 10 },
+  { id: 'waveN15',   name: 'Пятнадцатый рубеж',  desc: 'Дожить до 15-й волны',           check: s => s.wave.num >= 15 },
+  { id: 'lost',      name: 'Боевое крещение',    desc: 'Пережить прорыв обороны',        check: s => s.stats.wavesLost >= 1 },
+  { id: 'cr1k',      name: 'Бюджет колонии',     desc: 'Заработать 1 тыс. кредитов',     check: s => s.stats.totalCredits >= 1e3 },
+  { id: 'cr100k',    name: 'Лунный банкир',      desc: 'Заработать 100 тыс. кредитов',   check: s => s.stats.totalCredits >= 1e5 },
+  { id: 'cr10m',     name: 'Олигарх кратера',    desc: 'Заработать 10 млн кредитов',     check: s => s.stats.totalCredits >= 1e7 },
+  { id: 'events5',   name: 'Трудные решения',    desc: 'Принять 5 решений в событиях',   check: s => s.stats.events >= 5 },
+  { id: 'events25',  name: 'Совет колонии',      desc: 'Принять 25 решений в событиях',  check: s => s.stats.events >= 25 },
+  { id: 'prestige1', name: 'Новое начало',       desc: 'Совершить эвакуацию (престиж)',  check: s => s.prestige.count >= 1 },
+  { id: 'prestige5', name: 'Кочевники Луны',     desc: 'Совершить 5 эвакуаций',          check: s => s.prestige.count >= 5 },
+  { id: 'tree10',    name: 'Технократ',          desc: 'Купить 10 уровней улучшений',    check: s => Object.values(s.tree).reduce((a, b) => a + b, 0) >= 10 },
+];
+
+/* =====================================================================
+   3. УТИЛИТЫ
+   ===================================================================== */
+const $ = (sel, root = document) => root.querySelector(sel);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+const randInt = (a, b) => Math.floor(rand(a, b + 1));
+const pct = x => `${Math.round(x * 100)}%`;
+const SUFFIXES = ['', ' тыс.', ' млн', ' млрд', ' трлн', ' квдрлн', ' квинтлн', ' секстлн'];
+
+/** Форматирование чисел: 12.3 · 1 234 · 12.3 тыс. · 4.56 млн … */
+function fmt(x, digits = 1) {
+  if (!isFinite(x)) return '∞';
+  const sign = x < 0 ? '−' : '';
+  const a = Math.abs(x);
+  if (a < 1000) {
+    if (a === 0) return '0';
+    if (a < 10) return sign + trimZeros(a.toFixed(a < 0.1 ? 3 : digits + (a < 1 ? 1 : 0)));
+    if (a < 100) return sign + trimZeros(a.toFixed(digits));
+    return sign + Math.floor(a);
+  }
+  const tier = Math.floor(Math.log10(a) / 3);
+  if (tier < SUFFIXES.length) {
+    const v = a / Math.pow(1000, tier);
+    return sign + trimZeros(v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0)) + SUFFIXES[tier];
+  }
+  return sign + a.toExponential(2).replace('+', '');
+}
+function trimZeros(s) { return s.includes('.') ? s.replace(/\.?0+$/, '') : s; }
+function fmtRate(x) { if (Math.abs(x) < 0.0005) return '0/с'; return (x > 0 ? '+' : '') + fmt(x, 2) + '/с'; }
+function fmtTime(sec) {
+  sec = Math.max(0, Math.ceil(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
+function fmtCost(cost) { return Object.entries(cost).map(([r, v]) => `${fmt(v)} ${RES[r].gen}`).join(', '); }
+function plural(n, one, few, many) {
+  n = Math.abs(Math.floor(n)) % 100; const n1 = n % 10;
+  if (n > 10 && n < 20) return many; if (n1 > 1 && n1 < 5) return few; if (n1 === 1) return one; return many;
+}
+function weightedPick(items, weightFn) {
+  const total = items.reduce((a, it) => a + weightFn(it), 0);
+  if (total <= 0) return null;
+  let r = Math.random() * total;
+  for (const it of items) { r -= weightFn(it); if (r <= 0) return it; }
+  return items[items.length - 1];
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+/* =====================================================================
+   4. СОСТОЯНИЕ ИГРЫ
+   ===================================================================== */
+const SAVE_KEY = 'lunar-recycling-save-v1';
+let state;
+
+/** Чистое состояние нового забега. */
+function newState() {
+  const s = {
+    v: 1,
+    time: 0,                               // игровое время забега, с
+    res: Object.fromEntries(RES_KEYS.map(r => [r, 0])),
+    peak: Object.fromEntries(RES_KEYS.map(r => [r, 0])),   // максимум за забег (для открытия зданий)
+    residents: 0,
+    b: Object.fromEntries(BUILD_ORDER.map(id => [id, { n: 0, broken: 0, off: false }])),
+    unlocked: {},
+    wave: { num: 1, timeLeft: 0, total: 0, type: 'meteor', strength: 0, lo: 0, hi: 0 },
+    waveHistory: [],
+    waveMod: 1, rewardMod: 1, mercWaves: 0,  // модификаторы от событий
+    event: { nextIn: BALANCE.events.firstDelay, active: null, last: null },
+    buffs: [],
+    repairProgress: 0,
+    run: { credits: 0, wavesWon: 0 },
+    prestige: { crystals: 0, total: 0, count: 0 },
+    tree: {},
+    ach: {},
+    stats: { clicks: 0, totalCredits: 0, wavesWon: 0, wavesLost: 0, events: 0, maxResidents: 0, totalTime: 0, bestWave: 1, buildingsBought: 0 },
+    log: [],
+    settings: { buy: '1' },
+    lastSave: Date.now(),
+  };
+  scheduleWave(s, BALANCE.waves.firstDelay);
+  return s;
+}
+
+/** Накладывает сохранение на свежее состояние — так новые поля из обновлений получают значения по умолчанию. */
+function mergeDeep(base, saved) {
+  if (saved === null || typeof saved !== 'object' || Array.isArray(saved)) return saved === undefined ? base : saved;
+  const out = Array.isArray(base) ? [] : { ...base };
+  for (const k of Object.keys(saved)) {
+    out[k] = (base && typeof base[k] === 'object' && base[k] !== null && !Array.isArray(base[k]))
+      ? mergeDeep(base[k], saved[k]) : saved[k];
+  }
+  return out;
+}
+
+/* Неперсистентные данные (пересчитываются на лету) */
+const FLOW = { prod: {}, cons: {}, t: 0 };           // накопители потоков за текущую секунду
+const RATE = { prod: {}, cons: {}, net: {} };        // сглаженные скорости в секунду
+const EFF = {};                                      // загрузка каждого типа зданий (0..1) на последнем шаге
+let lastSatisfaction = 1;                            // удовлетворённость жильцов
+let residentRate = 0, residentAcc = 0;
+let HIST = [];                                       // история для графика
+let histTimer = 0, secondTimer = 0;
+let offlineSim = false;                              // во время офлайн-симуляции волны и события на паузе
+RES_KEYS.forEach(r => { FLOW.prod[r] = 0; FLOW.cons[r] = 0; RATE.prod[r] = 0; RATE.cons[r] = 0; RATE.net[r] = 0; });
+
+/* =====================================================================
+   5. ЭКОНОМИКА: множители, цены, покупки
+   ===================================================================== */
+const lvl = id => state.tree[id] || 0;
+const tp = id => BALANCE.tree[id].per;
+const bOf = id => state.b[id];
+const nEff = id => Math.max(0, state.b[id].n - state.b[id].broken);
+const totalBuildings = s => BUILD_ORDER.reduce((a, id) => a + s.b[id].n, 0);
+const totalBroken = () => BUILD_ORDER.reduce((a, id) => a + state.b[id].broken, 0);
+const achCount = () => Object.keys(state.ach).length;
+
+function buffMult(key) {
+  let m = 1;
+  for (const b of state.buffs) if (b.key === key) m *= b.mult;
+  return m;
+}
+/** Общий множитель: кристаллы × достижения × глобальные баффы. */
+function globalMult() {
+  return (1 + state.prestige.total * BALANCE.prestige.bonusPerCrystal)
+       * (1 + achCount() * BALANCE.achievementBonus)
+       * buffMult('all');
+}
+function factoryMult() { return 1 + nEff('factory') * BALANCE.buildings.factory.bonus; }
+
+/** Множитель выхода ресурса res у здания id. */
+function outMult(id, res) {
+  let m = globalMult() * buffMult(res);
+  if (res === 'dust') m *= 1 + lvl('eco1') * tp('eco1');
+  if (id === 'drone') m *= 1 + lvl('aut2') * tp('aut2');
+  if (res === 'regolith' || res === 'bricks' || res === 'domes') m *= 1 + lvl('eco2') * tp('eco2');
+  if (BALANCE.factoryChain.includes(res)) m *= factoryMult();
+  return m;
+}
+function clickPower() { return BALANCE.click.base + lvl('aut1') * tp('aut1'); }
+function clickGain() { return clickPower() * outMult('click', 'dust'); }
+function taxMult() { return globalMult() * (1 + lvl('eco3') * tp('eco3')) * buffMult('tax'); }
+function needMult() { return Math.max(0.1, 1 - lvl('eco4') * tp('eco4')); }
+function housing() { return Math.floor(state.res.domes) * BALANCE.residents.housingPerDome; }
+function costGrowth() { return Math.max(1.05, BALANCE.costGrowth - lvl('aut4') * tp('aut4')); }
+
+function capOf(res) {
+  const S = BALANCE.storage;
+  switch (res) {
+    case 'energy': return S.energyBase + S.energyPerSolar * state.b.solar.n;
+    case 'oxygen': return S.lifeBase + S.lifePerBuilding * state.b.oxygen.n;
+    case 'heat':   return S.lifeBase + S.lifePerBuilding * state.b.heater.n;
+    case 'food':   return S.lifeBase + S.lifePerBuilding * state.b.greenhouse.n;
+    default: return Infinity;
+  }
+}
+
+/** Стоимость покупки amount штук здания: сумма геометрической прогрессии. */
+function costFor(id, amount) {
+  const def = BALANCE.buildings[id], n = state.b[id].n, g = costGrowth();
+  const f = Math.pow(g, n) * (Math.pow(g, amount) - 1) / (g - 1);
+  const out = {};
+  for (const r in def.cost) out[r] = Math.ceil(def.cost[r] * f);
+  return out;
+}
+/** Сколько штук здания можно купить прямо сейчас. */
+function maxAffordable(id) {
+  const def = BALANCE.buildings[id], n = state.b[id].n, g = costGrowth();
+  let m = Infinity;
+  for (const r in def.cost) {
+    const first = def.cost[r] * Math.pow(g, n);
+    const k = Math.floor(Math.log(state.res[r] * (g - 1) / first + 1) / Math.log(g));
+    m = Math.min(m, k);
+  }
+  m = Math.max(0, m);
+  while (m > 0 && !canAfford(costFor(id, m))) m--;   // защита от погрешности округления
+  return m;
+}
+function canAfford(cost) { for (const r in cost) if (state.res[r] < cost[r] - 1e-9) return false; return true; }
+function pay(cost) { for (const r in cost) state.res[r] -= cost[r]; }
+function buyAmountFor(id) {
+  const mode = state.settings.buy;
+  return mode === 'max' ? maxAffordable(id) : Number(mode);
+}
+function buyBuilding(id) {
+  const amount = buyAmountFor(id);
+  if (amount <= 0) return;
+  const cost = costFor(id, amount);
+  if (!canAfford(cost)) return;
+  pay(cost);
+  state.b[id].n += amount;
+  state.stats.buildingsBought += amount;
+  render(true);
+}
+/** Пауза для зданий-потребителей: например, остановить печи, чтобы накопить пыль на покупку. */
+function toggleBuilding(id) {
+  const b = state.b[id];
+  b.off = !b.off;
+  log(`${BALANCE.buildings[id].name}: ${b.off ? 'остановлено' : 'запущено'}`, 'info');
+  render(true);
+}
+function repairCost(id) {
+  const def = BALANCE.buildings[id], g = costGrowth(), n = Math.max(0, state.b[id].n - 1);
+  const k = BALANCE.repair.costFraction * Math.pow(g, n) * Math.max(0.1, 1 - lvl('aut5') * tp('aut5'));
+  const out = {};
+  for (const r in def.cost) out[r] = Math.ceil(def.cost[r] * k);
+  return out;
+}
+function repairBuilding(id) {
+  const b = state.b[id];
+  if (b.broken <= 0) return;
+  const cost = repairCost(id);
+  if (!canAfford(cost)) return;
+  pay(cost);
+  b.broken--;
+  render(true);
+}
+function isUnlocked(id) {
+  if (state.unlocked[id]) return true;
+  const def = BALANCE.buildings[id];
+  if (!def.unlock) return (state.unlocked[id] = true);
+  for (const r in def.unlock) if (state.peak[r] < def.unlock[r]) return false;
+  state.unlocked[id] = true;
+  log(`Открыто новое здание: ${def.name}`, 'info');
+  return true;
+}
+
+/* Изменение ресурсов с учётом статистики потоков */
+function gain(res, x) {
+  if (x <= 0) return;
+  state.res[res] += x;
+  FLOW.prod[res] += x;
+  if (res === 'credits') { state.run.credits += x; state.stats.totalCredits += x; }
+}
+function spend(res, x) {
+  if (x <= 0) return;
+  state.res[res] = Math.max(0, state.res[res] - x);
+  FLOW.cons[res] += x;
+}
+function addResource(res, x) {   // разовые изменения (события, награды)
+  if (x > 0) gain(res, x); else state.res[res] = Math.max(0, state.res[res] + x);
+}
+
+/* =====================================================================
+   6. СИМУЛЯЦИЯ — один фиксированный шаг
+   ===================================================================== */
+function tick(dt) {
+  const s = state;
+  s.time += dt;
+  s.stats.totalTime += dt;
+
+  // 6.1 Автокликеры
+  const ac = nEff('autoclicker');
+  if (ac > 0) gain('dust', ac * BALANCE.buildings.autoclicker.clicks * clickGain() * dt);
+
+  // 6.2 Здания по порядку: каждое берёт входные ресурсы, сколько есть, и выдаёт продукт пропорционально
+  const anyBroken = totalBroken() > 0;
+  for (const id of BUILD_ORDER) {
+    const def = BALANCE.buildings[id];
+    const n = nEff(id);
+    if (n <= 0) { EFF[id] = 0; continue; }
+    if (!def.prod && !def.cons) { EFF[id] = 1; continue; }
+    if (s.b[id].off) { EFF[id] = 0; continue; }                      // здание поставлено на паузу игроком
+    if (id === 'repair' && !anyBroken) { EFF[id] = 1; continue; }   // станции простаивают без поломок
+    let ratio = 1;
+    if (def.cons) {
+      for (const r in def.cons) {
+        const need = def.cons[r] * n * dt;
+        if (need > 0) ratio = Math.min(ratio, s.res[r] / need);
+      }
+      ratio = clamp(ratio, 0, 1);
+      for (const r in def.cons) spend(r, def.cons[r] * n * dt * ratio);
+    }
+    if (def.prod) for (const r in def.prod) gain(r, def.prod[r] * n * dt * ratio * outMult(id, r));
+    EFF[id] = ratio;
+  }
+
+  // 6.3 Жильцы, ремонт, ограничения складов
+  residentsTick(dt);
+  repairTick(dt);
+  for (const r of RES_KEYS) {
+    const cap = capOf(r);
+    if (s.res[r] > cap) s.res[r] = cap;
+    if (s.res[r] > s.peak[r]) s.peak[r] = s.res[r];
+  }
+
+  // 6.4 Временные эффекты, волны, события
+  if (s.buffs.length) s.buffs = s.buffs.filter(b => b.until > s.time);
+  if (!offlineSim) {
+    s.wave.timeLeft -= dt;
+    if (s.wave.timeLeft <= 0) resolveWave();
+    if (!s.event.active) {
+      s.event.nextIn -= dt;
+      if (s.event.nextIn <= 0) triggerEvent();
+    }
+  }
+
+  // 6.5 Раз в секунду: сглаженные скорости, открытия, достижения
+  secondTimer += dt;
+  if (secondTimer >= 1) {
+    for (const r of RES_KEYS) {
+      const p = FLOW.prod[r] / secondTimer, c = FLOW.cons[r] / secondTimer;
+      RATE.prod[r] = RATE.prod[r] * 0.5 + p * 0.5;
+      RATE.cons[r] = RATE.cons[r] * 0.5 + c * 0.5;
+      RATE.net[r] = RATE.prod[r] - RATE.cons[r];
+      FLOW.prod[r] = 0; FLOW.cons[r] = 0;
+    }
+    residentRate = residentRate * 0.5 + (residentAcc / secondTimer) * 0.5; residentAcc = 0;
+    secondTimer = 0;
+    BUILD_ORDER.forEach(isUnlocked);
+    if (s.residents > s.stats.maxResidents) s.stats.maxResidents = s.residents;
+    if (!offlineSim) checkAchievements();
+  }
+
+  // 6.6 История для графика
+  histTimer += dt;
+  if (histTimer >= BALANCE.history.sampleSeconds) {
+    histTimer = 0;
+    const point = { residents: s.residents };
+    for (const r of RES_KEYS) point[r] = s.res[r];
+    HIST.push(point);
+    if (HIST.length > BALANCE.history.points) HIST.shift();
+  }
+}
+
+/** Жильцы: потребляют воздух/тепло/еду, платят налоги, прибывают и уезжают. */
+function residentsTick(dt) {
+  const s = state, R = BALANCE.residents;
+  const cap = housing();
+  let r = s.residents;
+  let sat = 1;
+  if (r > 0) {
+    const nm = needMult();
+    for (const k in R.needs) {
+      const req = r * R.needs[k] * nm * dt;
+      if (req > 0) sat = Math.min(sat, s.res[k] / req);
+    }
+    sat = clamp(sat, 0, 1);
+    for (const k in R.needs) spend(k, r * R.needs[k] * nm * dt * sat);
+    gain('credits', r * R.tax * taxMult() * sat * dt);
+  }
+  lastSatisfaction = sat;
+  const before = r;
+  const suppliesOk = Object.keys(R.needs).every(k => s.res[k] > 0.5);
+  if (sat < 0.999) r -= r * (1 - sat) * R.leaveRate * dt;                       // дефицит — люди уезжают
+  else if (r < cap && suppliesOk) r = Math.min(cap, r + (R.immigrationBase + cap * R.immigrationPct) * dt);
+  if (r > cap) r = Math.max(cap, r - Math.max(0.2, r * 0.05) * dt);          // теснота — тоже уезжают
+  s.residents = Math.max(0, r);
+  residentAcc += s.residents - before;
+}
+
+/** Ремонтные станции постепенно чинят сломанные здания. */
+function repairTick(dt) {
+  const n = nEff('repair');
+  if (n <= 0 || totalBroken() === 0) { state.repairProgress = 0; return; }
+  const speed = (1 + lvl('aut5') * tp('aut5')) * (EFF.repair ?? 1);
+  state.repairProgress += n * speed * dt / BALANCE.repairStation.interval;
+  while (state.repairProgress >= 1 && totalBroken() > 0) {
+    state.repairProgress -= 1;
+    const pick = weightedPick(BUILD_ORDER, id => state.b[id].broken);
+    if (pick) { state.b[pick].broken--; if (!offlineSim) log(`Ремонтники восстановили: ${BALANCE.buildings[pick].name}`, 'good'); }
+  }
+}
+
+/* =====================================================================
+   7. ВОЛНЫ И ОБОРОНА
+   ===================================================================== */
+function scheduleWave(s, delay) {
+  const W = BALANCE.waves;
+  const types = Object.keys(W.types);
+  s.wave.type = types[Math.floor(Math.random() * types.length)];
+  s.wave.strength = W.baseStrength * Math.pow(W.growth, s.wave.num - 1) * rand(1 - W.jitter, 1 + W.jitter);
+  const spread = Math.max(0, W.forecastSpread - (s.tree.def3 || 0) * BALANCE.tree.def3.per);
+  // Настоящая сила всегда внутри диапазона прогноза
+  s.wave.lo = s.wave.strength * (1 - spread * rand(0.3, 1));
+  s.wave.hi = s.wave.strength * (1 + spread * rand(0.3, 1));
+  s.wave.timeLeft = delay;
+  s.wave.total = delay;
+}
+
+/** Мощь обороны против волны указанного типа (учитывает энергию, поломки, улучшения). */
+function defensePower(type) {
+  const T = BALANCE.waves.types[type], B = BALANCE.buildings;
+  const turrets = nEff('turret') * B.turret.power * (EFF.turret ?? 1) * (1 + lvl('def1') * tp('def1')) * T.turret;
+  const shields = nEff('shield') * B.shield.power * (EFF.shield ?? 1) * (1 + lvl('def2') * tp('def2')) * T.shield;
+  const merc = state.mercWaves > 0 ? BALANCE.events.tuning.truce.mercMult : 1;
+  return (turrets + shields) * buffMult('defense') * merc;
+}
+function breakReduction() {
+  const R = BALANCE.repairStation;
+  const st = Math.min(R.breakReductionCap, nEff('repair') * R.breakReduction);
+  return clamp(1 - (1 - st) * (1 - lvl('def4') * tp('def4')), 0, 0.9);
+}
+
+/** Ломает count случайных работающих зданий. weightFn позволяет целиться в определённые типы. */
+function breakRandom(count, weightFn = () => 1) {
+  const broken = {};
+  for (let i = 0; i < count; i++) {
+    const pick = weightedPick(BUILD_ORDER, id => nEff(id) * weightFn(id));
+    if (!pick) break;
+    state.b[pick].broken++;
+    broken[pick] = (broken[pick] || 0) + 1;
+  }
+  return broken;
+}
+function breakSpecific(id, count) {
+  const k = Math.min(count, nEff(id));
+  state.b[id].broken += k;
+  return k;
+}
+
+function resolveWave() {
+  const s = state, W = BALANCE.waves, T = W.types[s.wave.type];
+  const strength = s.wave.strength * s.waveMod;
+  const def = defensePower(s.wave.type);
+  const win = def >= strength;
+  s.waveHistory.push({ n: s.wave.num, type: s.wave.type, str: strength, def, win });
+  if (s.waveHistory.length > 14) s.waveHistory.shift();
+
+  if (win) {
+    const reward = strength * W.rewardPerStrength * (1 + lvl('def5') * tp('def5')) * s.rewardMod;
+    gain('credits', reward);
+    s.stats.wavesWon++; s.run.wavesWon++;
+    log(`Волна №${s.wave.num} (${T.name}) отбита: ${fmt(def)} против ${fmt(strength)}. Трофеи: +${fmt(reward)} кредитов.`, 'good');
+    toast(`Волна №${s.wave.num} отбита! +${fmt(reward)} кредитов`, 'good');
+  } else {
+    const deficit = 1 - def / strength;
+    let count = Math.max(1, Math.round(deficit * (W.breakBase + s.wave.num * W.breakPerWave) * (1 - breakReduction())));
+    const weight = T.autoWeight ? (id => BALANCE.buildings[id].auto ? T.autoWeight : 1) : undefined;
+    const broken = breakRandom(count, weight);
+    const list = Object.entries(broken).map(([id, k]) => `${BALANCE.buildings[id].name} ×${k}`).join(', ') || 'ничего — ломать было нечего';
+    let stolen = '';
+    if (T.steal) {
+      const frac = T.steal * deficit;
+      const parts = [];
+      for (const r of ['dust', 'regolith', 'bricks', 'credits']) {
+        const x = state.res[r] * frac;
+        if (x >= 1) { state.res[r] -= x; parts.push(`${fmt(x)} ${RES[r].gen}`); }
+      }
+      if (parts.length) stolen = ` Украдено: ${parts.join(', ')}.`;
+    }
+    s.stats.wavesLost++;
+    log(`Прорыв! Волна №${s.wave.num} (${T.name}): ${fmt(def)} против ${fmt(strength)}. Сломано: ${list}.${stolen}`, 'bad');
+    toast(`Оборона прорвана! Сломано зданий: ${Object.values(broken).reduce((a, b) => a + b, 0)}`, 'bad');
+    hitEffect();
+  }
+
+  // Сбрасываем разовые модификаторы событий
+  s.waveMod = 1; s.rewardMod = 1;
+  if (s.mercWaves > 0) s.mercWaves--;
+  s.wave.num++;
+  if (s.wave.num > s.stats.bestWave) s.stats.bestWave = s.wave.num;
+  scheduleWave(s, rand(W.intervalMin, W.intervalMax));
+  checkAchievements();
+}
+
+/* =====================================================================
+   8. СОБЫТИЯ С ВЫБОРОМ
+   Каждое событие: cond(s) — может ли случиться; make(s) — фиксирует цены
+   на момент появления; choices(p) — варианты (cost, apply).
+   ===================================================================== */
+const ET = BALANCE.events.tuning;
+/** Цена «в секундах производства»: так события масштабируются вместе с базой. */
+const scaled = (res, sec, min) => Math.max(min, Math.round(RATE.prod[res] * sec));
+function addBuff(key, mult, dur, label) { state.buffs.push({ key, mult, until: state.time + dur, label }); }
+
+const EVENTS = [
+  {
+    id: 'dustStorm', title: 'Электростатическая буря', cond: () => true,
+    text: 'Над кратером поднялась пылевая буря. Частицы липнут к оптике, видимость почти нулевая. Бригадир ждёт решения.',
+    make: () => ({}),
+    choices: () => [
+      { label: 'Переждать в укрытии', desc: `Добыча пыли ×${ET.dustStorm.shelterMult} на ${ET.dustStorm.dur} с. Все целы.`,
+        apply: () => addBuff('dust', ET.dustStorm.shelterMult, ET.dustStorm.dur, 'Буря: укрытие') },
+      { label: 'Работать в бурю', desc: `Пыль липнет сама: добыча ×${ET.dustStorm.workMult} на ${ET.dustStorm.dur} с, но один рабочий выйдет из строя.`,
+        apply: () => { addBuff('dust', ET.dustStorm.workMult, ET.dustStorm.dur, 'Буря: аврал'); breakSpecific('worker', 1); } },
+    ],
+  },
+  {
+    id: 'cache', title: 'Тайник старой экспедиции', cond: s => s.time > 60,
+    text: 'Рабочие откопали запечатанные контейнеры и бортовой журнал экспедиции, пропавшей полвека назад.',
+    make: () => ({ dust: scaled('dust', ET.cache.dustSec, ET.cache.dustMin), reg: scaled('regolith', ET.cache.regSec, ET.cache.regMin), cred: scaled('credits', ET.cache.credSec, ET.cache.credMin) }),
+    choices: p => [
+      { label: 'Вскрыть контейнеры', desc: `+${fmt(p.dust)} пыли из старых фильтров.`, apply: () => addResource('dust', p.dust) },
+      { label: 'Сдать на переработку', desc: `+${fmt(p.reg)} реголита из обшивки.`, apply: () => addResource('regolith', p.reg) },
+      { label: 'Передать архивы музею Земли', desc: `+${fmt(p.cred)} кредитов, но контейнеры уйдут вместе с архивом.`, apply: () => addResource('credits', p.cred) },
+    ],
+  },
+  {
+    id: 'crack', title: 'Трещина в куполе', cond: s => s.res.domes >= 1 && s.residents >= 3,
+    text: 'Датчики фиксируют микротрещину в одном из жилых куполов. Давление медленно падает.',
+    make: () => ({ bricks: scaled('bricks', ET.crack.patchSec, ET.crack.patchMin) }),
+    choices: p => [
+      { label: 'Залатать кирпичами', desc: 'Надёжный ремонт, жизнь продолжается.', cost: { bricks: p.bricks }, apply: () => {} },
+      { label: 'Эвакуировать сектор', desc: `Уедут ${pct(ET.crack.evacuate)} жильцов, зато без риска.`,
+        apply: () => { state.residents *= 1 - ET.crack.evacuate; } },
+      { label: 'Рискнуть и ждать', desc: `Шанс ${pct(ET.crack.riskChance)}, что трещина разойдётся: купол будет потерян вместе с частью жильцов.`,
+        apply: () => {
+          if (Math.random() < ET.crack.riskChance) {
+            state.res.domes = Math.max(0, state.res.domes - 1);
+            state.residents *= 1 - ET.crack.riskResidents;
+            log('Трещина разошлась — купол потерян.', 'bad');
+          } else log('Трещина затянулась пылью и льдом. Повезло.', 'good');
+        } },
+    ],
+  },
+  {
+    id: 'refugees', title: 'Беженцы с орбиты', cond: s => s.residents >= 5,
+    text: 'Аварийный челнок со станции «Гелиос» просит посадки. На борту инженеры и их семьи.',
+    make: () => ({ add: Math.max(2, Math.round(housing() * ET.refugees.acceptPct)), food: scaled('food', ET.refugees.foodSec, ET.refugees.foodMin), cred: scaled('credits', ET.refugees.engSec, ET.refugees.engMin) }),
+    choices: p => [
+      { label: 'Принять всех', desc: `+${p.add} жильцов (сверх мест — временно), нужен запас еды.`, cost: { food: p.food },
+        apply: () => { state.residents += p.add; } },
+      { label: 'Принять только инженеров', desc: `Оплатить переселение: всё производство ×${ET.refugees.engMult} на ${ET.refugees.engDur} с.`, cost: { credits: p.cred },
+        apply: () => addBuff('all', ET.refugees.engMult, ET.refugees.engDur, 'Инженеры с «Гелиоса»') },
+      { label: 'Отказать в посадке', desc: `Репутация колонии упадёт: налоги ×${ET.refugees.refuseTax} на ${ET.refugees.refuseDur} с.`,
+        apply: () => addBuff('tax', ET.refugees.refuseTax, ET.refugees.refuseDur, 'Позор колонии') },
+    ],
+  },
+  {
+    id: 'flare', title: 'Солнечная вспышка', cond: s => s.b.solar.n >= 3,
+    text: 'Обсерватория предупреждает о мощной вспышке класса X. Через минуту поток частиц накроет базу.',
+    make: () => ({}),
+    choices: () => [
+      { label: 'Свернуть панели', desc: `Энергия ×${ET.flare.shelterMult} на ${ET.flare.shelterDur} с. Оборудование в безопасности.`,
+        apply: () => addBuff('energy', ET.flare.shelterMult, ET.flare.shelterDur, 'Панели свёрнуты') },
+      { label: 'Перегрузить панели', desc: `Энергия ×${ET.flare.overMult} на ${ET.flare.overDur} с, но шанс ${pct(ET.flare.overBreakChance)} сжечь до ${ET.flare.overBreakMax} панелей.`,
+        apply: () => {
+          addBuff('energy', ET.flare.overMult, ET.flare.overDur, 'Перегрузка панелей');
+          if (Math.random() < ET.flare.overBreakChance) {
+            const k = breakSpecific('solar', randInt(1, ET.flare.overBreakMax));
+            log(`Вспышка сожгла солнечных панелей: ${k}.`, 'bad');
+          }
+        } },
+    ],
+  },
+  {
+    id: 'caravan', title: 'Торговый караван', cond: s => s.peak.regolith >= 100,
+    text: 'Вездеходы вольных торговцев остановились у шлюза. Они готовы торговать, но спешат.',
+    make: () => { const reg = scaled('regolith', ET.caravan.regSec, ET.caravan.regMin); return { reg, cred: Math.round(reg * ET.caravan.credPerReg), price: scaled('credits', ET.caravan.droneSec, ET.caravan.droneMin) }; },
+    choices: p => [
+      { label: 'Продать реголит', desc: `Получить ${fmt(p.cred)} кредитов.`, cost: { regolith: p.reg }, apply: () => addResource('credits', p.cred) },
+      { label: 'Купить списанных дронов', desc: `+${ET.caravan.drones} дрона-сборщика без роста цены.`, cost: { credits: p.price },
+        apply: () => { state.b.drone.n += ET.caravan.drones; state.unlocked.drone = true; } },
+      { label: 'Отпустить караван', desc: 'Ничего не меняется.', apply: () => {} },
+    ],
+  },
+  {
+    id: 'strike', title: 'Забастовка рабочих', cond: s => s.b.worker.n >= 5,
+    text: 'Уборщики устали глотать пыль и требуют двойной паёк. Метлы брошены у шлюза.',
+    make: () => ({ food: scaled('food', ET.strike.foodSec, ET.strike.foodMin) }),
+    choices: p => [
+      { label: 'Выдать двойной паёк', desc: `Довольные рабочие: всё производство ×${ET.strike.rationMult} на ${ET.strike.rationDur} с.`, cost: { food: p.food },
+        apply: () => addBuff('all', ET.strike.rationMult, ET.strike.rationDur, 'Сытые рабочие') },
+      { label: 'Заставить работать', desc: `Добыча пыли ×${ET.strike.forceMult} на ${ET.strike.forceDur} с, но ${pct(ET.strike.forceLeave)} жильцов уедут в знак протеста.`,
+        apply: () => { addBuff('dust', ET.strike.forceMult, ET.strike.forceDur, 'Принудительный аврал'); state.residents *= 1 - ET.strike.forceLeave; } },
+      { label: 'Игнорировать', desc: `Забастовка продолжится: добыча пыли ×${ET.strike.ignoreMult} на ${ET.strike.ignoreDur} с.`,
+        apply: () => addBuff('dust', ET.strike.ignoreMult, ET.strike.ignoreDur, 'Забастовка') },
+    ],
+  },
+  {
+    id: 'probe', title: 'Обломок древнего зонда', cond: s => s.wave.num >= 2,
+    text: 'В воронке от метеорита найден зонд неизвестной конструкции. Его сенсоры всё ещё что-то сканируют.',
+    make: () => ({ study: scaled('credits', ET.probe.studySec, ET.probe.studyMin), sell: scaled('credits', ET.probe.sellSec, ET.probe.sellMin), scrap: scaled('bricks', ET.probe.scrapSec, ET.probe.scrapMin) }),
+    choices: p => [
+      { label: 'Изучить сенсоры', desc: `Данные о траекториях: следующая волна слабее (×${ET.probe.studyWave}).`, cost: { credits: p.study },
+        apply: () => { state.waveMod *= ET.probe.studyWave; } },
+      { label: 'Продать коллекционерам', desc: `+${fmt(p.sell)} кредитов.`, apply: () => addResource('credits', p.sell) },
+      { label: 'Разобрать на детали', desc: `+${fmt(p.scrap)} кирпичей из сверхпрочного сплава.`, apply: () => addResource('bricks', p.scrap) },
+    ],
+  },
+  {
+    id: 'leak', title: 'Утечка кислорода', cond: s => s.b.oxygen.n >= 1 && s.residents >= 3,
+    text: 'В магистрали генератора O₂ лопнул клапан. Воздух уходит в вакуум.',
+    make: () => ({ bricks: scaled('bricks', ET.leak.bricksSec, ET.leak.bricksMin) }),
+    choices: p => [
+      { label: 'Срочный ремонт', desc: 'Перекрыть утечку на ходу — нужны кирпичи и энергия.', cost: { bricks: p.bricks, energy: ET.leak.energyCost }, apply: () => {} },
+      { label: 'Перекрыть сектор', desc: `Потеря ${pct(ET.leak.sealO2)} запаса кислорода, ${pct(ET.leak.sealResidents)} жильцов уедут.`,
+        apply: () => { state.res.oxygen *= 1 - ET.leak.sealO2; state.residents *= 1 - ET.leak.sealResidents; } },
+    ],
+  },
+  {
+    id: 'truce', title: 'Посланник мародёров', cond: s => s.wave.num >= 3,
+    text: 'К шлюзу подъехал багги под белым флагом. Главарь мародёров предлагает сделку.',
+    make: () => ({ tribute: scaled('credits', ET.truce.tributeSec, ET.truce.tributeMin), merc: scaled('credits', ET.truce.mercSec, ET.truce.mercMin) }),
+    choices: p => [
+      { label: 'Заплатить дань', desc: `Следующая волна ослабнет (×${ET.truce.tributeWave}).`, cost: { credits: p.tribute },
+        apply: () => { state.waveMod *= ET.truce.tributeWave; } },
+      { label: 'Нанять их как наёмников', desc: `Оборона ×${ET.truce.mercMult} на ${ET.truce.mercWaves} волны.`, cost: { credits: p.merc },
+        apply: () => { state.mercWaves = ET.truce.mercWaves; } },
+      { label: 'Прогнать', desc: `Следующая волна злее (×${ET.truce.refuseWave}), зато награда за неё ×${ET.truce.refuseReward}.`,
+        apply: () => { state.waveMod *= ET.truce.refuseWave; state.rewardMod *= ET.truce.refuseReward; } },
+    ],
+  },
+];
+const EVENT_BY_ID = Object.fromEntries(EVENTS.map(e => [e.id, e]));
+
+function triggerEvent() {
+  const s = state;
+  const pool = EVENTS.filter(e => e.id !== s.event.last && e.cond(s));
+  const ev = pool[Math.floor(Math.random() * pool.length)];
+  s.event.nextIn = rand(BALANCE.events.intervalMin, BALANCE.events.intervalMax);
+  if (!ev) return;
+  s.event.active = { id: ev.id, params: ev.make(s) };
+  s.event.last = ev.id;
+  toast(`Событие: ${ev.title}`, 'warn');
+}
+function resolveEventChoice(index) {
+  const a = state.event.active;
+  if (!a) return;
+  const ev = EVENT_BY_ID[a.id];
+  const choice = ev.choices(a.params)[index];
+  if (!choice) return;
+  if (choice.cost && !canAfford(choice.cost)) return;
+  if (choice.cost) pay(choice.cost);
+  choice.apply();
+  state.stats.events++;
+  state.event.active = null;
+  log(`${ev.title}: «${choice.label}»`, 'warn');
+  closeModal();
+  checkAchievements();
+  render(true);
+}
+
+/* =====================================================================
+   9. ПРЕСТИЖ И ДЕРЕВО УЛУЧШЕНИЙ
+   ===================================================================== */
+function prestigeGain() {
+  const P = BALANCE.prestige;
+  return Math.floor(Math.sqrt(state.run.credits / P.creditsPerCrystal)) + Math.floor(state.run.wavesWon / P.wavesPerCrystal);
+}
+function nextCrystalCredits() {
+  const k = Math.floor(Math.sqrt(state.run.credits / BALANCE.prestige.creditsPerCrystal));
+  return Math.pow(k + 1, 2) * BALANCE.prestige.creditsPerCrystal;
+}
+function doPrestige() {
+  const gainC = prestigeGain();
+  if (gainC < 1) return;
+  const keep = { prestige: state.prestige, tree: state.tree, ach: state.ach, stats: state.stats, settings: state.settings, log: state.log };
+  state = newState();
+  Object.assign(state, keep);
+  state.prestige.crystals += gainC;
+  state.prestige.total += gainC;
+  state.prestige.count++;
+  applyStartKit();
+  resetTransient();
+  log(`Эвакуация завершена. Получено кристаллов: ${gainC}. Новая база основана.`, 'info');
+  toast(`+${gainC} лунных кристаллов`, 'gold');
+  checkAchievements();
+  render(true);
+}
+function applyStartKit() {
+  const k = lvl('eco5');
+  if (!k) return;
+  for (const r in BALANCE.startKit) { state.res[r] += BALANCE.startKit[r] * k; state.peak[r] = Math.max(state.peak[r], state.res[r]); }
+}
+function treeCost(id) { const d = BALANCE.tree[id]; return Math.ceil(d.cost * Math.pow(d.costMult, lvl(id))); }
+function treeAvailable(id) { const d = BALANCE.tree[id]; return !d.req || lvl(d.req) >= 1; }
+function buyTree(id) {
+  const d = BALANCE.tree[id];
+  if (lvl(id) >= d.max || !treeAvailable(id)) return;
+  const c = treeCost(id);
+  if (state.prestige.crystals < c) return;
+  state.prestige.crystals -= c;
+  state.tree[id] = lvl(id) + 1;
+  log(`Изучено: ${TREE_TEXT[id].name} (ур. ${state.tree[id]})`, 'info');
+  checkAchievements();
+  render(true);
+}
+
+/* =====================================================================
+   10. ДОСТИЖЕНИЯ, ЖУРНАЛ, УВЕДОМЛЕНИЯ
+   ===================================================================== */
+function checkAchievements() {
+  for (const a of ACHIEVEMENTS) {
+    if (!state.ach[a.id] && a.check(state)) {
+      state.ach[a.id] = true;
+      if (!offlineSim) { toast(`Достижение: ${a.name} (+${pct(BALANCE.achievementBonus)} к производству)`, 'gold'); markTab('ach', true); }
+      log(`Достижение получено: «${a.name}»`, 'good');
+    }
+  }
+}
+let logDirty = true;
+function log(text, type = 'info') {
+  state.log.unshift({ t: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }), text, type });
+  if (state.log.length > 60) state.log.length = 60;
+  logDirty = true;
+}
+function toast(text, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = text;
+  $('#toasts').appendChild(el);
+  while ($('#toasts').children.length > 4) $('#toasts').firstChild.remove();
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 320); }, 4200);
+}
+function hitEffect() {
+  const f = $('#hitFlash');
+  f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
+  document.body.classList.add('shake');
+  setTimeout(() => document.body.classList.remove('shake'), 500);
+}
+
+/* =====================================================================
+   11. СОХРАНЕНИЕ, ЭКСПОРТ, ИМПОРТ, ОФЛАЙН-ПРОГРЕСС
+   ===================================================================== */
+function save(showIndicator = false) {
+  state.lastSave = Date.now();
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    if (showIndicator) $('#saveInd').textContent = 'Сохранено ' + new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch (e) { $('#saveInd').textContent = 'Ошибка сохранения'; }
+}
+function encodeSave() { return btoa(unescape(encodeURIComponent(JSON.stringify(state)))); }
+function decodeSave(str) {
+  str = str.trim();
+  const json = str.startsWith('{') ? str : decodeURIComponent(escape(atob(str)));
+  const obj = JSON.parse(json);
+  if (!obj || typeof obj !== 'object' || !obj.res || !obj.b) throw new Error('Не похоже на сохранение');
+  return obj;
+}
+function loadFrom(obj) {
+  state = mergeDeep(newState(), obj);
+  // Гарантируем наличие всех зданий и ресурсов, если сохранение старое
+  for (const id of BUILD_ORDER) state.b[id] = { n: 0, broken: 0, off: false, ...(state.b[id] || {}) };
+  for (const r of RES_KEYS) { if (typeof state.res[r] !== 'number' || !isFinite(state.res[r])) state.res[r] = 0; }
+  if (state.event.active && !EVENT_BY_ID[state.event.active.id]) state.event.active = null;
+  resetTransient();
+}
+function resetTransient() {
+  HIST = []; histTimer = 0; secondTimer = 0;
+  for (const r of RES_KEYS) { FLOW.prod[r] = FLOW.cons[r] = RATE.prod[r] = RATE.cons[r] = RATE.net[r] = 0; }
+  for (const id of BUILD_ORDER) delete EFF[id];
+  logDirty = true;
+}
+
+/** Офлайн-прогресс: симулирует часть отсутствия крупным шагом. Волны и события на паузе. */
+function applyOffline(seconds) {
+  const O = BALANCE.offline;
+  const capped = Math.min(seconds, O.maxHours * 3600);
+  const efficiency = Math.min(1, O.efficiency + lvl('aut3') * tp('aut3'));
+  const simSeconds = capped * efficiency;
+  if (simSeconds < 1) return;
+  const before = { ...state.res, residents: state.residents };
+  offlineSim = true;
+  const step = 1;
+  let left = simSeconds;
+  while (left > 0) { const d = Math.min(step, left); tick(d); left -= d; }
+  offlineSim = false;
+  checkAchievements();
+  const lines = [];
+  for (const r of RES_KEYS) {
+    const d = state.res[r] - before[r];
+    if (Math.abs(d) >= 0.5 && !RES[r].capped) lines.push(`<div><span>${RES[r].name}</span><span class="${d >= 0 ? 'good' : 'bad'} num">${d >= 0 ? '+' : ''}${fmt(d)}</span></div>`);
+  }
+  const dr = state.residents - before.residents;
+  if (Math.abs(dr) >= 1) lines.push(`<div><span>Жильцы</span><span class="${dr >= 0 ? 'good' : 'bad'} num">${dr >= 0 ? '+' : ''}${fmt(dr)}</span></div>`);
+  log(`Офлайн-прогресс: ${fmtTime(capped)} (эффективность ${pct(efficiency)}).`, 'info');
+  showModal({
+    kicker: 'С возвращением',
+    title: 'Пока вас не было',
+    html: `<p>Прошло ${fmtTime(seconds)}${seconds > capped ? ` (учтено ${O.maxHours} ч)` : ''}. База работала на ${pct(efficiency)} мощности, волны и события ждали вас.</p>
+           <div class="summary-list">${lines.join('') || '<div><span>Изменений нет</span><span></span></div>'}</div>`,
+    buttons: [{ label: 'Продолжить', cls: 'primary', onClick: closeModal }],
+  });
+}
+
+/* =====================================================================
+   12. ИНТЕРФЕЙС: построение
+   ===================================================================== */
+const UI = { res: {}, bld: {}, tree: {}, ach: {} };
+let activeTab = 'prod';
+let chartRes = 'dust';
+
+function buildUI() {
+  // Ресурсы
+  const list = $('#resList');
+  let lastGroup = '';
+  for (const r of RES_KEYS) {
+    const meta = RES[r];
+    if (meta.group !== lastGroup) {
+      const sec = document.createElement('div');
+      sec.className = 'res-section'; sec.textContent = meta.group; sec.dataset.group = meta.group;
+      list.appendChild(sec); lastGroup = meta.group;
+    }
+    const row = document.createElement('div');
+    row.className = 'res-row';
+    row.innerHTML = `<span class="dot" style="background:${meta.color};color:${meta.color}"></span>
+      <span class="rname">${meta.name}</span><span class="rval num">0</span>
+      <div class="rrate num"><span class="rnet">0/с</span><span class="rcap"></span></div>
+      ${meta.capped ? `<div class="bar"><i style="background:${meta.color}"></i></div>` : ''}`;
+    list.appendChild(row);
+    UI.res[r] = { row, val: $('.rval', row), net: $('.rnet', row), cap: $('.rcap', row), bar: $('.bar > i', row) };
+  }
+
+  // Здания
+  for (const id of BUILD_ORDER) {
+    const def = BALANCE.buildings[id];
+    const el = document.createElement('div');
+    el.className = 'card bld';
+    el.style.setProperty('--cat', CAT_COLOR[def.cat]);
+    el.innerHTML = `
+      <div class="bld-head"><div class="bld-name">${def.name}</div><div class="bld-count num"></div></div>
+      <div class="bld-desc">${def.desc}</div>
+      <div class="bld-stats"></div>
+      <div class="eff"><span class="eff-lbl">Загрузка</span><div class="bar"><i></i></div><span class="eff-val num"></span></div>
+      <div class="bld-cost"></div>
+      <div class="bld-actions"><button class="btn grow buy"></button><button class="btn toggle small" style="display:none"></button><button class="btn repair" style="display:none"></button></div>`;
+    $(`#grid-${def.cat}`).appendChild(el);
+    const ui = { el, count: $('.bld-count', el), stats: $('.bld-stats', el), eff: $('.eff', el), effBar: $('.eff .bar > i', el),
+      effVal: $('.eff-val', el), cost: $('.bld-cost', el), buy: $('.buy', el), repair: $('.repair', el), toggle: $('.toggle', el), desc: $('.bld-desc', el) };
+    ui.buy.addEventListener('click', () => buyBuilding(id));
+    ui.toggle.addEventListener('click', () => toggleBuilding(id));
+    ui.repair.addEventListener('click', () => repairBuilding(id));
+    UI.bld[id] = ui;
+  }
+
+  // Дерево
+  const tree = $('#tree');
+  for (const br in BRANCHES) {
+    const col = document.createElement('div');
+    col.className = 'branch';
+    col.style.setProperty('--branch', BRANCHES[br].color);
+    col.innerHTML = `<h4><span class="sw" style="background:${BRANCHES[br].color}"></span>${BRANCHES[br].name}</h4>`;
+    // порядок: обход в глубину, чтобы дочерние узлы шли под родителем
+    const ids = Object.keys(BALANCE.tree).filter(id => BALANCE.tree[id].branch === br);
+    const ordered = [];
+    const visit = (parent, depth) => ids.filter(id => BALANCE.tree[id].req === parent).forEach(id => { ordered.push([id, depth]); visit(id, depth + 1); });
+    visit(null, 0);
+    for (const [id, depth] of ordered) {
+      const d = BALANCE.tree[id];
+      const node = document.createElement('div');
+      node.className = `node depth-${Math.min(depth, 2)}`;
+      node.innerHTML = `
+        <div class="node-head"><span>${TREE_TEXT[id].name}</span><span class="node-lvl num"></span></div>
+        <div class="pips">${'<i></i>'.repeat(d.max)}</div>
+        <div class="node-desc">${TREE_TEXT[id].desc(d.per)}</div>
+        <div class="node-req dim" style="font-size:11.5px"></div>
+        <button class="btn small"></button>`;
+      col.appendChild(node);
+      const ui = { node, lvl: $('.node-lvl', node), pips: [...node.querySelectorAll('.pips i')], req: $('.node-req', node), btn: $('button', node) };
+      ui.btn.addEventListener('click', () => buyTree(id));
+      UI.tree[id] = ui;
+    }
+    tree.appendChild(col);
+  }
+
+  // Достижения
+  const ag = $('#achGrid');
+  ACHIEVEMENTS.forEach((a, i) => {
+    const el = document.createElement('div');
+    el.className = 'ach';
+    el.innerHTML = `<div class="medal">${i + 1}</div><div><div class="t">${a.name}</div><div class="d">${a.desc}</div></div>`;
+    ag.appendChild(el);
+    UI.ach[a.id] = el;
+  });
+
+  // Графики
+  const chips = $('#chartChips');
+  for (const k of ['dust', 'regolith', 'bricks', 'credits', 'residents', 'energy']) {
+    const b = document.createElement('button');
+    b.textContent = k === 'residents' ? 'Жильцы' : RES[k].name;
+    b.dataset.k = k;
+    if (k === chartRes) b.classList.add('active');
+    b.addEventListener('click', () => { chartRes = k; chips.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b)); drawCharts(); });
+    chips.appendChild(b);
+  }
+
+  // Вкладки
+  $('#tabs').addEventListener('click', e => {
+    const t = e.target.closest('.tab'); if (!t) return;
+    activeTab = t.dataset.tab;
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + activeTab));
+    $('#buyToolbar').style.display = ['prod', 'life', 'def'].includes(activeTab) ? '' : 'none';
+    markTab(activeTab, false);
+    render(true);
+  });
+  $('#buySeg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.settings.buy = b.dataset.buy;
+    render(true);
+  });
+
+  // Клик
+  const cb = $('#clickBtn');
+  cb.addEventListener('click', e => {
+    const g = clickGain();
+    gain('dust', g);
+    state.stats.clicks++;
+    const f = document.createElement('div');
+    f.className = 'floater num';
+    f.textContent = '+' + fmt(g);
+    const rect = cb.getBoundingClientRect();
+    const x = (e.clientX || rect.left + rect.width / 2) - rect.left, y = (e.clientY || rect.top + rect.height / 2) - rect.top;
+    f.style.left = x + 'px'; f.style.top = (y - 10) + 'px';
+    cb.appendChild(f);
+    setTimeout(() => f.remove(), 900);
+  });
+
+  // Престиж
+  $('#prestigeBtn').addEventListener('click', () => {
+    const g = prestigeGain();
+    if (g < 1) return;
+    showModal({
+      kicker: 'Престиж', title: 'Эвакуировать базу?',
+      html: `<p>Вы получите <b>${g}</b> ${plural(g, 'лунный кристалл', 'лунных кристалла', 'лунных кристаллов')}. Здания, ресурсы, жильцы и номер волны будут сброшены. Улучшения, достижения и кристаллы сохранятся.</p>`,
+      buttons: [{ label: 'Отмена', onClick: closeModal }, { label: 'Эвакуироваться', cls: 'primary', onClick: () => { closeModal(); doPrestige(); } }],
+    });
+  });
+
+  // Настройки
+  $('#saveNow').addEventListener('click', () => { save(true); toast('Игра сохранена', 'good'); });
+  $('#exportBtn').addEventListener('click', () => { $('#saveText').value = encodeSave(); $('#saveText').select(); toast('Код сохранения в поле ниже', 'info'); });
+  $('#copyBtn').addEventListener('click', async () => {
+    const t = $('#saveText');
+    if (!t.value) t.value = encodeSave();
+    try { await navigator.clipboard.writeText(t.value); toast('Скопировано в буфер обмена', 'good'); }
+    catch { t.select(); document.execCommand('copy'); toast('Скопировано', 'good'); }
+  });
+  $('#importBtn').addEventListener('click', () => {
+    const txt = $('#saveText').value;
+    if (!txt.trim()) { toast('Вставьте код сохранения в поле', 'warn'); return; }
+    try {
+      const obj = decodeSave(txt);
+      loadFrom(obj);
+      state.lastSave = Date.now();
+      save(true);
+      closeModal();
+      log('Сохранение импортировано.', 'info');
+      toast('Сохранение загружено', 'good');
+      render(true);
+    } catch (e) { toast('Не удалось прочитать сохранение: ' + e.message, 'bad'); }
+  });
+  $('#resetBtn').addEventListener('click', () => {
+    showModal({
+      kicker: 'Осторожно', title: 'Полный сброс',
+      html: '<p>Будет удалено всё: база, кристаллы, улучшения, достижения и статистика. Отменить нельзя.</p>',
+      buttons: [{ label: 'Отмена', onClick: closeModal }, { label: 'Стереть всё', cls: 'danger', onClick: () => {
+        localStorage.removeItem(SAVE_KEY); state = newState(); resetTransient(); closeModal();
+        log('База основана. Возьмите метлу и начните чистить пыль.', 'info'); save(); render(true);
+      } }],
+    });
+  });
+
+  window.addEventListener('resize', () => drawCharts());
+}
+
+function markTab(tab, on) {
+  const t = document.querySelector(`.tab[data-tab="${tab}"]`);
+  if (!t) return;
+  const b = $('.badge', t);
+  if (on && activeTab !== tab && !b) { const s = document.createElement('span'); s.className = 'badge'; t.appendChild(s); }
+  if (!on && b) b.remove();
+}
+
+/* =====================================================================
+   13. ИНТЕРФЕЙС: обновление (вызывается ~10 раз в секунду)
+   ===================================================================== */
+function costHtml(cost) {
+  return Object.entries(cost).map(([r, v]) =>
+    `<span class="c${state.res[r] < v ? ' no' : ''}"><span style="color:${RES[r].color}">●</span> ${fmt(v)} ${RES[r].gen}</span>`).join('');
+}
+function setText(el, txt) { if (el.textContent !== txt) el.textContent = txt; }
+function setHtml(el, html) { if (el._h !== html) { el.innerHTML = html; el._h = html; } }
+
+function render(force = false) {
+  const s = state;
+
+  // Шапка
+  setText($('#topCredits'), fmt(s.res.credits));
+  setText($('#topCrystals'), fmt(s.prestige.crystals));
+  setText($('#topResidents'), `${Math.floor(s.residents)} / ${housing()}`);
+  const wc = $('#topWave');
+  setText(wc, `Волна ${s.wave.num} · ${fmtTime(s.wave.timeLeft)}`);
+  wc.classList.toggle('danger', s.wave.timeLeft < 20);
+
+  // Клик
+  setText($('#clickPower'), `+${fmt(clickGain())} пыли`);
+  const ac = nEff('autoclicker');
+  setText($('#clickSub'), ac > 0 ? `за клик · автоклик ${fmt(ac * BALANCE.buildings.autoclicker.clicks)}/с` : 'за клик');
+
+  // Ресурсы
+  const visibleGroups = new Set();
+  for (const r of RES_KEYS) {
+    const ui = UI.res[r];
+    const show = r === 'dust' || s.peak[r] > 0 || RATE.prod[r] > 0;
+    ui.row.style.display = show ? '' : 'none';
+    if (!show) continue;
+    visibleGroups.add(RES[r].group);
+    setText(ui.val, fmt(s.res[r]));
+    const net = RATE.net[r];
+    setText(ui.net, fmtRate(net));
+    ui.net.className = 'rnet ' + (net > 0.0005 ? 'good' : net < -0.0005 ? 'bad' : '');
+    ui.row.title = `Производство ${fmtRate(RATE.prod[r])}, потребление ${fmtRate(-RATE.cons[r])}`;
+    if (RES[r].capped) {
+      const cap = capOf(r);
+      setText(ui.cap, `макс ${fmt(cap)}`);
+      ui.bar.style.width = clamp(s.res[r] / cap * 100, 0, 100) + '%';
+    } else if (r === 'domes') {
+      setText(ui.cap, `мест: ${housing()}`);
+    } else setText(ui.cap, '');
+  }
+  document.querySelectorAll('.res-section').forEach(el => { el.style.display = visibleGroups.has(el.dataset.group) ? '' : 'none'; });
+
+  // Баффы
+  const bl = $('#buffList');
+  $('#buffCard').style.display = s.buffs.length || s.mercWaves || s.waveMod !== 1 ? '' : 'none';
+  const buffs = s.buffs.map(b => `<span class="buff ${b.mult >= 1 ? 'up' : 'down'}">${esc(b.label)} · ×${trimZeros(b.mult.toFixed(2))} · ${fmtTime(b.until - s.time)}</span>`);
+  if (s.mercWaves) buffs.push(`<span class="buff up">Наёмники · волн: ${s.mercWaves}</span>`);
+  if (s.waveMod !== 1) buffs.push(`<span class="buff ${s.waveMod < 1 ? 'up' : 'down'}">След. волна ×${trimZeros(s.waveMod.toFixed(2))}</span>`);
+  setHtml(bl, buffs.join(''));
+
+  // Волна
+  renderWave();
+
+  // Вкладки
+  if (['prod', 'life', 'def'].includes(activeTab)) renderBuildings(activeTab);
+  if (activeTab === 'life') renderColony();
+  if (activeTab === 'def') renderDefense();
+  if (activeTab === 'tech') renderTech();
+  if (activeTab === 'ach') renderAch();
+  if (activeTab === 'opts') renderStats();
+  document.querySelectorAll('#buySeg button').forEach(b => b.classList.toggle('active', b.dataset.buy === s.settings.buy));
+
+  // Журнал
+  if (logDirty) {
+    $('#log').innerHTML = s.log.map(l => `<div class="log-item ${l.type}"><time>${l.t}</time>${esc(l.text)}</div>`).join('') || '<div class="dim">Пока тихо.</div>';
+    logDirty = false;
+  }
+
+  // Событие: если активно и окно не открыто — показываем
+  if (s.event.active && !modalOpen) showEventModal();
+  if (modalOpen === 'event') updateEventModal();
+}
+
+function buildingStats(id) {
+  const def = BALANCE.buildings[id], n = nEff(id);
+  const lines = [];
+  const rr = r => `<span style="color:${RES[r].color}">${RES[r].gen}</span>`;
+  if (def.prod) {
+    const outs = Object.entries(def.prod).map(([r, v]) => `+${fmt(v * outMult(id, r), 2)} ${rr(r)}`).join(', ');
+    const ins = def.cons ? Object.entries(def.cons).map(([r, v]) => `−${fmt(v, 2)} ${rr(r)}`).join(', ') : '';
+    lines.push(`<div>Каждое: ${ins ? ins + ' → ' : ''}${outs} /с</div>`);
+    if (n > 0) {
+      const tot = Object.entries(def.prod).map(([r, v]) => `+${fmt(v * outMult(id, r) * n * (EFF[id] ?? 1), 2)} ${rr(r)}`).join(', ');
+      lines.push(`<div class="muted">Всего: ${tot} /с</div>`);
+    }
+  }
+  if (id === 'autoclicker') lines.push(`<div>Каждый: ${def.clicks} клик/с (+${fmt(def.clicks * clickGain(), 2)} пыли/с)</div>`);
+  if (id === 'factory') lines.push(`<div>+${pct(def.bonus)} к цепочке за штуку · сейчас +${pct(factoryMult() - 1)}</div>`);
+  if (def.power) {
+    const up = id === 'turret' ? 1 + lvl('def1') * tp('def1') : 1 + lvl('def2') * tp('def2');
+    lines.push(`<div>Мощь: ${fmt(def.power * up, 1)} · энергия −${fmt(def.cons.energy, 2)}/с</div>`);
+    if (n > 0) lines.push(`<div class="muted">Всего: ${fmt(def.power * up * n * (EFF[id] ?? 1), 1)} мощи (до типовых множителей)</div>`);
+  }
+  if (id === 'repair') {
+    lines.push(`<div>1 ремонт / ${fmt(BALANCE.repairStation.interval / (1 + lvl('aut5') * tp('aut5')), 1)} с · −${pct(BALANCE.repairStation.breakReduction)} поломок</div>`);
+    lines.push(`<div class="muted">Тратит ${fmt(def.cons.bricks, 2)} кирпича/с, только пока есть поломки</div>`);
+  }
+  return lines.join('');
+}
+
+function renderBuildings(cat) {
+  let shownLocked = false;
+  for (const id of BUILD_ORDER) {
+    const def = BALANCE.buildings[id];
+    if (def.cat !== cat) continue;
+    const ui = UI.bld[id], b = state.b[id];
+    const unlocked = isUnlocked(id);
+    if (!unlocked) {
+      // показываем только одно ближайшее закрытое здание как подсказку
+      if (shownLocked) { ui.el.classList.add('hidden'); continue; }
+      shownLocked = true;
+      ui.el.classList.remove('hidden'); ui.el.classList.add('locked');
+      setText(ui.count, '');
+      setHtml(ui.stats, `<div class="muted">Откроется при: ${Object.entries(def.unlock).map(([r, v]) => `${RES[r].gen} ≥ ${fmt(v)}`).join(', ')}</div>`);
+      ui.eff.style.display = 'none'; setHtml(ui.cost, ''); ui.buy.style.display = 'none'; ui.repair.style.display = 'none'; ui.toggle.style.display = 'none';
+      continue;
+    }
+    ui.el.classList.remove('hidden', 'locked'); ui.buy.style.display = '';
+    setHtml(ui.count, `${b.n}${b.broken ? `<span class="broken">(${b.broken} слом.)</span>` : ''}`);
+    setHtml(ui.stats, buildingStats(id));
+    // Загрузка: для потребителей показываем, хватает ли входных ресурсов
+    if (def.cons && nEff(id) > 0) {
+      ui.eff.style.display = '';
+      const e = EFF[id] ?? 1;
+      ui.effBar.style.width = (e * 100) + '%';
+      ui.effBar.style.background = b.off ? 'var(--dim)' : e > 0.95 ? 'var(--good)' : e > 0.5 ? 'var(--warn)' : 'var(--bad)';
+      setText(ui.effVal, b.off ? 'пауза' : id === 'repair' && totalBroken() === 0 ? 'ожидание' : pct(e));
+    } else ui.eff.style.display = 'none';
+    ui.toggle.style.display = def.cons && b.n > 0 ? '' : 'none';
+    setText(ui.toggle, b.off ? '▶ Пуск' : '❚❚ Пауза');
+    ui.toggle.title = b.off ? 'Запустить здание' : 'Остановить здание и не тратить его входные ресурсы';
+    ui.el.style.opacity = b.off ? '0.75' : '';
+    const amount = buyAmountFor(id);
+    const shownAmount = Math.max(1, amount);
+    const cost = costFor(id, shownAmount);
+    setHtml(ui.cost, costHtml(cost));
+    setText(ui.buy, `Купить ×${amount}`);
+    ui.buy.disabled = amount <= 0 || !canAfford(cost);
+    if (b.broken > 0) {
+      const rc = repairCost(id);
+      ui.repair.style.display = '';
+      setText(ui.repair, `Починить (${fmtCost(rc)})`);
+      ui.repair.disabled = !canAfford(rc);
+    } else ui.repair.style.display = 'none';
+  }
+}
+
+function renderColony() {
+  const s = state, R = BALANCE.residents;
+  const tax = s.residents * R.tax * taxMult() * lastSatisfaction;
+  const sat = lastSatisfaction;
+  setHtml($('#colonyStats'), `
+    <div class="stat-box"><div class="lbl">Жильцы</div><div class="val num">${Math.floor(s.residents)} <span class="muted" style="font-size:14px">/ ${housing()}</span></div><div class="sub num">${fmtRate(residentRate)}</div></div>
+    <div class="stat-box"><div class="lbl">Обеспеченность</div><div class="val num ${sat > 0.99 ? 'good' : sat > 0.6 ? 'warn' : 'bad'}">${pct(sat)}</div><div class="sub">${sat > 0.99 ? 'всем хватает' : 'дефицит — люди уезжают'}</div></div>
+    <div class="stat-box"><div class="lbl">Налоги</div><div class="val num" style="color:#f5c84c">${fmtRate(tax)}</div><div class="sub">${fmt(R.tax * taxMult(), 2)} с жильца</div></div>
+    <div class="stat-box"><div class="lbl">Купола</div><div class="val num">${Math.floor(s.res.domes)}</div><div class="sub">${R.housingPerDome} мест в каждом</div></div>`);
+  const nm = needMult();
+  setHtml($('#needsList'), Object.entries(R.needs).map(([k, v]) => {
+    const need = s.residents * v * nm, prod = RATE.prod[k];
+    const ok = prod >= need - 1e-6;
+    const ratio = need > 0 ? clamp(prod / need, 0, 2) / 2 : 1;
+    return `<div class="need-row"><span style="color:${RES[k].color}">${RES[k].name}</span>
+      <div class="bar"><i style="width:${ratio * 100}%;background:${ok ? RES[k].color : 'var(--bad)'}"></i></div>
+      <span class="num ${ok ? 'muted' : 'bad'}">${fmt(prod, 2)} / ${fmt(need, 2)} в с</span></div>`;
+  }).join('') + `<div class="dim" style="font-size:12px">Каждый жилец потребляет: ${Object.entries(R.needs).map(([k, v]) => `${fmt(v * nm, 3)} ${RES[k].gen}`).join(', ')} в секунду. Новые жильцы прибывают, пока есть свободные места и запасы.</div>`);
+}
+
+function renderDefense() {
+  const s = state;
+  const types = BALANCE.waves.types;
+  setHtml($('#defStats'), Object.entries(types).map(([k, t]) => `
+    <div class="stat-box" style="${k === s.wave.type ? 'border-color:rgba(248,113,113,.45)' : ''}">
+      <div class="lbl">${t.name}${k === s.wave.type ? ' · <span class="bad">следующая</span>' : ''}</div>
+      <div class="val num">${fmt(defensePower(k), 1)}</div><div class="sub">${t.hint}</div></div>`).join('') + `
+    <div class="stat-box"><div class="lbl">Снижение поломок</div><div class="val num">${pct(breakReduction())}</div><div class="sub">станции и протоколы</div></div>`);
+  const eT = EFF.turret ?? 1, eS = EFF.shield ?? 1;
+  const warn = (nEff('turret') && eT < 0.99) || (nEff('shield') && eS < 0.99);
+  setHtml($('#defHint'), (warn ? `<span class="bad">Обороне не хватает энергии: турели ${pct(eT)}, щиты ${pct(eS)}. Стройте солнечные панели.</span> ` : '') +
+    'Оборона потребляет энергию из общей сети и получает её после производства и жизнеобеспечения. Если мощь ниже силы волны, ломаются случайные здания.');
+}
+
+function renderWave() {
+  const s = state, W = s.wave, T = BALANCE.waves.types[W.type];
+  setText($('#waveNum'), `Волна №${W.num}`);
+  setText($('#waveName'), T.name);
+  setText($('#waveTypeHint'), T.hint);
+  const timer = $('#waveTimer');
+  setText(timer, fmtTime(W.timeLeft));
+  timer.classList.toggle('soon', W.timeLeft < 20);
+  $('#waveBar').style.width = clamp((1 - W.timeLeft / W.total) * 100, 0, 100) + '%';
+  const lo = W.lo * s.waveMod, hi = W.hi * s.waveMod;
+  const def = defensePower(W.type);
+  const max = Math.max(hi, def, 1);
+  $('#threatBar').style.width = (hi / max * 100) + '%';
+  $('#defBar').style.width = (def / max * 100) + '%';
+  setText($('#threatVal'), `${fmt(lo)}–${fmt(hi)}`);
+  setText($('#defVal'), fmt(def));
+  const v = $('#verdict');
+  if (def >= hi) { v.className = 'verdict ok'; setText(v, 'Оборона выдержит при любом раскладе'); }
+  else if (def >= lo) { v.className = 'verdict risk'; setText(v, 'Шансы есть, но риск прорыва велик'); }
+  else { v.className = 'verdict fail'; setText(v, 'Оборона слабее волны — ждите поломок'); }
+  $('#waveCard').classList.toggle('alert', W.timeLeft < 20 && def < hi);
+}
+
+function renderTech() {
+  const s = state, g = prestigeGain();
+  setHtml($('#prestigeInfo'), `
+    Кристаллов: <b class="num">${fmt(s.prestige.crystals)}</b> (всего получено ${fmt(s.prestige.total)}, бонус +${pct(s.prestige.total * BALANCE.prestige.bonusPerCrystal)} ко всему производству).<br>
+    За эвакуацию сейчас: <b class="num" style="color:#c4b5fd">+${g}</b>. Кредиты за забег: ${fmt(s.run.credits)}, следующий кристалл при ${fmt(nextCrystalCredits())}.
+    Отбитые волны: ${s.run.wavesWon} (кристалл за каждые ${BALANCE.prestige.wavesPerCrystal}).`);
+  $('#prestigeBtn').disabled = g < 1;
+  for (const id in UI.tree) {
+    const ui = UI.tree[id], d = BALANCE.tree[id], L = lvl(id);
+    const avail = treeAvailable(id), maxed = L >= d.max;
+    ui.node.classList.toggle('locked', !avail);
+    ui.node.classList.toggle('maxed', maxed);
+    setText(ui.lvl, `${L}/${d.max}`);
+    ui.pips.forEach((p, i) => p.classList.toggle('on', i < L));
+    setText(ui.req, avail ? '' : `Требует: ${TREE_TEXT[d.req].name}`);
+    if (maxed) { setText(ui.btn, 'Максимум'); ui.btn.disabled = true; }
+    else { const c = treeCost(id); setText(ui.btn, `Изучить · ${c} кр.`); ui.btn.disabled = !avail || s.prestige.crystals < c; }
+  }
+}
+
+function renderAch() {
+  let done = 0;
+  for (const a of ACHIEVEMENTS) { const on = !!state.ach[a.id]; if (on) done++; UI.ach[a.id].classList.toggle('done', on); }
+  setText($('#achSummary'), `Открыто ${done} из ${ACHIEVEMENTS.length}. Каждое достижение навсегда даёт +${pct(BALANCE.achievementBonus)} ко всему производству (сейчас +${pct(done * BALANCE.achievementBonus)}).`);
+}
+
+function renderStats() {
+  const st = state.stats;
+  const rows = [
+    ['Время в игре', fmtTime(st.totalTime)],
+    ['Время текущего забега', fmtTime(state.time)],
+    ['Кликов', fmt(st.clicks)],
+    ['Куплено зданий', fmt(st.buildingsBought)],
+    ['Кредитов заработано', fmt(st.totalCredits)],
+    ['Волн отбито / прорывов', `${st.wavesWon} / ${st.wavesLost}`],
+    ['Лучшая волна', st.bestWave],
+    ['Максимум жильцов', fmt(Math.floor(st.maxResidents))],
+    ['Решений в событиях', st.events],
+    ['Эвакуаций', state.prestige.count],
+  ];
+  setHtml($('#statsTable'), rows.map(([a, b]) => `<tr><td class="muted">${a}</td><td class="num">${b}</td></tr>`).join(''));
+}
+
+/* =====================================================================
+   14. ГРАФИКИ НА CANVAS
+   ===================================================================== */
+function prepCanvas(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = c.clientWidth;
+  if (!c._baseH) c._baseH = Number(c.getAttribute('height')) || 100;
+  const H = c._baseH;
+  if (c.width !== Math.round(w * dpr) || c._dpr !== dpr) {
+    c.width = Math.round(w * dpr); c.height = Math.round(H * dpr); c._dpr = dpr;
+    c.style.height = H + 'px';
+  }
+  const ctx = c.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, H);
+  return { ctx, w, h: H };
+}
+function drawResChart() {
+  const c = $('#resChart');
+  if (!c.clientWidth) return;
+  const { ctx, w, h } = prepCanvas(c);
+  const key = chartRes;
+  const color = key === 'residents' ? '#8ec5ff' : RES[key].color;
+  const data = HIST.map(p => p[key]);
+  ctx.font = '11px system-ui, sans-serif';
+  if (data.length < 2) { ctx.fillStyle = '#5d6680'; ctx.fillText('Собираем данные…', 8, h / 2); return; }
+  let min = Math.min(...data), max = Math.max(...data);
+  if (max - min < 1e-9) { max += 1; min = Math.max(0, min - 1); }
+  const pad = { l: 4, r: 4, t: 16, b: 4 };
+  const X = i => pad.l + (i / (BALANCE.history.points - 1)) * (w - pad.l - pad.r) + (BALANCE.history.points - data.length) / (BALANCE.history.points - 1) * (w - pad.l - pad.r);
+  const Y = v => pad.t + (1 - (v - min) / (max - min)) * (h - pad.t - pad.b);
+  // сетка
+  ctx.strokeStyle = 'rgba(148,163,200,.08)'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) { const y = pad.t + i * (h - pad.t - pad.b) / 3; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+  // заливка
+  const grad = ctx.createLinearGradient(0, pad.t, 0, h);
+  grad.addColorStop(0, color + '55'); grad.addColorStop(1, color + '00');
+  ctx.beginPath(); ctx.moveTo(X(0), h);
+  data.forEach((v, i) => ctx.lineTo(X(i), Y(v)));
+  ctx.lineTo(X(data.length - 1), h); ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+  // линия
+  ctx.beginPath(); data.forEach((v, i) => i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)));
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+  // подписи
+  ctx.fillStyle = '#8b94ab';
+  ctx.fillText(`макс ${fmt(max)}`, 6, 11);
+  const txt = `за ${fmtTime(data.length * BALANCE.history.sampleSeconds)}`;
+  ctx.fillText(txt, w - ctx.measureText(txt).width - 6, 11);
+}
+function drawWaveChart() {
+  const c = $('#waveChart');
+  if (!c.clientWidth) return;
+  const { ctx, w, h } = prepCanvas(c);
+  const hist = state.waveHistory;
+  ctx.font = '10px system-ui, sans-serif';
+  if (!hist.length) { ctx.fillStyle = '#5d6680'; ctx.fillText('Волн ещё не было', 8, h / 2); return; }
+  const max = Math.max(...hist.map(x => Math.max(x.str, x.def)), 1);
+  const slot = w / 14, bw = Math.max(3, slot * 0.32);
+  hist.forEach((x, i) => {
+    const cx = i * slot + slot / 2;
+    const hs = (x.str / max) * (h - 16), hd = (x.def / max) * (h - 16);
+    ctx.fillStyle = '#f87171'; ctx.fillRect(cx - bw - 1, h - 12 - hs, bw, hs);
+    ctx.fillStyle = '#7c9cff'; ctx.fillRect(cx + 1, h - 12 - hd, bw, hd);
+    ctx.fillStyle = x.win ? '#4ade80' : '#f87171';
+    ctx.fillRect(cx - bw - 1, h - 6, bw * 2 + 2, 3);
+  });
+}
+function drawCharts() { drawResChart(); drawWaveChart(); }
+
+/* =====================================================================
+   15. МОДАЛЬНЫЕ ОКНА
+   ===================================================================== */
+let modalOpen = null;
+function showModal({ kicker = '', title, html, buttons = [], kind = 'generic' }) {
+  const m = $('#modal');
+  m.innerHTML = `${kicker ? `<div class="kicker">${kicker}</div>` : ''}<h2>${title}</h2>${html}<div class="actions"></div>`;
+  const actions = $('.actions', m);
+  for (const b of buttons) {
+    const el = document.createElement('button');
+    el.className = 'btn ' + (b.cls || '');
+    el.textContent = b.label;
+    el.addEventListener('click', b.onClick);
+    actions.appendChild(el);
+  }
+  if (!buttons.length) actions.remove();
+  $('#modalBg').classList.add('open');
+  modalOpen = kind;
+}
+function closeModal() { $('#modalBg').classList.remove('open'); modalOpen = null; }
+
+function showEventModal() {
+  const a = state.event.active, ev = EVENT_BY_ID[a.id];
+  const choices = ev.choices(a.params);
+  showModal({
+    kicker: 'Событие · требуется решение', title: ev.title, kind: 'event',
+    html: `<p>${ev.text}</p><div class="choices">${choices.map((c, i) => `
+      <button class="choice" data-i="${i}">
+        <span class="cl">${c.label}</span>
+        <span class="cd">${c.desc}</span>
+        ${c.cost ? `<span class="cc">Цена: ${fmtCost(c.cost)}</span>` : ''}
+      </button>`).join('')}</div>`,
+  });
+  $('#modal').querySelectorAll('.choice').forEach(b => b.addEventListener('click', () => resolveEventChoice(Number(b.dataset.i))));
+  updateEventModal();
+}
+function updateEventModal() {
+  const a = state.event.active;
+  if (!a) { closeModal(); return; }
+  const choices = EVENT_BY_ID[a.id].choices(a.params);
+  $('#modal').querySelectorAll('.choice').forEach(b => {
+    const c = choices[Number(b.dataset.i)];
+    b.disabled = !!(c.cost && !canAfford(c.cost));
+  });
+}
+
+/* =====================================================================
+   16. ГЛАВНЫЙ ЦИКЛ
+   Симуляция идёт фиксированными шагами по 0.1 с независимо от FPS.
+   rAF рисует интерфейс, setInterval подталкивает симуляцию в фоне.
+   ===================================================================== */
+let lastNow = performance.now(), acc = 0, lastRender = 0, lastChart = 0, lastAutosave = performance.now();
+function advance() {
+  const now = performance.now();
+  let dt = (now - lastNow) / 1000;
+  lastNow = now;
+  if (dt > BALANCE.offline.minSeconds) { applyOffline(dt); dt = 0; acc = 0; }   // вкладка долго спала
+  acc += dt;
+  const STEP = BALANCE.tickSeconds;
+  let steps = 0;
+  while (acc >= STEP && steps < 6000) { tick(STEP); acc -= STEP; steps++; }
+  if (now - lastAutosave > BALANCE.autosaveSeconds * 1000) { lastAutosave = now; save(true); }
+}
+function frame(now) {
+  advance();
+  if (now - lastRender > 100) { render(); lastRender = now; }
+  if (now - lastChart > 1000) { drawCharts(); lastChart = now; }
+  requestAnimationFrame(frame);
+}
+
+function init() {
+  buildUI();
+  let loaded = false;
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) { loadFrom(JSON.parse(raw)); loaded = true; }
+  } catch (e) { console.warn('Сохранение повреждено', e); }
+  if (!loaded) {
+    state = newState();
+    log('База основана. Возьмите метлу и начните чистить пыль.', 'info');
+  } else {
+    const away = (Date.now() - state.lastSave) / 1000;
+    if (away > BALANCE.offline.minSeconds) applyOffline(away);
+  }
+  BUILD_ORDER.forEach(isUnlocked);
+  render(true);
+  drawCharts();
+  lastNow = performance.now();
+  requestAnimationFrame(frame);
+  setInterval(advance, 1000);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+  window.addEventListener('beforeunload', () => save());
+}
+
+/* Отладка из консоли: LR.skip(600) — промотать 10 минут, LR.give('credits', 1e4) */
+window.LR = {
+  get state() { return state; },
+  skip(sec) { const n = Math.round(sec / BALANCE.tickSeconds); for (let i = 0; i < n; i++) tick(BALANCE.tickSeconds); render(true); drawCharts(); },
+  give(res, x) { addResource(res, x); state.peak[res] = Math.max(state.peak[res], state.res[res]); render(true); },
+  crystals(x) { state.prestige.crystals += x; render(true); },
+  BALANCE,
+};
+
+init();
+</script>
+</body>
+</html>
